@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../schema/pr-autopilot.schema.json
+repos:
+  - your-org/your-repo
+
+track:
+  authors: ["@me"]
+
+reviewers: []
+
+readiness:
+  minApprovals: 1

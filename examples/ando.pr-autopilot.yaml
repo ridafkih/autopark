@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../schema/pr-autopilot.schema.json
+# Example: Ando's monorepo. Copy to .pr-autopilot.yaml at the repo root and adjust.
+repos:
+  - Ando-Corporation/ando
+
+track:
+  authors: ["@me"]
+  branchPrefixes: ["worm/"]
+
+checks:
+  useGitHubRequired: true
+  required: ["Merge Ready"]
+  humanGates: ["Ando Automated Review"]
+
+reviewers:
+  - name: greptile
+    parser: greptile
+    minScore: 5
+
+readiness:
+  noUnresolvedThreads: true
+  countOutdatedThreads: true
+  approvalOnHead: true
+  minApprovals: 1
+  noConflict: true
+
+notify:
+  - type: command
+    command: osascript -e "display notification \"$PR_AUTOPILOT_REASON\" with title \"#$PR_AUTOPILOT_NUMBER $PR_AUTOPILOT_KIND\""
+    on: [ready, conflicted, checks_failed, merged]
+
+autoMerge:
+  labels: ["autopilot:automerge"]
+  method: squash
+
+reviewRequest:
+  instruction: >-
+    Ask Cortana for approval of {url} in #pr-approvals using the ando-channel tools.
+    One short message with the link; re-ask whenever the head moves.
+
+standards:
+  files: [CLAUDE.md, AGENTS.md]
+  skills: [vercel-composition-patterns]
+
+hooks:
+  stop:
+    scope: session
+    blockOnHeadMovedWithoutReview: true
+
+daemon:
+  source:
+    type: gh-webhook-forward
+  port: 8787
