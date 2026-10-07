@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseRef, repoFromRemote } from "../src/cli/ref.ts";
-import { scopesFrom } from "../src/cli/doctor.ts";
+import { scopesFrom } from "../src/cli/doctor/environment.ts";
 import { configJsonSchema } from "../src/config/schema.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
