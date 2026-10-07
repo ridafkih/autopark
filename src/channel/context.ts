@@ -7,8 +7,8 @@ export async function cwdConfig(
   const path = findConfig(cwd);
   if (!path) return { config: null, path: null };
   try {
-    const r = await loadConfigFile(path);
-    return { config: r.ok ? r.config : null, path };
+    const result = await loadConfigFile(path);
+    return { config: result.ok ? result.config : null, path };
   } catch {
     return { config: null, path };
   }

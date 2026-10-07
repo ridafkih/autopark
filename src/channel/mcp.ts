@@ -1,89 +1,55 @@
-export const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
+import { handleRpc, type RpcMessage, type ServerInfo } from "./rpc.ts";
 
-export function negotiate(requested: unknown) {
-  return typeof requested === "string" && SUPPORTED_PROTOCOLS.includes(requested)
-    ? requested
-    : SUPPORTED_PROTOCOLS[0]!;
-}
+export { handleRpc, negotiate, SUPPORTED_PROTOCOLS, type ServerInfo } from "./rpc.ts";
 
-export interface ServerInfo {
-  name: string;
-  version: string;
-  instructions: string;
-}
+const PARSE_ERROR = -32_700;
 
-export function handleRpc(
-  msg: any,
-  info: ServerInfo,
-): { response?: object; initialized?: boolean } {
-  const isRequest = msg && msg.id !== undefined && msg.id !== null;
-  switch (msg?.method) {
-    case "initialize":
-      return {
-        response: {
-          jsonrpc: "2.0",
-          id: msg.id,
-          result: {
-            protocolVersion: negotiate(msg.params?.protocolVersion),
-            capabilities: { experimental: { "claude/channel": {} } },
-            serverInfo: { name: info.name, version: info.version },
-            instructions: info.instructions,
-          },
-        },
-      };
-    case "notifications/initialized":
-      return { initialized: true };
-    case "ping":
-      return isRequest ? { response: { jsonrpc: "2.0", id: msg.id, result: {} } } : {};
+type ParsedLine = { ok: true; message: RpcMessage | null } | { ok: false };
+
+function parseLine(line: string): ParsedLine {
+  try {
+    return { ok: true, message: JSON.parse(line) as RpcMessage | null };
+  } catch {
+    return { ok: false };
   }
-  if (!isRequest) return {};
-  return {
-    response: {
-      jsonrpc: "2.0",
-      id: msg.id,
-      error: { code: -32601, message: `method not found: ${msg?.method}` },
-    },
-  };
 }
 
 export class StdioMcp {
-  private buf = "";
-  ready = false;
+  isReady = false;
+  private buffer = "";
 
   constructor(
-    private info: ServerInfo,
-    private write: (s: string) => void,
-    private onReady: () => void,
+    private readonly info: ServerInfo,
+    private readonly write: (text: string) => void,
+    private readonly onReady: () => void,
   ) {}
 
   feed(chunk: string) {
-    this.buf += chunk;
-    let i: number;
-    while ((i = this.buf.indexOf("\n")) >= 0) {
-      const line = this.buf.slice(0, i).trim();
-      this.buf = this.buf.slice(i + 1);
-      if (!line) continue;
-      let msg: any;
-      try {
-        msg = JSON.parse(line);
-      } catch {
-        this.send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } });
-        continue;
-      }
-      const r = handleRpc(msg, this.info);
-      if (r.response) this.send(r.response);
-      if (r.initialized && !this.ready) {
-        this.ready = true;
-        this.onReady();
-      }
+    const lines = `${this.buffer}${chunk}`.split("\n");
+    this.buffer = lines.pop() ?? "";
+    for (const line of lines) this.handleLine(line.trim());
+  }
+
+  notify(method: string, parameters: unknown) {
+    this.send({ jsonrpc: "2.0", method, params: parameters });
+  }
+
+  private handleLine(line: string) {
+    if (!line) return;
+    const parsed = parseLine(line);
+    if (!parsed.ok) {
+      this.send({ jsonrpc: "2.0", id: null, error: { code: PARSE_ERROR, message: "parse error" } });
+      return;
+    }
+    const outcome = handleRpc(parsed.message, this.info);
+    if (outcome.response) this.send(outcome.response);
+    if (outcome.initialized && !this.isReady) {
+      this.isReady = true;
+      this.onReady();
     }
   }
 
-  notify(method: string, params: unknown) {
-    this.send({ jsonrpc: "2.0", method, params });
-  }
-
-  private send(obj: unknown) {
-    this.write(`${JSON.stringify(obj)}\n`);
+  private send(message: unknown) {
+    this.write(`${JSON.stringify(message)}\n`);
   }
 }

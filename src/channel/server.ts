@@ -1,12 +1,13 @@
-import { resolvePaths } from "../daemon/paths.ts";
 import { VERSION } from "../daemon/client.ts";
-import type { LoggedTransition } from "../core/types.ts";
+import { resolvePaths } from "../daemon/paths.ts";
 import { cwdConfig } from "./context.ts";
-import { channelContent, channelMeta } from "./meta.ts";
 import { StdioMcp } from "./mcp.ts";
 import { playbookRef } from "./playbook.ts";
-import { inScope } from "./scope.ts";
-import { LogTailer } from "./tail.ts";
+import { ChannelRelay } from "./relay.ts";
+
+const log = (message: string) => {
+  process.stderr.write(`[pr-autopilot channel] ${message}\n`);
+};
 
 export function channelInstructions(playbook: string) {
   return [
@@ -19,47 +20,28 @@ export function channelInstructions(playbook: string) {
 }
 
 async function main() {
-  const p = resolvePaths();
   const { config, path } = await cwdConfig(process.cwd());
-  const enabled = config?.delivery.channel ?? true;
-  const scope = { repos: config?.repos ?? null };
-  const log = (m: string) => process.stderr.write(`[pr-autopilot channel] ${m}\n`);
-  let tailer: LogTailer | null = null;
-
+  const instructions = channelInstructions(playbookRef(config, path));
+  const relayOptions = {
+    logPath: resolvePaths().log,
+    scope: { repos: config?.repos ?? null },
+    isEnabled: config?.delivery.channel ?? true,
+    log,
+  };
   const mcp = new StdioMcp(
-    {
-      name: "pr-autopilot",
-      version: VERSION,
-      instructions: channelInstructions(playbookRef(config, path)),
-    },
-    (s) => process.stdout.write(s),
-    () => {
-      if (!enabled) return log("delivery.channel is false; staying silent");
-      tailer = new LogTailer(p.log, (line) => {
-        try {
-          const t = JSON.parse(line) as LoggedTransition;
-          if (inScope(t, scope)) {
-            mcp.notify("notifications/claude/channel", {
-              content: channelContent(t),
-              meta: channelMeta(t),
-            });
-          }
-        } catch (e) {
-          log(`skipping bad line: ${(e as Error).message}`);
-        }
-      });
-      tailer.start();
-    },
+    { name: "pr-autopilot", version: VERSION, instructions },
+    (text) => process.stdout.write(text),
+    () => relay.start(),
   );
-
-  process.on("uncaughtException", (e) => log(`error: ${e.message}`));
-  process.on("unhandledRejection", (e) => log(`error: ${String(e)}`));
+  const relay = new ChannelRelay(mcp, relayOptions);
+  process.on("uncaughtException", (error) => log(`error: ${error.message}`));
+  process.on("unhandledRejection", (reason) => log(`error: ${String(reason)}`));
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk: string) => mcp.feed(chunk));
   process.stdin.on("end", () => {
-    tailer?.stop();
+    relay.stop();
     process.exit(0);
   });
 }
 
-if (import.meta.main) void main();
+if (import.meta.main) await main();

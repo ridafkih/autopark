@@ -13,4 +13,6 @@ export interface ServiceManager {
   path(label: string): string;
 }
 
-export const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+const ESCAPED_SINGLE_QUOTE = String.raw`'\''`;
+
+export const shellQuote = (value: string) => `'${value.replaceAll("'", ESCAPED_SINGLE_QUOTE)}'`;
