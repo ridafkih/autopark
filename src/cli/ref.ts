@@ -11,8 +11,9 @@ export function parseRef(input: string, defaultRepo: string | null): PullRequest
   if (slug) return { repo: slug[1]!, number: Number(slug[2]) };
   const bare = /^#?(\d+)$/.exec(s);
   if (bare) {
-    if (!defaultRepo)
+    if (!defaultRepo) {
       throw new Error(`cannot tell which repo ${s} belongs to; use owner/repo#${bare[1]}`);
+    }
     return { repo: defaultRepo, number: Number(bare[1]) };
   }
   throw new Error(`not a PR reference: ${input}`);

@@ -111,8 +111,9 @@ export class Engine {
         for (const author of authors) {
           try {
             const resolved = author === "@me" ? await this.viewer() : author;
-            for (const c of await github.searchOpenPullRequests(repo, resolved))
+            for (const c of await github.searchOpenPullRequests(repo, resolved)) {
               await this.maybeAutoTrack(c, entry);
+            }
           } catch (e) {
             this.log(`resync search failed for ${repo}: ${(e as Error).message}`);
           }
@@ -206,8 +207,9 @@ export class Engine {
     const key = pullRequestKey(c.repo, c.number);
     if (this.deps.store.getPullRequest(key)) return;
     const needsViewer = entry.config.track.authors.includes("@me");
-    if (!matchesTrackFilter(c, entry.config.track, needsViewer ? await this.viewer() : null))
+    if (!matchesTrackFilter(c, entry.config.track, needsViewer ? await this.viewer() : null)) {
       return;
+    }
     const repo = entry.config.repos.find((r) => r.toLowerCase() === c.repo.toLowerCase()) ?? c.repo;
     this.deps.store.track({
       repo,
@@ -236,8 +238,9 @@ export class Engine {
       snap.state !== "OPEN" ||
       !snap.baseSha ||
       !snap.headSha
-    )
+    ) {
       return snap;
+    }
     const k = `${snap.repo.toLowerCase()}:${snap.headSha}..${snap.baseSha}`;
     let cmp = this.compareCache.get(k);
     if (!cmp) {
@@ -303,8 +306,9 @@ export class Engine {
       !e.mergeableNow ||
       !this.autoMergeEnabled(rec, e, entry) ||
       rec.mergeAttemptHead === e.headSha
-    )
+    ) {
       return;
+    }
     this.deps.store.setMergeAttempt(key, e.headSha);
     const method = entry.config.autoMerge.method;
     const base: Transition = {

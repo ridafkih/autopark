@@ -38,11 +38,12 @@ async function main() {
       tailer = new LogTailer(p.log, (line) => {
         try {
           const t = JSON.parse(line) as LoggedTransition;
-          if (inScope(t, scope))
+          if (inScope(t, scope)) {
             mcp.notify("notifications/claude/channel", {
               content: channelContent(t),
               meta: channelMeta(t),
             });
+          }
         } catch (e) {
           log(`skipping bad line: ${(e as Error).message}`);
         }

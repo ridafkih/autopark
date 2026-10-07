@@ -223,6 +223,12 @@
       "rules": {
         "import/no-default-export": "off"
       }
+    },
+    {
+      "files": ["src/reviewers/regex.ts"],
+      "rules": {
+        "require-unicode-regexp": "off"
+      }
     }
   ]
 }

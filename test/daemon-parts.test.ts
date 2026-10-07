@@ -57,7 +57,7 @@ describe("GitHub HTTP client", () => {
     });
     const gh = new GitHubHttp({ token: async () => "t", fetch: f });
     const s = await gh.fetchPullRequest("acme/widgets", 7);
-    expect(calls[0]!.body.variables).toEqual({ owner: "acme", name: "widgets", n: 7 });
+    expect(calls[0]!.body.variables).toEqual({ owner: "acme", name: "widgets", number: 7 });
     expect(s).toMatchObject({ repo: "Acme/Widgets", number: 7, headSha: "a".repeat(40) });
     expect(gh.lastCost).toBe(1);
   });

@@ -1,8 +1,8 @@
-export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: String!, $name: String!, $n: Int!) {
+export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: String!, $name: String!, $number: Int!) {
   rateLimit { cost remaining }
   repository(owner: $owner, name: $name) {
     nameWithOwner
-    pullRequest(number: $n) {
+    pullRequest(number: $number) {
       number title url state isDraft headRefName baseRefName headRefOid
       baseRef { target { oid } }
       author { login }
@@ -14,15 +14,15 @@ export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: St
       lastComments: comments(last: 25) { nodes { id author { login } body updatedAt } }
       commits(last: 1) { nodes { commit { oid statusCheckRollup { state contexts(first: 100) { nodes {
         __typename
-        ... on CheckRun { name status conclusion detailsUrl isRequired(pullRequestNumber: $n) checkSuite { app { slug } } }
-        ... on StatusContext { context state targetUrl isRequired(pullRequestNumber: $n) }
+        ... on CheckRun { name status conclusion detailsUrl isRequired(pullRequestNumber: $number) checkSuite { app { slug } } }
+        ... on StatusContext { context state targetUrl isRequired(pullRequestNumber: $number) }
       } } } } } }
     }
   }
 }`;
 
-export const SEARCH_QUERY = `query SearchPrs($q: String!, $after: String) {
-  search(query: $q, type: ISSUE, first: 50, after: $after) {
+export const SEARCH_QUERY = `query SearchPullRequests($query: String!, $after: String) {
+  search(query: $query, type: ISSUE, first: 50, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes { ... on PullRequest { number headRefName baseRefName author { login } labels(first: 50) { nodes { name } } repository { nameWithOwner } } }
   }

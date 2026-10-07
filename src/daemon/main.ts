@@ -13,8 +13,9 @@ export async function runDaemon(argv: string[]) {
   });
   const p = paths();
   const configPaths = [...new Set([...(values.config ?? []), ...readProjects(p.projects)])];
-  if (!configPaths.length)
+  if (!configPaths.length) {
     throw new Error("no configs: run `pr-autopilot init` in a repo or pass --config");
+  }
   const configs = await ConfigSet.load(configPaths);
   const daemon = await startDaemon({ configs, github: new GitHubHttp() });
   console.error(

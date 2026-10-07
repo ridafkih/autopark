@@ -40,13 +40,14 @@ export function sessionStartContext(s: HookState): string | null {
     for (const v of scoped) {
       const e = v.evaluation;
       lines.push(`- ${e.repo}#${e.number} [${stateLabel(v)}] ${e.title}`.trimEnd());
-      if (!e.ready && e.reasons.length)
+      if (!e.ready && e.reasons.length) {
         lines.push(
           `  blocking: ${e.reasons
             .slice(0, 4)
             .map((r) => `${r.code}: ${r.detail}`)
             .join("; ")}`,
         );
+      }
     }
   } else {
     lines.push("No PRs are tracked for this project yet; /pr-autopilot:ship opens and tracks one.");
@@ -87,11 +88,12 @@ export function stopHook(s: HookState & { stopHookActive: boolean; priorBlocks: 
     priorBlocks: s.priorBlocks,
     maxBlocks: cfg.maxBlocks,
   });
-  if (d.decision === "block")
+  if (d.decision === "block") {
     return {
       output: { decision: "block", reason: `${d.reason}\nUse ${s.playbook}.` },
       blocks: d.blocks,
     };
+  }
   if (d.systemMessage) return { output: { systemMessage: d.systemMessage }, blocks: d.blocks };
   return { output: null, blocks: d.blocks };
 }

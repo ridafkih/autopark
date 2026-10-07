@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type { GraphQLPullRequest } from "../src/github/graphql-types.ts";
 import { checkRunOutcome, normalizePullRequest, statusOutcome } from "../src/github/snapshot.ts";
 
-const raw = {
+const raw: GraphQLPullRequest = {
   number: 7,
   title: "Tidy",
   url: "https://github.com/acme/widgets/pull/7",

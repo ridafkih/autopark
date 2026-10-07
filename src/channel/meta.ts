@@ -5,10 +5,11 @@ const safeKey = (k: string) =>
 
 function str(v: unknown): string | null {
   if (v === null || v === undefined) return null;
-  if (Array.isArray(v))
+  if (Array.isArray(v)) {
     return v
       .map((x) => (typeof x === "object" && x && "code" in x ? String((x as any).code) : String(x)))
       .join(",");
+  }
   if (typeof v === "object") return null;
   return String(v);
 }

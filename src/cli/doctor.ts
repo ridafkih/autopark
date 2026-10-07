@@ -41,9 +41,9 @@ export async function runDoctor(p: Paths) {
 
   const auth = await sh(["gh", "auth", "status"]);
   const scopes = scopesFrom(auth.out);
-  if (auth.code !== 0)
+  if (auth.code !== 0) {
     checks.push({ level: "fail", name: "gh auth", detail: "not logged in", hint: "gh auth login" });
-  else {
+  } else {
     const hookScope = scopes.some(
       (s) => s === "repo" || s === "admin:repo_hook" || s === "write:repo_hook",
     );
@@ -66,8 +66,9 @@ export async function runDoctor(p: Paths) {
   ];
   const sources = new Set<string>();
   const repos: string[] = [];
-  if (!configPaths.length)
+  if (!configPaths.length) {
     checks.push({ level: "fail", name: "config", detail: "none found", hint: "pr-autopilot init" });
+  }
   for (const path of configPaths) {
     const r = await loadConfigFile(path);
     if (!r.ok) {
@@ -81,13 +82,14 @@ export async function runDoctor(p: Paths) {
     sources.add(r.config.daemon.source.type);
     repos.push(...r.config.repos);
     checks.push({ level: "ok", name: "config", detail: `${path} (${r.config.repos.join(", ")})` });
-    if (!readProjects(p.projects).includes(path))
+    if (!readProjects(p.projects).includes(path)) {
       checks.push({
         level: "warn",
         name: "registry",
         detail: `${path} is not registered`,
         hint: "pr-autopilot init --force, or pass --config to the daemon",
       });
+    }
   }
 
   if (sources.has("gh-webhook-forward")) {
@@ -142,9 +144,10 @@ export async function runDoctor(p: Paths) {
     hint: "load with: claude --dangerously-load-development-channels plugin:pr-autopilot@<marketplace>",
   });
 
-  for (const c of checks)
+  for (const c of checks) {
     process.stdout.write(
       `${c.level.padEnd(4)}  ${c.name}: ${c.detail}${c.hint ? `\n      -> ${c.hint}` : ""}\n`,
     );
+  }
   if (checks.some((c) => c.level === "fail")) process.exitCode = 1;
 }

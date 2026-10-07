@@ -1,11 +1,22 @@
+import { pullRequestUrl } from "../core/format.ts";
 import type {
+  Approval,
   CheckContext,
   CheckOutcome,
   Mergeable,
   PullRequestComment,
   PullRequestState,
+  ReviewThread,
   Snapshot,
 } from "../core/types.ts";
+import type {
+  GraphQLCheckContext,
+  GraphQLComment,
+  GraphQLCommit,
+  GraphQLPullRequest,
+  GraphQLThread,
+  GraphQLThreadComment,
+} from "./graphql-types.ts";
 
 const PASS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
 const STATUS_PENDING = new Set(["PENDING", "EXPECTED"]);
@@ -21,82 +32,112 @@ export function statusOutcome(state: string): CheckOutcome {
   return "fail";
 }
 
-const mergeableOf = (v: unknown): Mergeable =>
-  v === "MERGEABLE" || v === "CONFLICTING" ? v : "UNKNOWN";
+const mergeableOf = (value: unknown): Mergeable =>
+  value === "MERGEABLE" || value === "CONFLICTING" ? value : "UNKNOWN";
 
-export function normalizePullRequest(repo: string, pr: any): Snapshot {
-  const commit = pr.commits?.nodes?.[0]?.commit;
-  const contexts: any[] = commit?.statusCheckRollup?.contexts?.nodes ?? [];
-  const checks: CheckContext[] = contexts.map((c) =>
-    c.__typename === "StatusContext"
-      ? {
-          name: c.context,
-          kind: "status",
-          outcome: statusOutcome(c.state),
-          conclusion: c.state,
-          isRequired: !!c.isRequired,
-          app: null,
-          url: c.targetUrl ?? null,
-        }
-      : {
-          name: c.name,
-          kind: "check",
-          outcome: checkRunOutcome(c.status, c.conclusion),
-          conclusion: c.conclusion ?? c.status,
-          isRequired: !!c.isRequired,
-          app: c.checkSuite?.app?.slug ?? null,
-          url: c.detailsUrl ?? null,
-        },
-  );
-  const seen = new Set<string>();
-  const comments: PullRequestComment[] = [];
-  for (const c of [
-    ...(pr.firstComments?.nodes ?? []),
-    ...(pr.lastComments?.nodes ?? []),
-    ...(pr.comments?.nodes ?? []),
-  ]) {
-    const id = String(c.id ?? c.databaseId);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    comments.push({
-      id,
-      author: c.author?.login ?? null,
-      body: c.body ?? "",
-      updatedAt: c.updatedAt ?? "",
-    });
+function normalizeCheck(context: GraphQLCheckContext): CheckContext {
+  if (context.__typename === "StatusContext") {
+    return {
+      name: context.context,
+      kind: "status",
+      outcome: statusOutcome(context.state),
+      conclusion: context.state,
+      isRequired: Boolean(context.isRequired),
+      app: null,
+      url: context.targetUrl ?? null,
+    };
   }
-  const state: PullRequestState =
-    pr.state === "MERGED" || pr.merged ? "MERGED" : pr.state === "CLOSED" ? "CLOSED" : "OPEN";
+  return {
+    name: context.name,
+    kind: "check",
+    outcome: checkRunOutcome(context.status, context.conclusion ?? null),
+    conclusion: context.conclusion ?? context.status,
+    isRequired: Boolean(context.isRequired),
+    app: context.checkSuite?.app?.slug ?? null,
+    url: context.detailsUrl ?? null,
+  };
+}
+
+const normalizeComment = (comment: GraphQLComment): PullRequestComment => ({
+  id: String(comment.id ?? comment.databaseId),
+  author: comment.author?.login ?? null,
+  body: comment.body ?? "",
+  updatedAt: comment.updatedAt ?? "",
+});
+
+function uniqueComments(node: GraphQLPullRequest) {
+  const comments = [
+    ...(node.firstComments?.nodes ?? []),
+    ...(node.lastComments?.nodes ?? []),
+    ...(node.comments?.nodes ?? []),
+  ].map(normalizeComment);
+  return comments.filter(
+    (comment, index) => comments.findIndex((other) => other.id === comment.id) === index,
+  );
+}
+
+const approvalsOf = (node: GraphQLPullRequest): Approval[] =>
+  (node.latestOpinionatedReviews?.nodes ?? []).map((review) => ({
+    login: review.author?.login ?? "ghost",
+    state: review.state,
+    sha: review.commit?.oid?.toLowerCase() ?? null,
+  }));
+
+const firstCommentDetails = (path: string | null | undefined, comment?: GraphQLThreadComment) => ({
+  author: comment?.author?.login ?? null,
+  path: path ?? comment?.path ?? null,
+  url: comment?.url ?? null,
+});
+
+const normalizeThread = (thread: GraphQLThread): ReviewThread => ({
+  id: thread.id,
+  resolved: Boolean(thread.isResolved),
+  outdated: Boolean(thread.isOutdated),
+  ...firstCommentDetails(thread.path, thread.comments?.nodes?.[0]),
+});
+
+function stateOf(node: GraphQLPullRequest): PullRequestState {
+  if (node.state === "MERGED" || node.merged) return "MERGED";
+  return node.state === "CLOSED" ? "CLOSED" : "OPEN";
+}
+
+const refsOf = (node: GraphQLPullRequest, commit: GraphQLCommit | undefined) => ({
+  headRef: node.headRefName ?? "",
+  baseRef: node.baseRefName ?? "",
+  headSha: (node.headRefOid ?? commit?.oid ?? "").toLowerCase(),
+  baseSha: node.baseRef?.target?.oid?.toLowerCase() ?? null,
+});
+
+const describedBy = (repo: string, node: GraphQLPullRequest) => ({
+  title: node.title ?? "",
+  url: node.url ?? pullRequestUrl({ repo, number: node.number }),
+  state: stateOf(node),
+  isDraft: Boolean(node.isDraft),
+  author: node.author?.login ?? null,
+});
+
+const latestCommit = (node: GraphQLPullRequest) => node.commits?.nodes?.[0]?.commit ?? undefined;
+
+const checksOf = (commit: GraphQLCommit | undefined) =>
+  (commit?.statusCheckRollup?.contexts?.nodes ?? []).map(normalizeCheck);
+
+const labelsOf = (node: GraphQLPullRequest) =>
+  (node.labels?.nodes ?? []).map((label) => label.name);
+
+export function normalizePullRequest(repo: string, node: GraphQLPullRequest): Snapshot {
+  const commit = latestCommit(node);
   return {
     repo,
-    number: pr.number,
-    title: pr.title ?? "",
-    url: pr.url ?? `https://github.com/${repo}/pull/${pr.number}`,
-    state,
-    isDraft: !!pr.isDraft,
-    author: pr.author?.login ?? null,
-    headRef: pr.headRefName ?? "",
-    baseRef: pr.baseRefName ?? "",
-    headSha: (pr.headRefOid ?? commit?.oid ?? "").toLowerCase(),
-    baseSha: pr.baseRef?.target?.oid?.toLowerCase() ?? null,
+    number: node.number,
+    ...describedBy(repo, node),
+    ...refsOf(node, commit),
     baseComparison: null,
-    labels: (pr.labels?.nodes ?? []).map((l: any) => l.name),
-    mergeable: mergeableOf(pr.mergeable),
-    mergeStateStatus: pr.mergeStateStatus ?? "UNKNOWN",
-    checks,
-    approvals: (pr.latestOpinionatedReviews?.nodes ?? []).map((r: any) => ({
-      login: r.author?.login ?? "ghost",
-      state: r.state,
-      sha: r.commit?.oid?.toLowerCase() ?? null,
-    })),
-    threads: (pr.reviewThreads?.nodes ?? []).map((t: any) => ({
-      id: t.id,
-      resolved: !!t.isResolved,
-      outdated: !!t.isOutdated,
-      author: t.comments?.nodes?.[0]?.author?.login ?? null,
-      path: t.path ?? t.comments?.nodes?.[0]?.path ?? null,
-      url: t.comments?.nodes?.[0]?.url ?? null,
-    })),
-    comments,
+    labels: labelsOf(node),
+    mergeable: mergeableOf(node.mergeable),
+    mergeStateStatus: node.mergeStateStatus ?? "UNKNOWN",
+    checks: checksOf(commit),
+    approvals: approvalsOf(node),
+    threads: (node.reviewThreads?.nodes ?? []).map(normalizeThread),
+    comments: uniqueComments(node),
   };
 }
