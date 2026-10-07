@@ -29,7 +29,7 @@ export class RecordingRunner implements CommandRunner {
   }
 }
 
-export async function harness(options: HarnessOptions = {}) {
+export async function createHarness(options: HarnessOptions = {}) {
   const store = new Store(":memory:");
   const sink = new MemorySink();
   const github = new FakeGitHub();

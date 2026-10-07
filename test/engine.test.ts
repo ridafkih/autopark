@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { check, HEAD, HEAD2, REPO, snapshot } from "./fixtures/build.ts";
 import { FakeClock } from "./fixtures/clock.ts";
 import { ImmediateClock } from "./fixtures/immediate-clock.ts";
-import { harness, pullRequestPayload, repository } from "./fixtures/harness.ts";
+import { createHarness, pullRequestPayload, repository } from "./fixtures/harness.ts";
 import type { Snapshot, TransitionKind } from "../src/core/types.ts";
 
 const review = (id: string, number = 7) => ({
@@ -18,7 +18,7 @@ describe("delivery dedupe", () => {
     ["three distinct deliveries", ["d1", "d2", "d3"], 3],
     ["interleaved redeliveries", ["d1", "d2", "d1", "d2", "d3"], 3],
   ] as const)("%s", async (_l, ids, recomputes) => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
@@ -43,7 +43,7 @@ describe("mergeability UNKNOWN backoff", () => {
     ["never resolves", 9, [1000, 2000, 4000, 8000, 16000, 30000], true],
   ] as const)("%s", async (_l, unknownReads, sleeps, exhausted) => {
     const clock = new ImmediateClock();
-    const h = await harness({ clock });
+    const h = await createHarness({ clock });
     const seq: Snapshot[] = [...Array(unknownReads)].map(unknown);
     seq.push(
       unknownReads > 6
@@ -61,7 +61,7 @@ describe("mergeability UNKNOWN backoff", () => {
 
   test("closed PRs never back off", async () => {
     const clock = new ImmediateClock();
-    const h = await harness({ clock });
+    const h = await createHarness({ clock });
     h.github.set(snapshot({ state: "MERGED", mergeable: "UNKNOWN" }));
     h.engine.track(REPO, 7);
     await h.engine.idle();
@@ -70,7 +70,7 @@ describe("mergeability UNKNOWN backoff", () => {
 
   test("nothing sleeps or reads until an event arrives", async () => {
     const clock = new FakeClock();
-    const h = await harness({ clock });
+    const h = await createHarness({ clock });
     h.github.set(unknown());
     await clock.advance(120_000);
     expect(clock.sleeps).toEqual([]);
@@ -79,7 +79,7 @@ describe("mergeability UNKNOWN backoff", () => {
 
   test("backoff waits on the injected clock between reads", async () => {
     const clock = new FakeClock();
-    const h = await harness({ clock });
+    const h = await createHarness({ clock });
     h.github.script(unknown(), unknown(), snapshot());
     h.engine.track(REPO, 7);
     await clock.advance(0);
@@ -122,7 +122,7 @@ describe("resync heals missed events", () => {
     ],
   ])("%s", async (...row) => {
     const [, change, expected] = row;
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
@@ -136,7 +136,7 @@ describe("resync heals missed events", () => {
   });
 
   test("resync auto-tracks open PRs matching the filter", async () => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot({ number: 12 }));
     h.github.searchResults = [
       {
@@ -167,7 +167,7 @@ describe("resync heals missed events", () => {
 
 describe("routing through the engine", () => {
   test("push to the base branch rechecks every PR on that base", async () => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot({ number: 7 }));
     h.github.set(snapshot({ number: 8, headRef: "bot/other" }));
     h.github.set(snapshot({ number: 9, headRef: "bot/rel", baseRef: "release" }));
@@ -184,7 +184,7 @@ describe("routing through the engine", () => {
   });
 
   test("pull_request opened auto-tracks a matching PR", async () => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot());
     await h.engine.handleDelivery({
       id: "o1",
@@ -200,7 +200,7 @@ describe("routing through the engine", () => {
   });
 
   test("an untracked PR is not re-tracked by the filter", async () => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
@@ -215,7 +215,7 @@ describe("routing through the engine", () => {
   });
 
   test("non-matching PRs and unknown repos are ignored", async () => {
-    const h = await harness();
+    const h = await createHarness();
     await h.engine.handleDelivery({
       id: "o1",
       event: "pull_request",
@@ -240,7 +240,7 @@ describe("routing through the engine", () => {
 
   test("bursts coalesce into one read after the debounce window", async () => {
     const clock = new FakeClock();
-    const h = await harness({ clock, config: { daemon: { debounceMs: 500 } } });
+    const h = await createHarness({ clock, config: { daemon: { debounceMs: 500 } } });
     h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await clock.advance(500);
@@ -255,7 +255,7 @@ describe("routing through the engine", () => {
 
   test("an event during a recompute triggers exactly one more", async () => {
     const clock = new FakeClock();
-    const h = await harness({ clock });
+    const h = await createHarness({ clock });
     h.github.script(snapshot({ mergeable: "UNKNOWN" }), snapshot());
     h.engine.track(REPO, 7);
     await clock.advance(0);
@@ -267,7 +267,7 @@ describe("routing through the engine", () => {
   });
 
   test("merged PRs stop being tracked", async () => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot({ state: "MERGED" }));
     h.engine.track(REPO, 7);
     await h.engine.idle();
@@ -298,7 +298,7 @@ describe("auto-merge", () => {
     ],
   ])("%s", async (...row) => {
     const [, o, flag, merges] = row;
-    const h = await harness({ config: cfg });
+    const h = await createHarness({ config: cfg });
     h.github.set(snapshot(o));
     h.engine.track(REPO, 7, { autoMerge: flag });
     await h.engine.idle();
@@ -312,7 +312,7 @@ describe("auto-merge", () => {
   });
 
   test("failed merge is reported once per head", async () => {
-    const h = await harness({ config: cfg });
+    const h = await createHarness({ config: cfg });
     h.github.mergeError = "Base branch was modified";
     h.github.set(snapshot({ labels: ["automerge"] }));
     h.engine.track(REPO, 7);
@@ -322,7 +322,7 @@ describe("auto-merge", () => {
   });
 
   test("custom merge command runs with PR env", async () => {
-    const h = await harness({ config: { autoMerge: { default: true, command: "my-merge" } } });
+    const h = await createHarness({ config: { autoMerge: { default: true, command: "my-merge" } } });
     h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
@@ -339,7 +339,7 @@ describe("auto-merge", () => {
 
 describe("notifications and bookkeeping", () => {
   test("notify targets run for their kinds with transition env and JSON stdin", async () => {
-    const h = await harness({
+    const h = await createHarness({
       config: { notify: [{ type: "command", command: "notify-me", on: ["ready"] }] },
     });
     h.github.set(snapshot());
@@ -356,7 +356,7 @@ describe("notifications and bookkeeping", () => {
   });
 
   test("base comparison is fetched once per head and base pair", async () => {
-    const h = await harness({
+    const h = await createHarness({
       config: { readiness: { baseFreshness: { policy: "contains-tip" } } },
     });
     h.github.set(snapshot());
@@ -374,7 +374,7 @@ describe("notifications and bookkeeping", () => {
   });
 
   test("review request is recorded against the current head", async () => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot());
     h.engine.track(REPO, 7, { sessionId: "s1" });
     await h.engine.idle();
@@ -386,12 +386,12 @@ describe("notifications and bookkeeping", () => {
   });
 
   test("tracking a repo outside the config is refused", async () => {
-    const h = await harness();
+    const h = await createHarness();
     expect(() => h.engine.track("other/repo", 1)).toThrow(/not in any loaded/);
   });
 
   test("log lines carry id, timestamp, title and url", async () => {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();

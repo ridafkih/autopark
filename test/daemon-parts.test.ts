@@ -3,7 +3,7 @@ import { ClockGapWakeDetector } from "../src/daemon/wake.ts";
 import { GitHubHttp } from "../src/github/client.ts";
 import { controlHandler } from "../src/daemon/control.ts";
 import { FakeClock } from "./fixtures/clock.ts";
-import { harness } from "./fixtures/harness.ts";
+import { createHarness } from "./fixtures/harness.ts";
 import { REPO, snapshot } from "./fixtures/build.ts";
 
 describe("wake detector", () => {
@@ -134,7 +134,7 @@ describe("GitHub HTTP client", () => {
 
 describe("control api", () => {
   async function setup() {
-    const h = await harness();
+    const h = await createHarness();
     h.github.set(snapshot());
     const health = () => ({
       ok: true as const,
