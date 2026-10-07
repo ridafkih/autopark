@@ -34,7 +34,7 @@ const USAGE = `pr-autopilot <command>
   untrack <pr>
   auto-merge <pr> on|off|default
   request-review <pr>                     run the configured review request and record the head
-  daemon run|start|stop|status|install [--print]|uninstall
+  daemon run|start|stop|status|install [--print]|uninstall   (run/start/install accept --config <path>, repeatable)
   hook session-start|stop                 Claude Code hook entry points (read hook JSON on stdin)
   watch                                   print transitions as they happen (plugin monitor)
   ship-context                            project settings for the /ship skill
@@ -237,10 +237,19 @@ async function cmdValidate(argv: string[]) {
   out(`${path}: ok (${r.config.repos.join(", ")})`);
 }
 
-function serviceSpec(p: Paths) {
+function configArgs(args: string[]) {
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--config" && args[i + 1]) out.push("--config", resolve(args[++i]!));
+    else if (args[i]!.startsWith("--config=")) out.push("--config", resolve(args[i]!.slice("--config=".length)));
+  }
+  return out;
+}
+
+function serviceSpec(p: Paths, extra: string[] = []) {
   return {
     label: SERVICE_LABEL,
-    program: [process.execPath, join(ROOT, "src/daemon/main.ts")],
+    program: [process.execPath, join(ROOT, "src/daemon/main.ts"), ...extra],
     env: { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "", PR_AUTOPILOT_HOME: p.home },
     logPath: p.daemonLog,
   };
@@ -256,7 +265,8 @@ async function cmdDaemon(argv: string[], p: Paths) {
     case "start": {
       if (await daemonHealth(p.socket)) return out("daemon already running");
       mkdirSync(p.home, { recursive: true });
-      const cmd = `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(join(ROOT, "src/daemon/main.ts"))} >> ${JSON.stringify(p.daemonLog)} 2>&1`;
+      const extra = configArgs(rest).map((a) => JSON.stringify(a)).join(" ");
+      const cmd = `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(join(ROOT, "src/daemon/main.ts"))} ${extra} >> ${JSON.stringify(p.daemonLog)} 2>&1`;
       const proc = Bun.spawn(["sh", "-c", cmd], { stdin: "ignore", stdout: "ignore", stderr: "ignore", env: { ...process.env, PR_AUTOPILOT_HOME: p.home } });
       proc.unref();
       for (let i = 0; i < 50; i++) {
@@ -280,8 +290,9 @@ async function cmdDaemon(argv: string[], p: Paths) {
     case "install": {
       const svc = serviceFor(process.platform, shellRunner);
       if (!svc) throw new CliError(`no service manager for ${process.platform}; run \`pr-autopilot daemon run\` under your supervisor`);
-      if (rest.includes("--print")) return out(svc.render(serviceSpec(p)));
-      return out(`installed ${svc.kind} service at ${await svc.install(serviceSpec(p))}`);
+      const spec = serviceSpec(p, configArgs(rest));
+      if (rest.includes("--print")) return out(svc.render(spec));
+      return out(`installed ${svc.kind} service at ${await svc.install(spec)}`);
     }
     case "uninstall": {
       const svc = serviceFor(process.platform, shellRunner);

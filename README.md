@@ -218,7 +218,7 @@ How Claude reacts to each transition lives in one file, `skills/pr-autopilot/SKI
   Environment="PR_AUTOPILOT_HOME=%h/.pr-autopilot"
   Restart=always
   ```
-- `pr-autopilot daemon run [--config path]...` runs it in the foreground under any other supervisor.
+- `pr-autopilot daemon run|start|install --config path` (repeatable) adds configs that live outside a repo; `daemon run` stays in the foreground for any other supervisor.
 
 State lives in `~/.pr-autopilot` (override with `PR_AUTOPILOT_HOME`):
 - `state.db`: sqlite holding deliveries, PRs, evaluations and transitions;

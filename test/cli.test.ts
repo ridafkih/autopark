@@ -120,6 +120,14 @@ describe("cli commands", () => {
     expect(r.stdout).toContain(join(ROOT, "src/daemon/main.ts"));
   });
 
+  test("daemon install --print passes --config through as an absolute path", async () => {
+    const { home, proj } = project();
+    const r = await cli(["daemon", "install", "--print", "--config", ".pr-autopilot.yaml"], { cwd: proj, home });
+    const abs = join(Bun.spawnSync(["realpath", proj]).stdout.toString().trim(), ".pr-autopilot.yaml");
+    expect(r.stdout.includes(abs) || r.stdout.includes(join(proj, ".pr-autopilot.yaml"))).toBe(true);
+    expect(r.stdout).toContain("--config");
+  });
+
   test("unknown commands fail with usage", async () => {
     const { home, proj } = project();
     const r = await cli(["explode"], { cwd: proj, home });
