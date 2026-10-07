@@ -56,9 +56,10 @@ beforeAll(async () => {
   for (const [name, lines] of Object.entries(SAMPLES)) {
     writeFileSync(join(workspace, `${name}.ts`), lines.join("\n"));
   }
-  const result = await Bun.$`${OXLINT} -c ${configPath} -f json --threads=1 ${workspace}`
-    .quiet()
-    .nothrow();
+  const result =
+    await Bun.$`${process.execPath} --bun ${OXLINT} -c ${configPath} -f json --threads=1 ${workspace}`
+      .quiet()
+      .nothrow();
   const report = JSON.parse(result.stdout.toString()) as { diagnostics: Diagnostic[] };
   diagnostics.push(...report.diagnostics);
 });

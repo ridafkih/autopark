@@ -11,9 +11,9 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --deny-warnings",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
+    "lint": "bun --bun oxlint --deny-warnings",
+    "format": "bun --bun oxfmt",
+    "format:check": "bun --bun oxfmt --check",
     "schema": "bun src/cli/main.ts schema > schema/pr-autopilot.schema.json"
   },
   "devDependencies": {
