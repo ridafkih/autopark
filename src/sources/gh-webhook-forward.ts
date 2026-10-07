@@ -110,7 +110,7 @@ export class GhWebhookForwardSource implements EventSource {
 
 async function* linesOf(...streams: ReadableStream<Uint8Array>[]) {
   const queue: string[] = [];
-  let notify: (() => void) | null = null;
+  const waiter: { notify: (() => void) | null } = { notify: null };
   let open = streams.length;
   for (const s of streams) {
     (async () => {
@@ -123,11 +123,11 @@ async function* linesOf(...streams: ReadableStream<Uint8Array>[]) {
           queue.push(buf.slice(0, i));
           buf = buf.slice(i + 1);
         }
-        notify?.();
+        waiter.notify?.();
       }
       if (buf) queue.push(buf);
       open--;
-      notify?.();
+      waiter.notify?.();
     })();
   }
   while (open > 0 || queue.length) {
@@ -135,8 +135,8 @@ async function* linesOf(...streams: ReadableStream<Uint8Array>[]) {
       yield queue.shift()!;
       continue;
     }
-    await new Promise<void>((r) => (notify = r));
-    notify = null;
+    await new Promise<void>((r) => (waiter.notify = r));
+    waiter.notify = null;
   }
 }
 
