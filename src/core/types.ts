@@ -3,6 +3,7 @@ export const TRANSITION_KINDS = [
   "conflicted",
   "conflict_resolved",
   "mergeability_unknown",
+  "stale_base",
   "checks_failed",
   "checks_passed",
   "review_scored",
@@ -55,6 +56,12 @@ export interface PrComment {
   updatedAt: string;
 }
 
+export interface BaseComparison {
+  behindBy: number;
+  files: string[];
+  truncated: boolean;
+}
+
 export interface Snapshot {
   repo: string;
   number: number;
@@ -66,6 +73,8 @@ export interface Snapshot {
   headRef: string;
   baseRef: string;
   headSha: string;
+  baseSha: string | null;
+  baseComparison: BaseComparison | null;
   labels: string[];
   mergeable: Mergeable;
   mergeStateStatus: string;
@@ -104,6 +113,8 @@ export type ReasonCode =
   | "draft"
   | "conflict"
   | "mergeability_unknown"
+  | "stale_base"
+  | "base_unknown"
   | "checks_failed"
   | "checks_pending"
   | "review_missing"
@@ -131,6 +142,7 @@ export interface Evaluation {
   baseRef: string;
   headSha: string;
   labels: string[];
+  base: { sha: string | null; behindBy: number | null; touched: string[]; stale: boolean; policy: string };
   mergeable: Mergeable;
   lastKnownMergeable: Mergeable;
   mergeStateStatus: string;

@@ -42,6 +42,14 @@ export const configSchema = obj({
     noConflict: bool({ default: true }),
     requiredChecksPass: bool({ default: true }),
     allowDraft: bool({ default: false }),
+    baseFreshness: obj({
+      policy: oneOf(["off", "contains-tip", "max-behind", "paths"] as const, {
+        default: "off",
+        description: "contains-tip: head must contain the base tip; max-behind: base may be ahead by at most maxBehind commits; paths: base changes since the merge base must not touch `paths`",
+      }),
+      maxBehind: num({ default: 0, min: 0, int: true }),
+      paths: strings("Globs used by the paths policy"),
+    }),
   }),
   notify: arr(notifyTarget, { default: [] }),
   autoMerge: obj({
@@ -73,6 +81,7 @@ export const configSchema = obj({
       scope: oneOf(["session", "repo", "all"] as const, { default: "session" }),
       maxBlocks: num({ default: 3, min: 1, max: 8, int: true }),
       blockOnConflict: bool({ default: true }),
+      blockOnStaleBase: bool({ default: true }),
       blockOnFailedChecks: bool({ default: true }),
       blockOnReviewFindings: bool({ default: true }),
       blockOnHeadMovedWithoutReview: bool({ default: false }),
