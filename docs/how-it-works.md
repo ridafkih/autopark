@@ -16,8 +16,10 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 - **Claude Code integration:**
   - The **channel** (an MCP server with the `claude/channel` capability) pushes each transition into the session.
   - The **plugin monitor** is the fallback. It tails the same log and prints one line per transition.
-  - The **SessionStart hook** injects tracked PR status and the daemon's health.
-  - The **Stop hook** keeps Claude working only while something is actionable.
+  - The **SessionStart hook** injects tracked PR status, oldest stuck first, any holds, and the daemon's health.
+  - The **Stop hook** keeps Claude working only while something is actionable, including PRs awaiting a review request and PRs that have been nudged. Held PRs never block.
+- **Stuck PRs keep getting nudged.** Transitions only fire on change, so the daemon also keeps one timer for the next nudge due and re-announces every tracked PR that has been blocked by the same reasons for `nudge.after`, then every `nudge.every`, until it is ready, merged or held. No polling: the timer sleeps until the earliest nudge or hold expiry and is recomputed whenever a PR's state changes.
+- **Only a hold pauses PR work.** A declined tool call or a quiet conversation does not. `autopark hold` stores an expiring hold (default 30m, at most 4h), and `hold_expired` resumes work when it ends.
 
 ## Transitions
 
@@ -35,5 +37,7 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 | `awaiting_human` | everything green except human approval |
 | `ready` / `not_ready` | readiness flipped (`reasons`, `mergeable_now`) |
 | `merge_attempted` | auto-merge ran (`ok`, `method`, `error`) |
+| `nudge` | still blocked; re-sent on a timer, not on change (`reasons`, `kinds`, `since`, `blocked_for`, `blocked_for_ms`, `count`, `escalated`, `re_request_review`, `instruction`, `next`) |
+| `hold_expired` | a hold on this PR or on every PR ended; work resumes (`hold_reason`, `held_until`, `scope`, `reasons`) |
 | `merged` / `closed` | terminal; the PR stops being tracked |
 

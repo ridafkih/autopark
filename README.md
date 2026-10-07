@@ -93,12 +93,22 @@ autopark acme/widgets#412 ready head=8a71d0b: all readiness rules pass; mergeabl
 
 When a pull request is ready, Claude lets you know and waits for you. Nothing merges unless you've opted that pull request into auto-merge.
 
+A pull request that stays stuck doesn't go quiet. Once it has been blocked by the same reasons for 10 minutes, the daemon sends a `nudge` with what is blocking it, how long it has been stuck and the next step, and keeps nudging every 10 minutes until it is ready, merged or held. A pull request waiting only on approval is nudged to re-request review with your `reviewRequest` instruction.
+
+```text
+autopark acme/widgets#412 nudge head=8a71d0b: A declined tool call or a quiet conversation does not pause PR work. Only `autopark hold` does. awaiting human review for 20m on approval_missing, awaiting_human (nudge 2): needs 1 approval(s) on head, has 0. Next: re-request review: ...
+```
+
+A declined tool call or a quiet conversation does not pause PR work. Only an explicit hold does, and it expires on its own.
+
 You can also keep an eye on things yourself.
 
 ```bash
 autopark status                  # every tracked pull request, and what's blocking it
 autopark check acme/widgets#412  # read and evaluate one pull request right now
 autopark track 412 --auto-merge  # follow an existing pull request, and merge it once it's ready
+autopark hold 412 --for 1h --reason "waiting on design"  # pause nudges and Stop-hook blocks (at most 4h)
+autopark unhold all              # release every hold
 ```
 
 ## Configuration
@@ -121,6 +131,11 @@ readiness:
   minApprovals: 1
   baseFreshness:
     policy: contains-tip
+
+nudge:
+  after: 10m
+  every: 10m
+  escalateAfter: 30m
 ```
 
 Every option is covered in [docs/configuration.md](./docs/configuration.md), and `autopark schema` prints the JSON Schema if you'd like completion in your editor.

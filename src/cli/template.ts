@@ -1,3 +1,11 @@
+const NUDGE_TEMPLATE = `
+# Re-announce a stuck PR to the driving session until it is ready, merged or held.
+nudge:
+  after: 10m
+  every: 10m
+  escalateAfter: 30m
+`;
+
 export function initTemplate(repo: string) {
   return `# autopark config. See the "Config reference" section of the autopark README; "autopark schema" prints the JSON Schema.
 repos:
@@ -42,5 +50,5 @@ autoMerge:
 reviewRequest:
   command: null
   instruction: null
-`;
+${NUDGE_TEMPLATE}`;
 }

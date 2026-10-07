@@ -40,6 +40,13 @@ reviewRequest:
     Ask Cortana for approval of {url} in #pr-approvals using the ando-channel tools.
     One short message with the link; re-ask whenever the head moves.
 
+# Re-announce stuck PRs to the driving session until they are ready, merged or held.
+# kinds defaults to every blocking reason except draft, awaiting_human included.
+nudge:
+  after: 10m
+  every: 10m
+  escalateAfter: 30m
+
 standards:
   files: [CLAUDE.md, AGENTS.md]
   skills: [vercel-composition-patterns]

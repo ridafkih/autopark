@@ -12,8 +12,8 @@
 - `autopark daemon run|start|install --config path` (repeatable) adds configs that live outside a repo; `daemon run` stays in the foreground for any other supervisor.
 
 State lives in `~/.autopark` (override with `AUTOPARK_HOME`):
-- `state.db`: sqlite holding deliveries, PRs, evaluations and transitions;
+- `state.db`: sqlite holding deliveries, PRs, evaluations, nudge clocks, holds and transitions;
 - `transitions.jsonl`: append-only log;
-- `control.sock`: control API with `GET /health`, `GET /status`, `POST /track`, `/untrack`, `/auto-merge`, `/review-requested`, `/resync`;
+- `control.sock`: control API with `GET /health`, `GET /status`, `POST /track`, `/untrack`, `/auto-merge`, `/review-requested`, `/hold` (`{repo, number}` or `{all: true}`, optional `durationMs`, `reason`), `/unhold`, `/resync`;
 - `daemon.log`, `projects.json`.
 
