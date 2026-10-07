@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Store } from "../src/daemon/store.ts";
 import { FileSink } from "../src/daemon/log.ts";
 import { MemorySink } from "../src/daemon/memory-sink.ts";
+import { numberAt, parseJson } from "../src/core/json.ts";
 
 describe("delivery dedupe", () => {
   test.each([
@@ -121,7 +122,7 @@ describe("transition sinks", () => {
     sink.append(loggedTransition);
     sink.append({ ...loggedTransition, id: 2 });
     const lines = readFileSync(path, "utf8").trim().split("\n");
-    const ids = lines.map((line) => (JSON.parse(line) as { id: number }).id);
+    const ids = lines.map((line) => numberAt(parseJson(line), "id"));
     expect(ids).toEqual([1, 2]);
   });
 

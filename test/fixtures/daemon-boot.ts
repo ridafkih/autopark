@@ -9,6 +9,8 @@ import { config } from "./build.ts";
 import { FakeGitHub } from "./fake-github.ts";
 import { RecordingRunner } from "./harness.ts";
 import { ImmediateClock } from "./immediate-clock.ts";
+import { parseJson } from "../../src/core/json.ts";
+import { toLoggedTransition } from "../../src/core/transition-codec.ts";
 
 export interface BootOptions {
   source?: ReplaySource;
@@ -28,7 +30,11 @@ export const readLog = (path: string): LoggedTransition[] =>
     .trim()
     .split("\n")
     .filter((line) => line !== "")
-    .map((line) => JSON.parse(line) as LoggedTransition);
+    .map((line) => {
+      const transition = toLoggedTransition(parseJson(line));
+      if (!transition) throw new Error(`not a transition: ${line}`);
+      return transition;
+    });
 
 export async function bootDaemon(options: BootOptions = {}) {
   const home = mkdtempSync(join(tmpdir(), "apl-int-"));

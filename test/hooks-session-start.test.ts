@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { Snapshot } from "../src/core/types.ts";
 import { sessionStartContext } from "../src/hooks/session-start.ts";
 import type { HookState } from "../src/hooks/state.ts";
 import { config } from "./fixtures/build.ts";
@@ -53,7 +52,7 @@ describe("SessionStart context", () => {
   });
 
   test("PRs from other repos tracked by other sessions are left out", () => {
-    const other = { ...view({ repo: "acme/other", number: 9 } as Partial<Snapshot>, "s2") };
+    const other = { ...view({ repo: "acme/other", number: 9 }, "s2") };
     expect(sessionStartContext(hookState({ views: [view({}), other] }))).not.toContain(
       "acme/other#9",
     );

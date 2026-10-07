@@ -2,10 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { controlHandler, type Health } from "../src/daemon/control.ts";
 import { REPO, snapshot } from "./fixtures/build.ts";
 import { createHarness } from "./fixtures/harness.ts";
-
-interface StatusBody {
-  prs: Array<Record<string, unknown>>;
-}
+import { arrayAt } from "../src/core/json.ts";
 
 const health = (): Health => ({
   ok: true,
@@ -29,7 +26,8 @@ async function createControl() {
     );
   const readJson = async (method: string, path: string, body?: unknown) => {
     const response = await call(method, path, body);
-    return (await response.json()) as unknown;
+    const json: unknown = await response.json();
+    return json;
   };
   return { harness, call, readJson };
 }
@@ -40,8 +38,12 @@ describe("control api", () => {
     const tracked = await call("POST", "/track", { repo: REPO, number: 7, sessionId: "s1" });
     expect(tracked.status).toBe(200);
     await harness.engine.idle();
-    const status = (await readJson("GET", "/status")) as StatusBody;
-    expect(status.prs[0]).toMatchObject({ pr: `${REPO}#7`, state: "ready", sessionId: "s1" });
+    const status = await readJson("GET", "/status");
+    expect(arrayAt(status, "prs")[0]).toMatchObject({
+      pr: `${REPO}#7`,
+      state: "ready",
+      sessionId: "s1",
+    });
     const autoMerged = await call("POST", "/auto-merge", { repo: REPO, number: 7, enabled: true });
     expect(autoMerged.status).toBe(200);
     expect(await readJson("POST", "/review-requested", { repo: REPO, number: 7 })).toEqual({
@@ -49,8 +51,8 @@ describe("control api", () => {
     });
     const untracked = await call("POST", "/untrack", { repo: REPO, number: 7 });
     expect(untracked.status).toBe(200);
-    const after = (await readJson("GET", "/status")) as StatusBody;
-    expect(after.prs).toEqual([]);
+    const after = await readJson("GET", "/status");
+    expect(arrayAt(after, "prs")).toEqual([]);
   });
 
   test.each([

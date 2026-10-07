@@ -7,6 +7,7 @@ import { config, snapshot } from "./fixtures/build.ts";
 import { bootDaemon, readLog, stopDaemons } from "./fixtures/daemon-boot.ts";
 import { ImmediateClock } from "./fixtures/immediate-clock.ts";
 import { deliveries, SECOND_HEAD } from "./fixtures/replay/build.ts";
+import { numberAt } from "../src/core/json.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 
@@ -29,10 +30,8 @@ describe("daemon end to end through the replay adapter", () => {
       "approved_on_head",
       "ready",
     ]);
-    const row = daemon.store.db.query("SELECT COUNT(*) AS n FROM deliveries").get() as {
-      n: number;
-    };
-    expect(row.n).toBe(6);
+    const row: unknown = daemon.store.db.query("SELECT COUNT(*) AS n FROM deliveries").get();
+    expect(numberAt(row, "n")).toBe(6);
   });
 
   test("cli status talks to the running daemon over its control socket", async () => {

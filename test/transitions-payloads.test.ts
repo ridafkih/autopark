@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { diff } from "../src/core/transitions.ts";
-import type { Evaluation, Transition, TransitionKind } from "../src/core/types.ts";
+import type { Evaluation, TransitionKind } from "../src/core/types.ts";
 import { check, greptileComment, HEAD, HEAD2 } from "./fixtures/build.ts";
 import { evaluateChanges, evaluatePrevious, failing, thread } from "./fixtures/transition-table.ts";
 
 function transitionOf(previous: Evaluation | null, next: Evaluation, kind: TransitionKind) {
   const found = diff(previous, next).find((transition) => transition.kind === kind);
-  expect(found).toBeDefined();
-  return found as Transition;
+  if (!found) throw new Error(`expected a ${kind} transition`);
+  return found;
 }
 
 describe("transition payloads", () => {

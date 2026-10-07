@@ -3,6 +3,7 @@ import type { Snapshot } from "../src/core/types.ts";
 import { BASE, check, HEAD, REPO, snapshot } from "./fixtures/build.ts";
 import { createHarness } from "./fixtures/harness.ts";
 import { reviewDelivery } from "./fixtures/review-delivery.ts";
+import { parseJson, stringAt } from "../src/core/json.ts";
 
 const AUTO_MERGE_CONFIG = { autoMerge: { labels: ["automerge"], method: "rebase" } };
 
@@ -80,8 +81,7 @@ describe("notifications and bookkeeping", () => {
       PR_AUTOPILOT_REPO: REPO,
       PR_AUTOPILOT_NUMBER: "7",
     });
-    const stdin = JSON.parse(call?.stdin ?? "") as { kind: string };
-    expect(stdin.kind).toBe("ready");
+    expect(stringAt(parseJson(call?.stdin ?? ""), "kind")).toBe("ready");
   });
 
   test("base comparison is fetched once per head and base pair", async () => {

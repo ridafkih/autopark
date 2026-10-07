@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { GitHubHttp } from "../src/github/client.ts";
+import { parseJson, valueAt } from "../src/core/json.ts";
 
-type JsonBody = Record<string, unknown> | null;
+type JsonBody = unknown;
 
 interface RecordedCall {
   url: string;
@@ -9,16 +10,12 @@ interface RecordedCall {
   body: JsonBody;
 }
 
-interface SearchBody {
-  variables: { after: string | null };
-}
-
 const NOT_FOUND = { message: "Not Found" };
 
 function stubFetch(routes: Record<string, (body: JsonBody) => unknown>) {
   const calls: RecordedCall[] = [];
   const fetchStub = async (url: string, init: RequestInit) => {
-    const body = init.body ? (JSON.parse(String(init.body)) as JsonBody) : null;
+    const body = init.body ? parseJson(String(init.body)) : null;
     calls.push({ url, method: init.method ?? "GET", body });
     const route = Object.entries(routes).find(([fragment]) => url.includes(fragment));
     if (!route) return new Response(JSON.stringify(NOT_FOUND), { status: 404 });
@@ -32,7 +29,7 @@ const clientFor = (fetchStub: (url: string, init: RequestInit) => Promise<Respon
   new GitHubHttp({ token: async () => "token", fetch: fetchStub });
 
 const searchPage = (body: JsonBody) => {
-  const page = (body as SearchBody | null)?.variables.after === null ? 1 : 2;
+  const page = valueAt(body, "variables", "after") === null ? 1 : 2;
   return {
     data: {
       search: {
@@ -72,7 +69,11 @@ describe("GitHub HTTP client", () => {
     });
     const github = clientFor(fetchStub);
     const fetched = await github.fetchPullRequest("acme/widgets", 7);
-    expect(calls[0]?.body?.variables).toEqual({ owner: "acme", name: "widgets", number: 7 });
+    expect(valueAt(calls[0]?.body, "variables")).toEqual({
+      owner: "acme",
+      name: "widgets",
+      number: 7,
+    });
     expect(fetched).toMatchObject({ repo: "Acme/Widgets", number: 7, headSha: "a".repeat(40) });
     expect(github.lastCost).toBe(1);
   });

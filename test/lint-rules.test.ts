@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { arrayAt, numberAt, parseJson, stringAt } from "../src/core/json.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const OXLINT = join(ROOT, "node_modules/.bin/oxlint");
@@ -10,7 +11,15 @@ const workspace = mkdtempSync(join(tmpdir(), "autopilot-lint-"));
 interface Diagnostic {
   code: string;
   filename: string;
-  labels: Array<{ span: { line: number } }>;
+  line: number | undefined;
+}
+
+function toDiagnostics(value: unknown): Diagnostic[] {
+  const code = stringAt(value, "code");
+  const filename = stringAt(value, "filename");
+  if (code === undefined || filename === undefined) return [];
+  const [label] = arrayAt(value, "labels");
+  return [{ code, filename, line: numberAt(label, "span", "line") }];
 }
 
 const SAMPLES: Record<string, string[]> = {
@@ -46,7 +55,7 @@ function flaggedLines(sample: string, rule: string) {
   return diagnostics
     .filter((diagnostic) => basename(diagnostic.filename) === `${sample}.ts`)
     .filter((diagnostic) => diagnostic.code === `autopilot(${rule})`)
-    .map((diagnostic) => diagnostic.labels[0]?.span.line)
+    .map((diagnostic) => diagnostic.line)
     .toSorted();
 }
 
@@ -60,8 +69,8 @@ beforeAll(async () => {
     await Bun.$`${process.execPath} --bun ${OXLINT} -c ${configPath} -f json --threads=1 ${workspace}`
       .quiet()
       .nothrow();
-  const report = JSON.parse(result.stdout.toString()) as { diagnostics: Diagnostic[] };
-  diagnostics.push(...report.diagnostics);
+  const report = parseJson(result.stdout.toString());
+  diagnostics.push(...arrayAt(report, "diagnostics").flatMap(toDiagnostics));
 });
 
 afterAll(() => rmSync(workspace, { recursive: true, force: true }));

@@ -3,6 +3,7 @@ import type { HookState } from "../src/hooks/state.ts";
 import { stopHook } from "../src/hooks/stop.ts";
 import { config } from "./fixtures/build.ts";
 import { hookState, PLAYBOOK, view } from "./fixtures/hook-state.ts";
+import { stringAt } from "../src/core/json.ts";
 
 interface Continuation {
   stopHookActive: boolean;
@@ -74,7 +75,7 @@ describe("Stop hook", () => {
     if (expected.output === null) expect(result.output).toBeNull();
     if (expected.output === "block") {
       expect(result.output).toMatchObject({ decision: "block" });
-      const { reason } = result.output as { reason?: string };
+      const reason = stringAt(result.output, "reason");
       expect(reason).toContain(NEXT_STEP);
       expect(reason).toContain(PLAYBOOK);
     }

@@ -9,21 +9,12 @@ import { config, snapshot } from "./fixtures/build.ts";
 import { FakeGitHub } from "./fixtures/fake-github.ts";
 import { RecordingRunner } from "./fixtures/harness.ts";
 import { ImmediateClock } from "./fixtures/immediate-clock.ts";
+import { parseJson, stringAt, valueAt } from "../src/core/json.ts";
 
 interface RunOptions {
   home: string;
   cwd: string;
   stdin?: string;
-}
-
-interface HookOutput {
-  decision?: string;
-  reason?: string;
-  systemMessage?: string;
-}
-
-interface SessionStartOutput {
-  hookSpecificOutput: { hookEventName: string; additionalContext: string };
 }
 
 const ROOT = resolve(import.meta.dir, "..");
@@ -105,13 +96,13 @@ test("stop hook blocks on a conflict up to the cap, then lets go", async () => {
       hook_event_name: "Stop",
     });
     const result = await run(["hook", "stop"], { home, cwd: project, stdin });
-    return JSON.parse(result.stdout) as HookOutput;
+    return parseJson(result.stdout);
   };
-  const outputs: HookOutput[] = [];
+  const outputs: unknown[] = [];
   for (const isActive of [false, true, true, true]) outputs.push(await stop(isActive));
-  const decisions = outputs.slice(0, 3).map((output) => output.decision);
+  const decisions = outputs.slice(0, 3).map((output) => stringAt(output, "decision"));
   expect(decisions).toEqual(["block", "block", "block"]);
-  expect(outputs[0]?.reason).toContain("acme/widgets#7 conflict: conflicts with main");
+  expect(stringAt(outputs[0], "reason")).toContain("acme/widgets#7 conflict: conflicts with main");
   expect(outputs[3]).toEqual({
     systemMessage: expect.stringContaining("stopped blocking after 3"),
   });
@@ -131,14 +122,13 @@ test("session start injects daemon state, tracked PRs and actionable items", asy
     cwd: project,
     stdin: JSON.stringify({ session_id: "s1", cwd: project, source: "startup" }),
   });
-  const { hookSpecificOutput } = JSON.parse(result.stdout) as SessionStartOutput;
-  expect(hookSpecificOutput.hookEventName).toBe("SessionStart");
-  expect(hookSpecificOutput.additionalContext).toContain(
+  const hookSpecificOutput = valueAt(parseJson(result.stdout), "hookSpecificOutput");
+  const additionalContext = stringAt(hookSpecificOutput, "additionalContext");
+  expect(stringAt(hookSpecificOutput, "hookEventName")).toBe("SessionStart");
+  expect(additionalContext).toContain(
     `pr-autopilot daemon is running (pid ${process.pid}, replay connected).`,
   );
-  expect(hookSpecificOutput.additionalContext).toContain(
-    "Actionable now:\n- acme/widgets#7 conflict",
-  );
+  expect(additionalContext).toContain("Actionable now:\n- acme/widgets#7 conflict");
 });
 
 test("hooks never fail the session on bad input", async () => {

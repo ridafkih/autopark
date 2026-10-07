@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { PullRequestSummary } from "../src/core/summary.ts";
 import { controlFetch } from "../src/daemon/client.ts";
 import { ReplaySource } from "../src/sources/replay.ts";
 import { snapshot } from "./fixtures/build.ts";
@@ -10,6 +9,7 @@ import {
   type LifecycleStep,
   type World,
 } from "./fixtures/replay/lifecycle-steps.ts";
+import { arrayAt } from "../src/core/json.ts";
 
 type Daemon = Awaited<ReturnType<typeof bootDaemon>>["daemon"];
 
@@ -38,7 +38,8 @@ const EXPECTED_KINDS = {
 
 async function readStatus(socket: string) {
   const response = await controlFetch(socket, "/status");
-  return (await response.json()) as { prs: PullRequestSummary[] };
+  const status: unknown = await response.json();
+  return { prs: arrayAt(status, "prs") };
 }
 
 async function playStep({ mutate, delivery }: LifecycleStep, context: StepContext) {

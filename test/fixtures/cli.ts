@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { parseJson } from "../../src/core/json.ts";
 
 export const ROOT = resolve(import.meta.dir, "../..");
 
@@ -49,6 +50,6 @@ export async function cliExitCode(args: string[], location: CliLocation) {
   return code;
 }
 
-export async function cliJson<Shape>(args: string[], location: CliLocation) {
-  return JSON.parse(await cliOutput(args, location)) as Shape;
+export async function cliJson(args: string[], location: CliLocation) {
+  return parseJson(await cliOutput(args, location));
 }

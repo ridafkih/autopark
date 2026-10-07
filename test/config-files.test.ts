@@ -1,15 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { loadConfigFile, parseConfigText } from "../src/config/load.ts";
 import { configJsonSchema } from "../src/config/schema.ts";
-
-interface JsonSchemaNode {
-  type?: string;
-  required?: string[];
-  additionalProperties?: boolean;
-  properties?: Record<string, JsonSchemaNode>;
-  enum?: unknown[];
-  default?: unknown;
-}
+import { valueAt } from "../src/core/json.ts";
 
 describe("config files", () => {
   test("yaml and json parse to the same config", () => {
@@ -32,16 +24,16 @@ describe("config files", () => {
   });
 
   test("json schema is generated from the same definition", () => {
-    const schema = configJsonSchema() as JsonSchemaNode;
-    expect(schema.type).toBe("object");
-    expect(schema.required).toEqual(["repos"]);
-    expect(schema.additionalProperties).toBe(false);
-    expect(schema.properties?.autoMerge?.properties?.method?.enum).toEqual([
+    const schema = configJsonSchema();
+    expect(valueAt(schema, "type")).toBe("object");
+    expect(valueAt(schema, "required")).toEqual(["repos"]);
+    expect(valueAt(schema, "additionalProperties")).toBe(false);
+    expect(valueAt(schema, "properties", "autoMerge", "properties", "method", "enum")).toEqual([
       "merge",
       "squash",
       "rebase",
     ]);
-    expect(schema.properties?.daemon?.properties?.backoffMs?.default).toEqual([
+    expect(valueAt(schema, "properties", "daemon", "properties", "backoffMs", "default")).toEqual([
       1000, 2000, 4000, 8000, 16000, 30000,
     ]);
   });

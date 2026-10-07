@@ -28,7 +28,8 @@ async function* streamLines(stream: ReadableStream<Uint8Array>) {
 
 async function nextValue(lines: AsyncGenerator<string>) {
   const { value } = await lines.next();
-  return value as string;
+  if (typeof value !== "string") throw new Error("stream ended before the next line");
+  return value;
 }
 
 function prepareProject(configYaml: string) {

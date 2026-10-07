@@ -2,15 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { configJsonSchema } from "../src/config/schema.ts";
-import type { PullRequestSummary } from "../src/core/summary.ts";
 import { cliExitCode, cliJson, cliOutput, createProject, ROOT, runCli } from "./fixtures/cli.ts";
+import { arrayAt, parseJson } from "../src/core/json.ts";
 
-interface StatusJson {
-  prs: PullRequestSummary[];
-}
-
-const readProjects = (home: string) =>
-  JSON.parse(readFileSync(join(home, "projects.json"), "utf8")) as string[];
+const readProjects = (home: string) => parseJson(readFileSync(join(home, "projects.json"), "utf8"));
 
 const realPath = (path: string) => Bun.spawnSync(["realpath", path]).stdout.toString().trim();
 
@@ -32,11 +27,11 @@ describe("cli commands", () => {
     expect(await cliOutput(["status"], location)).toBe(
       "daemon: not running (last known state)\nacme/widgets#7 [pending] (auto-merge)",
     );
-    const mine = await cliJson<StatusJson>(["status", "--json", "--session", "s1"], location);
-    expect(mine.prs).toHaveLength(1);
-    expect(mine.prs[0]).toMatchObject({ pr: "acme/widgets#7", autoMerge: true, sessionId: "s1" });
-    const other = await cliJson<StatusJson>(["status", "--json", "--session", "other"], location);
-    expect(other.prs).toEqual([]);
+    const mine = arrayAt(await cliJson(["status", "--json", "--session", "s1"], location), "prs");
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({ pr: "acme/widgets#7", autoMerge: true, sessionId: "s1" });
+    const other = await cliJson(["status", "--json", "--session", "other"], location);
+    expect(arrayAt(other, "prs")).toEqual([]);
     await runCli(["untrack", "acme/widgets#7"], location);
     expect(await cliOutput(["status"], location)).toBe(
       "daemon: not running (last known state)\nNo tracked PRs.",
@@ -81,7 +76,7 @@ describe("cli commands", () => {
 
   test("schema prints the generated JSON Schema", async () => {
     const { home, project } = createProject();
-    expect(await cliJson<unknown>(["schema"], { cwd: project, home })).toEqual(configJsonSchema());
+    expect(await cliJson(["schema"], { cwd: project, home })).toEqual(configJsonSchema());
   });
 
   test("daemon install --print renders the unit without installing", async () => {

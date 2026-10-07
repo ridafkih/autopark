@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { actionableItems, decideStop, type StopInput } from "../src/core/stop.ts";
-import type { Snapshot } from "../src/core/types.ts";
 import { stopConfig, view } from "./fixtures/stop-views.ts";
 
 const input = (
@@ -17,11 +16,11 @@ const input = (
 describe("scope", () => {
   const mine = view({ mergeable: "CONFLICTING" }, { sessionId: "s1" });
   const other = {
-    ...view({ mergeable: "CONFLICTING", number: 8 } as Partial<Snapshot>),
+    ...view({ mergeable: "CONFLICTING", number: 8 }),
     sessionId: "s2",
   };
   const elsewhere = {
-    ...view({ mergeable: "CONFLICTING", number: 9, repo: "acme/other" } as Partial<Snapshot>),
+    ...view({ mergeable: "CONFLICTING", number: 9, repo: "acme/other" }),
     sessionId: null,
   };
   const all = [mine, other, elsewhere];
