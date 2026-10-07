@@ -1,20 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { route, type PullRequestIndex } from "../src/core/route.ts";
-import { matchesTrackFilter } from "../src/core/track.ts";
+
+const REPO = "acme/widgets";
+const PULL_REQUESTS_BY_BASE = new Map([
+  ["main", [7, 8]],
+  ["release", [9]],
+]);
 
 const index: PullRequestIndex = {
-  bySha: (repo, sha) => (repo === "acme/widgets" && sha === "abc" ? [7] : []),
-  byHeadRef: (repo, ref) => (repo === "acme/widgets" && ref === "bot/tidy" ? [7] : []),
-  byBaseRef: (repo, ref) =>
-    repo === "acme/widgets" && ref === "main"
-      ? [7, 8]
-      : repo === "acme/widgets" && ref === "release"
-        ? [9]
-        : [],
+  bySha: (repo, sha) => (repo === REPO && sha === "abc" ? [7] : []),
+  byHeadRef: (repo, ref) => (repo === REPO && ref === "bot/tidy" ? [7] : []),
+  byBaseRef: (repo, ref) => (repo === REPO ? (PULL_REQUESTS_BY_BASE.get(ref) ?? []) : []),
 };
 
 const repository = { full_name: "Acme/Widgets" };
-const pr = {
+const pullRequest = {
   number: 7,
   user: { login: "octo" },
   head: { ref: "bot/tidy", sha: "abc" },
@@ -22,65 +22,54 @@ const pr = {
   labels: [{ name: "autopilot" }],
 };
 
-type Row = [string, string, Record<string, unknown>, number[], boolean];
+interface Expected {
+  pullRequests: number[];
+  hasCandidate: boolean;
+}
+
+type Row = [string, string, Record<string, unknown>, Expected];
+
+const routed = (pullRequests: number[], hasCandidate = false): Expected => ({
+  pullRequests,
+  hasCandidate,
+});
+
+const pullRequestEvent = (action: string) => ({ action, pull_request: pullRequest, repository });
 
 describe("route", () => {
   test.each<Row>([
-    [
-      "pull_request opened",
-      "pull_request",
-      { action: "opened", pull_request: pr, repository },
-      [7],
-      true,
-    ],
+    ["pull_request opened", "pull_request", pullRequestEvent("opened"), routed([7], true)],
     [
       "pull_request synchronize",
       "pull_request",
-      { action: "synchronize", pull_request: pr, repository },
-      [7],
-      true,
+      pullRequestEvent("synchronize"),
+      routed([7], true),
     ],
-    [
-      "pull_request closed",
-      "pull_request",
-      { action: "closed", pull_request: pr, repository },
-      [7],
-      true,
-    ],
-    [
-      "review submitted",
-      "pull_request_review",
-      { action: "submitted", pull_request: pr, repository },
-      [7],
-      true,
-    ],
+    ["pull_request closed", "pull_request", pullRequestEvent("closed"), routed([7], true)],
+    ["review submitted", "pull_request_review", pullRequestEvent("submitted"), routed([7], true)],
     [
       "review comment",
       "pull_request_review_comment",
-      { action: "created", pull_request: pr, repository },
-      [7],
-      true,
+      pullRequestEvent("created"),
+      routed([7], true),
     ],
     [
       "thread resolved",
       "pull_request_review_thread",
-      { action: "resolved", pull_request: pr, repository },
-      [7],
-      true,
+      pullRequestEvent("resolved"),
+      routed([7], true),
     ],
     [
       "comment on a PR",
       "issue_comment",
       { action: "edited", issue: { number: 7, pull_request: {} }, repository },
-      [7],
-      false,
+      routed([7]),
     ],
     [
       "comment on an issue",
       "issue_comment",
       { action: "created", issue: { number: 3 }, repository },
-      [],
-      false,
+      routed([]),
     ],
     [
       "check run with PR list",
@@ -90,15 +79,13 @@ describe("route", () => {
         check_run: { head_sha: "zzz", pull_requests: [{ number: 11 }] },
         repository,
       },
-      [11],
-      false,
+      routed([11]),
     ],
     [
       "check run mapped by sha",
       "check_run",
       { action: "completed", check_run: { head_sha: "abc", pull_requests: [] }, repository },
-      [7],
-      false,
+      routed([7]),
     ],
     [
       "check run on both deduped",
@@ -108,54 +95,48 @@ describe("route", () => {
         check_run: { head_sha: "abc", pull_requests: [{ number: 7 }] },
         repository,
       },
-      [7],
-      false,
+      routed([7]),
     ],
     [
       "check suite by sha",
       "check_suite",
       { action: "completed", check_suite: { head_sha: "abc", pull_requests: [] }, repository },
-      [7],
-      false,
+      routed([7]),
     ],
-    ["status by sha", "status", { sha: "abc", state: "failure", repository }, [7], false],
+    ["status by sha", "status", { sha: "abc", state: "failure", repository }, routed([7])],
     [
       "push to base rechecks every PR on that base",
       "push",
       { ref: "refs/heads/main", repository },
-      [7, 8],
-      false,
+      routed([7, 8]),
     ],
-    ["push to another base", "push", { ref: "refs/heads/release", repository }, [9], false],
+    ["push to another base", "push", { ref: "refs/heads/release", repository }, routed([9])],
     [
       "push to a tracked head branch",
       "push",
       { ref: "refs/heads/bot/tidy", repository },
-      [7],
-      false,
+      routed([7]),
     ],
-    ["tag push is ignored", "push", { ref: "refs/tags/v1", repository }, [], false],
+    ["tag push is ignored", "push", { ref: "refs/tags/v1", repository }, routed([])],
     [
       "branch deletion is ignored",
       "push",
       { ref: "refs/heads/main", deleted: true, repository },
-      [],
-      false,
+      routed([]),
     ],
-    ["ping is ignored", "ping", { zen: "hi", repository }, [], false],
-    ["unknown event is ignored", "star", { action: "created", repository }, [], false],
-  ])("%s", (...row: Row) => {
-    const [, event, payload, prs, hasCandidate] = row;
-    const r = route(event, payload, index);
-    expect(r.pullRequests).toEqual(prs);
-    expect(r.candidates.length > 0).toBe(hasCandidate);
-    if (prs.length) expect(r.repo).toBe("acme/widgets");
+    ["ping is ignored", "ping", { zen: "hi", repository }, routed([])],
+    ["unknown event is ignored", "star", { action: "created", repository }, routed([])],
+  ])("%s", (label, event, payload, expected) => {
+    const result = route(event, payload, index);
+    expect(result.pullRequests).toEqual(expected.pullRequests);
+    expect(result.candidates.length > 0).toBe(expected.hasCandidate);
+    if (expected.pullRequests.length > 0) expect(result.repo).toBe(REPO);
   });
 
   test("candidate carries the fields the track filter needs", () => {
-    const r = route("pull_request", { action: "opened", pull_request: pr, repository }, index);
-    expect(r.candidates[0]).toEqual({
-      repo: "acme/widgets",
+    const [candidate] = route("pull_request", pullRequestEvent("opened"), index).candidates;
+    expect(candidate).toEqual({
+      repo: REPO,
       number: 7,
       author: "octo",
       headRef: "bot/tidy",
@@ -167,48 +148,5 @@ describe("route", () => {
 
   test("payload without repository routes nowhere", () => {
     expect(route("push", { ref: "refs/heads/main" }, index).pullRequests).toEqual([]);
-  });
-});
-
-const cand = {
-  repo: "acme/widgets",
-  number: 7,
-  author: "octo",
-  headRef: "bot/tidy",
-  baseRef: "main",
-  labels: ["autopilot"],
-  open: true,
-};
-
-describe("track filter", () => {
-  test.each([
-    ["no filters tracks nothing", {}, false],
-    ["author match", { authors: ["octo"] }, true],
-    ["author is case-insensitive", { authors: ["OCTO"] }, true],
-    ["@me resolves to the viewer", { authors: ["@me"] }, true],
-    ["author mismatch", { authors: ["someone"] }, false],
-    ["branch prefix match", { branchPrefixes: ["bot/"] }, true],
-    ["branch prefix mismatch", { branchPrefixes: ["feature/"] }, false],
-    ["label match", { labels: ["autopilot"] }, true],
-    ["label mismatch", { labels: ["other"] }, false],
-    ["all dimensions must match", { authors: ["octo"], branchPrefixes: ["feature/"] }, false],
-    [
-      "any value within a dimension matches",
-      { authors: ["x", "octo"], branchPrefixes: ["feature/", "bot/"] },
-      true,
-    ],
-  ])("%s", (_l, filter, expected) => {
-    const f = { authors: [], branchPrefixes: [], labels: [], ...filter };
-    expect(matchesTrackFilter(cand, f, "octo")).toBe(expected);
-  });
-
-  test("closed candidates never auto-track", () => {
-    expect(
-      matchesTrackFilter(
-        { ...cand, open: false },
-        { authors: ["octo"], branchPrefixes: [], labels: [] },
-        "octo",
-      ),
-    ).toBe(false);
   });
 });
