@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { evaluate } from "../src/core/evaluate.ts";
-import { actionableItems, decideStop, type TrackedView } from "../src/core/stop.ts";
+import { actionableItems, decideStop, type ActionKind, type TrackedView } from "../src/core/stop.ts";
 import { BUILTIN_PARSERS } from "../src/reviewers/index.ts";
 import { check, config, greptileComment, HEAD, OLD, snap } from "./fixtures/build.ts";
 import type { Snapshot } from "../src/core/types.ts";
@@ -17,7 +17,7 @@ const view = (o: Partial<Snapshot>, extra: Partial<TrackedView> = {}): TrackedVi
 
 const kindsFor = (v: TrackedView, stopCfg = cfg.hooks.stop) => actionableItems([v], stopCfg, { sessionId: "s1", repo: null }).map((i) => i.kind);
 
-type Row = [string, Partial<Snapshot>, string[], Partial<TrackedView>?];
+type Row = [string, Partial<Snapshot>, ActionKind[], Partial<TrackedView>?];
 
 describe("actionable items", () => {
   test.each<Row>([
