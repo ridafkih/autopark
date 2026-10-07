@@ -42,7 +42,13 @@ interface Routed {
   candidates: Candidate[];
 }
 
-type Router = (payload: WebhookPayload, repo: string, index: PullRequestIndex) => Routed | null;
+interface RouteInput {
+  payload: WebhookPayload;
+  repo: string;
+  index: PullRequestIndex;
+}
+
+type Router = (input: RouteInput) => Routed | null;
 
 const BRANCH_PREFIX = "refs/heads/";
 
@@ -61,22 +67,24 @@ const candidateOf = (repo: string, pullRequest: WebhookPullRequest): Candidate =
   open: (pullRequest.state ?? "open") === "open",
 });
 
-const routePullRequest: Router = ({ pull_request: pullRequest }, repo) =>
+const routePullRequest: Router = ({ payload: { pull_request: pullRequest }, repo }) =>
   pullRequest ? routed([pullRequest.number], [candidateOf(repo, pullRequest)]) : null;
 
-const routeIssueComment: Router = ({ issue }) => routed(issue?.pull_request ? [issue.number] : []);
+const routeIssueComment: Router = ({ payload: { issue } }) =>
+  routed(issue?.pull_request ? [issue.number] : []);
 
 const routeCheck =
   (check: WebhookCheck | undefined): Router =>
-  (_payload, repo, index) => {
+  ({ repo, index }) => {
     const listed = (check?.pull_requests ?? []).map((pullRequest) => pullRequest.number);
     const bySha = check?.head_sha ? index.bySha(repo, check.head_sha) : [];
     return routed([...listed, ...bySha]);
   };
 
-const routeStatus: Router = ({ sha }, repo, index) => routed(sha ? index.bySha(repo, sha) : []);
+const routeStatus: Router = ({ payload: { sha }, repo, index }) =>
+  routed(sha ? index.bySha(repo, sha) : []);
 
-const routePush: Router = ({ ref = "", deleted }, repo, index) => {
+const routePush: Router = ({ payload: { ref = "", deleted }, repo, index }) => {
   if (!ref.startsWith(BRANCH_PREFIX) || deleted) return null;
   const branch = ref.slice(BRANCH_PREFIX.length);
   return routed([...index.byBaseRef(repo, branch), ...index.byHeadRef(repo, branch)]);
@@ -113,7 +121,7 @@ export function route(event: string, payload: unknown, index: PullRequestIndex):
   const body = (payload ?? {}) as WebhookPayload;
   const repo = body.repository?.full_name?.toLowerCase() ?? null;
   const router = routerFor(event, body);
-  const result = repo && router ? router(body, repo, index) : null;
+  const result = repo && router ? router({ payload: body, repo, index }) : null;
   return {
     repo,
     pullRequests: [...new Set(result?.pullRequests)],
