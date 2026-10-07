@@ -50,6 +50,20 @@ const COMMANDS = new Map<string | undefined, CommandHandler>([
     ),
   ],
   [
+    "hold",
+    lazyCommand(
+      () => import("./commands/hold.ts"),
+      (module) => module.holdPullRequests,
+    ),
+  ],
+  [
+    "unhold",
+    lazyCommand(
+      () => import("./commands/hold.ts"),
+      (module) => module.unholdPullRequests,
+    ),
+  ],
+  [
     "check",
     lazyCommand(
       () => import("./commands/check.ts"),
