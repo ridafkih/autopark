@@ -20,7 +20,7 @@ export interface PullRequestSummary {
   updatedAt: number;
 }
 
-function summaryState(evaluation: Evaluation) {
+export function stateLabel(evaluation: Evaluation) {
   if (evaluation.state !== "OPEN") return evaluation.state.toLowerCase();
   if (evaluation.ready) return "ready";
   return evaluation.awaitingHuman ? "awaiting_human" : "not_ready";
@@ -44,7 +44,7 @@ function evaluationSummary(record: PullRequestRecord) {
     title: evaluation.title,
     url: evaluation.url,
     head: evaluation.headSha,
-    state: summaryState(evaluation),
+    state: stateLabel(evaluation),
     ready: evaluation.ready,
     mergeableNow: evaluation.mergeableNow,
     awaitingHuman: evaluation.awaitingHuman,

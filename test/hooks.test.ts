@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { evaluate } from "../src/core/evaluate.ts";
-import { sessionStartContext, shipContext, stopHook, type HookState } from "../src/hooks/logic.ts";
+import { sessionStartContext } from "../src/hooks/session-start.ts";
+import { shipContext } from "../src/hooks/ship-context.ts";
+import type { HookState } from "../src/hooks/state.ts";
+import { stopHook } from "../src/hooks/stop.ts";
 import { BUILTIN_PARSERS } from "../src/reviewers/index.ts";
 import type { TrackedView } from "../src/core/stop.ts";
 import type { Snapshot } from "../src/core/types.ts";

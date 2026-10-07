@@ -461,7 +461,7 @@ export async function main(argv: string[]) {
       return runWatch(p);
     }
     case "ship-context": {
-      const { shipContext } = await import("../hooks/logic.ts");
+      const { shipContext } = await import("../hooks/ship-context.ts");
       try {
         const { config, configPath } = await projectContext().then(
           (c) => c,

@@ -5,75 +5,95 @@ import type { TrackedView } from "../core/stop.ts";
 import { daemonHealth } from "../daemon/client.ts";
 import { resolvePaths, type Paths } from "../daemon/paths.ts";
 import { Store } from "../daemon/store.ts";
-import { sessionStartContext, stopHook, type HookState } from "./logic.ts";
+import { sessionStartContext } from "./session-start.ts";
+import type { HookState } from "./state.ts";
+import { stopHook } from "./stop.ts";
+
+export interface HookInput {
+  cwd?: unknown;
+  session_id?: unknown;
+  stop_hook_active?: unknown;
+}
+
+type StopState = Record<string, number>;
+
+const MAX_REMEMBERED_SESSIONS = 200;
 
 export function readViews(db: string): TrackedView[] {
   if (!existsSync(db)) return [];
   const store = new Store(db, { readonly: true });
   try {
-    return store
-      .listPullRequests({ trackedOnly: true })
-      .filter((r) => r.evaluation)
-      .map((r) => ({
-        evaluation: r.evaluation!,
-        sessionId: r.sessionId,
-        reviewRequestedHead: r.reviewRequestedHead,
-      }));
+    return store.listPullRequests({ trackedOnly: true }).flatMap((record) =>
+      record.evaluation
+        ? [
+            {
+              evaluation: record.evaluation,
+              sessionId: record.sessionId,
+              reviewRequestedHead: record.reviewRequestedHead,
+            },
+          ]
+        : [],
+    );
   } finally {
     store.close();
   }
 }
 
-function readStopState(p: Paths): Record<string, number> {
+function readStopState(paths: Paths): StopState {
   try {
-    return JSON.parse(readFileSync(p.stopState, "utf8"));
+    return JSON.parse(readFileSync(paths.stopState, "utf8")) as StopState;
   } catch {
     return {};
   }
 }
 
-function writeStopState(p: Paths, sessionId: string, blocks: number) {
-  const s = readStopState(p);
-  if (blocks) s[sessionId] = blocks;
-  else delete s[sessionId];
-  const entries = Object.entries(s).slice(-200);
-  writeFileSync(p.stopState, JSON.stringify(Object.fromEntries(entries)));
+function nextStopState(state: StopState, sessionId: string, blocks: number): StopState {
+  if (!blocks)
+    {return Object.fromEntries(Object.entries(state).filter(([key]) => key !== sessionId));}
+  return { ...state, [sessionId]: blocks };
 }
 
-export async function hookState(input: any, p: Paths): Promise<HookState> {
-  const { config, path } = await cwdConfig(
-    typeof input.cwd === "string" ? input.cwd : process.cwd(),
-  );
+function writeStopState(paths: Paths, sessionId: string, blocks: number) {
+  const next = nextStopState(readStopState(paths), sessionId, blocks);
+  const entries = Object.entries(next).slice(-MAX_REMEMBERED_SESSIONS);
+  writeFileSync(paths.stopState, JSON.stringify(Object.fromEntries(entries)));
+}
+
+export async function hookState(input: HookInput, paths: Paths): Promise<HookState> {
+  const cwd = typeof input.cwd === "string" ? input.cwd : process.cwd();
+  const { config, path } = await cwdConfig(cwd);
   return {
-    health: await daemonHealth(p.socket),
-    views: readViews(p.db),
+    health: await daemonHealth(paths.socket),
+    views: readViews(paths.db),
     config,
     sessionId: typeof input.session_id === "string" ? input.session_id : null,
     playbook: playbookRef(config, path),
   };
 }
 
+function sessionStartOutput(state: HookState) {
+  const context = sessionStartContext(state);
+  if (!context) return null;
+  const output = { hookEventName: "SessionStart", additionalContext: context };
+  return JSON.stringify({ hookSpecificOutput: output });
+}
+
+function stopOutput(state: HookState, input: HookInput, paths: Paths) {
+  const key = state.sessionId ?? "unknown";
+  const result = stopHook({
+    ...state,
+    stopHookActive: input.stop_hook_active === true,
+    priorBlocks: readStopState(paths)[key] ?? 0,
+  });
+  if (existsSync(paths.home)) writeStopState(paths, key, result.blocks);
+  return result.output ? JSON.stringify(result.output) : null;
+}
+
 export async function runHook(kind: string, stdin: string): Promise<string | null> {
-  const input = stdin.trim() ? JSON.parse(stdin) : {};
-  const p = resolvePaths();
-  const s = await hookState(input, p);
-  if (kind === "session-start") {
-    const ctx = sessionStartContext(s);
-    return ctx
-      ? JSON.stringify({
-          hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ctx },
-        })
-      : null;
-  }
-  if (kind === "stop") {
-    const key = s.sessionId ?? "unknown";
-    const r = stopHook({
-      ...s,
-      stopHookActive: input.stop_hook_active === true,
-      priorBlocks: readStopState(p)[key] ?? 0,
-    });
-    if (existsSync(p.home)) writeStopState(p, key, r.blocks);
-    return r.output ? JSON.stringify(r.output) : null;
-  }
+  const input = (stdin.trim() ? JSON.parse(stdin) : {}) as HookInput;
+  const paths = resolvePaths();
+  const state = await hookState(input, paths);
+  if (kind === "session-start") return sessionStartOutput(state);
+  if (kind === "stop") return stopOutput(state, input, paths);
   throw new Error(`unknown hook ${kind}`);
 }
