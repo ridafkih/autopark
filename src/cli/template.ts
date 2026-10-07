@@ -1,5 +1,5 @@
 export function initTemplate(repo: string) {
-  return `# pr-autopilot config. Reference: https://github.com/ (see README "Config reference").
+  return `# pr-autopilot config. See the "Config reference" section of the pr-autopilot README; "pr-autopilot schema" prints the JSON Schema.
 repos:
   - ${repo}
 
