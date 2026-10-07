@@ -9,13 +9,18 @@ export function inScope(t: LoggedTransition, scope: DeliveryScope) {
   return scope.repos.some((r) => r.toLowerCase() === t.repo.toLowerCase());
 }
 
-const CHANNEL_FLAG = /--(?:dangerously-load-development-)?channels\b.*\b(?:plugin|server):pr-autopilot\b/;
+const CHANNEL_FLAG =
+  /--(?:dangerously-load-development-)?channels\b.*\b(?:plugin|server):pr-autopilot\b/;
 
 export function channelLoaded(ancestorArgs: string[]) {
   return ancestorArgs.some((a) => CHANNEL_FLAG.test(a));
 }
 
-export function monitorShouldEmit(mode: "auto" | "always" | "off", channelEnabled: boolean, loaded: boolean) {
+export function monitorShouldEmit(
+  mode: "auto" | "always" | "off",
+  channelEnabled: boolean,
+  loaded: boolean,
+) {
   if (mode === "off") return false;
   if (mode === "always") return true;
   return !(channelEnabled && loaded);

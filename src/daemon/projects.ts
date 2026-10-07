@@ -24,6 +24,13 @@ export function removeProject(file: string, configPath: string) {
   const abs = resolve(configPath);
   const list = readProjects(file);
   if (!list.includes(abs)) return false;
-  writeFileSync(file, JSON.stringify(list.filter((p) => p !== abs), null, 2) + "\n");
+  writeFileSync(
+    file,
+    JSON.stringify(
+      list.filter((p) => p !== abs),
+      null,
+      2,
+    ) + "\n",
+  );
   return true;
 }

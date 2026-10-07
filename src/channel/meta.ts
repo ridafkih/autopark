@@ -1,15 +1,23 @@
 import type { LoggedTransition } from "../core/types.ts";
 
-const safeKey = (k: string) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`).replace(/[^A-Za-z0-9_]/g, "_");
+const safeKey = (k: string) =>
+  k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`).replace(/[^A-Za-z0-9_]/g, "_");
 
 function str(v: unknown): string | null {
   if (v === null || v === undefined) return null;
-  if (Array.isArray(v)) return v.map((x) => (typeof x === "object" && x && "code" in x ? String((x as any).code) : String(x))).join(",");
+  if (Array.isArray(v))
+    return v
+      .map((x) => (typeof x === "object" && x && "code" in x ? String((x as any).code) : String(x)))
+      .join(",");
   if (typeof v === "object") return null;
   return String(v);
 }
 
-const RENAMES: Record<string, string> = { names: "failed", required: "required_failed", head: "reviewed_head" };
+const RENAMES: Record<string, string> = {
+  names: "failed",
+  required: "required_failed",
+  head: "reviewed_head",
+};
 const SKIP = new Set(["checks", "previous", "reviewsCount", "lastKnown"]);
 
 export function channelMeta(t: LoggedTransition): Record<string, string> {

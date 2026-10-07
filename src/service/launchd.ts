@@ -4,7 +4,8 @@ import { join } from "node:path";
 import type { CommandRunner } from "../daemon/runner.ts";
 import { shq, type ServiceManager, type ServiceSpec } from "./types.ts";
 
-const x = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const x = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function renderPlist(spec: ServiceSpec) {
   const args = spec.program.map((a) => `    <string>${x(a)}</string>`).join("\n");
@@ -65,7 +66,10 @@ export class LaunchdService implements ServiceManager {
     mkdirSync(this.dir, { recursive: true });
     const file = this.path(spec.label);
     writeFileSync(file, renderPlist(spec));
-    const r = await this.o.runner.run(`launchctl bootout ${this.domain}/${spec.label} 2>/dev/null; launchctl bootstrap ${this.domain} ${shq(file)}`, {});
+    const r = await this.o.runner.run(
+      `launchctl bootout ${this.domain}/${spec.label} 2>/dev/null; launchctl bootstrap ${this.domain} ${shq(file)}`,
+      {},
+    );
     if (r.code !== 0) throw new Error(`launchctl bootstrap failed: ${r.stderr.trim()}`);
     return file;
   }

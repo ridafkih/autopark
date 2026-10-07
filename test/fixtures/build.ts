@@ -12,7 +12,12 @@ export function config(overrides: Record<string, unknown> = {}): Config {
   const r = parseConfig({
     repos: [REPO],
     track: { authors: ["octo"], branchPrefixes: ["bot/"] },
-    checks: { useGitHubRequired: true, required: ["build"], humanGates: ["gate"], ignore: ["noise"] },
+    checks: {
+      useGitHubRequired: true,
+      required: ["build"],
+      humanGates: ["gate"],
+      ignore: ["noise"],
+    },
     reviewers: [{ name: "greptile", parser: "greptile", minScore: 4 }],
     daemon: { debounceMs: 0 },
     ...overrides,
@@ -21,7 +26,11 @@ export function config(overrides: Record<string, unknown> = {}): Config {
   return r.config;
 }
 
-export const check = (name: string, outcome: CheckContext["outcome"], extra: Partial<CheckContext> = {}): CheckContext => ({
+export const check = (
+  name: string,
+  outcome: CheckContext["outcome"],
+  extra: Partial<CheckContext> = {},
+): CheckContext => ({
   name,
   kind: "check",
   outcome,
@@ -57,7 +66,11 @@ export function snap(overrides: Partial<Snapshot> = {}): Snapshot {
     labels: [],
     mergeable: "MERGEABLE",
     mergeStateStatus: "CLEAN",
-    checks: [check("build", "pass"), check("lint", "pass"), check("gate", "pass", { isRequired: true })],
+    checks: [
+      check("build", "pass"),
+      check("lint", "pass"),
+      check("gate", "pass", { isRequired: true }),
+    ],
     approvals: [{ login: "reviewer", state: "APPROVED", sha: headSha }],
     threads: [],
     comments: [greptileComment(5, headSha)],

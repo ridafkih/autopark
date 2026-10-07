@@ -28,7 +28,15 @@ export function summarize(r: PrRecord): PrSummary {
     title: e?.title ?? "",
     url: e?.url ?? `https://github.com/${r.repo}/pull/${r.number}`,
     head: e?.headSha ?? null,
-    state: e ? (e.state === "OPEN" ? (e.ready ? "ready" : e.awaitingHuman ? "awaiting_human" : "not_ready") : e.state.toLowerCase()) : "pending",
+    state: e
+      ? e.state === "OPEN"
+        ? e.ready
+          ? "ready"
+          : e.awaitingHuman
+            ? "awaiting_human"
+            : "not_ready"
+        : e.state.toLowerCase()
+      : "pending",
     ready: e?.ready ?? false,
     mergeableNow: e?.mergeableNow ?? false,
     awaitingHuman: e?.awaitingHuman ?? false,
@@ -45,7 +53,9 @@ export function formatSummaries(list: PrSummary[], opts: { daemon: string } = { 
   if (opts.daemon) lines.push(opts.daemon);
   if (!list.length) lines.push("No tracked PRs.");
   for (const s of list) {
-    const flags = [s.mergeableNow ? "mergeable now" : "", s.autoMerge ? "auto-merge" : ""].filter(Boolean).join(", ");
+    const flags = [s.mergeableNow ? "mergeable now" : "", s.autoMerge ? "auto-merge" : ""]
+      .filter(Boolean)
+      .join(", ");
     lines.push(`${s.pr} [${s.state}]${flags ? ` (${flags})` : ""} ${s.title}`.trimEnd());
     for (const r of s.reasons) lines.push(`  - ${r.code}: ${r.detail}`);
   }

@@ -53,7 +53,10 @@ async function git(...args: string[]) {
 async function projectContext() {
   const configPath = findConfig(process.cwd());
   const loaded = configPath ? await loadConfigFile(configPath) : null;
-  if (loaded && !loaded.ok) throw new CliError(`${configPath}:\n${loaded.issues.map((i) => `  ${i.path}: ${i.message}`).join("\n")}`);
+  if (loaded && !loaded.ok)
+    throw new CliError(
+      `${configPath}:\n${loaded.issues.map((i) => `  ${i.path}: ${i.message}`).join("\n")}`,
+    );
   return { configPath, config: loaded?.ok ? loaded.config : null };
 }
 
@@ -68,19 +71,28 @@ async function resolveRef(input: string | undefined, config: Config | null): Pro
   return parseRef(input, await defaultRepo(config));
 }
 
-async function configFor(repo: string, p: Paths): Promise<{ config: Config; source: string | null }> {
-  const candidates = [findConfig(process.cwd()), ...readProjects(p.projects)].filter((x): x is string => !!x);
+async function configFor(
+  repo: string,
+  p: Paths,
+): Promise<{ config: Config; source: string | null }> {
+  const candidates = [findConfig(process.cwd()), ...readProjects(p.projects)].filter(
+    (x): x is string => !!x,
+  );
   for (const path of candidates) {
     if (!existsSync(path)) continue;
     const r = await loadConfigFile(path);
-    if (r.ok && r.config.repos.some((x) => x.toLowerCase() === repo.toLowerCase())) return { config: r.config, source: path };
+    if (r.ok && r.config.repos.some((x) => x.toLowerCase() === repo.toLowerCase()))
+      return { config: r.config, source: path };
   }
   return { config: defaultConfig([repo]), source: null };
 }
 
 async function api(p: Paths, method: string, path: string, body?: unknown) {
   if (!(await daemonHealth(p.socket))) return null;
-  const res = await controlFetch(p.socket, path, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await controlFetch(p.socket, path, {
+    method,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
   const json: any = await res.json();
   if (!res.ok) throw new CliError(json.error ?? `daemon returned ${res.status}`);
   return json;
@@ -94,34 +106,61 @@ async function loadStatus(p: Paths): Promise<{ daemon: string; prs: PrSummary[] 
   const health = await daemonHealth(p.socket);
   if (health) {
     const res: any = await api(p, "GET", "/status");
-    return { daemon: `daemon: running (pid ${health.pid}, ${health.source.name} ${health.source.state})`, prs: res.prs };
+    return {
+      daemon: `daemon: running (pid ${health.pid}, ${health.source.name} ${health.source.state})`,
+      prs: res.prs,
+    };
   }
   if (!existsSync(p.db)) return { daemon: "daemon: not running (no state yet)", prs: [] };
   const store = new Store(p.db, { readonly: true });
   try {
-    return { daemon: "daemon: not running (last known state)", prs: store.listPrs({ trackedOnly: true }).map(summarize) };
+    return {
+      daemon: "daemon: not running (last known state)",
+      prs: store.listPrs({ trackedOnly: true }).map(summarize),
+    };
   } finally {
     store.close();
   }
 }
 
 async function cmdStatus(argv: string[], p: Paths) {
-  const { values } = parseArgs({ args: argv, options: { json: { type: "boolean" }, session: { type: "string" }, repo: { type: "string" } } });
+  const { values } = parseArgs({
+    args: argv,
+    options: { json: { type: "boolean" }, session: { type: "string" }, repo: { type: "string" } },
+  });
   const s = await loadStatus(p);
   let prs = s.prs;
   if (values.session) prs = prs.filter((x) => x.sessionId === values.session);
   if (values.repo) prs = prs.filter((x) => x.repo.toLowerCase() === values.repo!.toLowerCase());
-  out(values.json ? JSON.stringify({ daemon: s.daemon, prs }, null, 2) : formatSummaries(prs, { daemon: s.daemon }));
+  out(
+    values.json
+      ? JSON.stringify({ daemon: s.daemon, prs }, null, 2)
+      : formatSummaries(prs, { daemon: s.daemon }),
+  );
 }
 
 async function cmdTrack(argv: string[], p: Paths) {
-  const { values, positionals } = parseArgs({ args: argv, allowPositionals: true, options: { session: { type: "string" }, "auto-merge": { type: "boolean" } } });
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: { session: { type: "string" }, "auto-merge": { type: "boolean" } },
+  });
   const { config } = await projectContext();
   const ref = await resolveRef(positionals[0], config);
-  const body = { ...ref, sessionId: values.session ?? process.env.CLAUDE_SESSION_ID ?? null, autoMerge: values["auto-merge"] ? true : undefined };
+  const body = {
+    ...ref,
+    sessionId: values.session ?? process.env.CLAUDE_SESSION_ID ?? null,
+    autoMerge: values["auto-merge"] ? true : undefined,
+  };
   if (await api(p, "POST", "/track", body)) return out(`tracking ${ref.repo}#${ref.number}`);
   const store = offlineStore(p);
-  store.track({ repo: ref.repo, number: ref.number, source: "explicit", sessionId: body.sessionId, now: Date.now() });
+  store.track({
+    repo: ref.repo,
+    number: ref.number,
+    source: "explicit",
+    sessionId: body.sessionId,
+    now: Date.now(),
+  });
   if (body.autoMerge) store.setAutoMerge(prKey(ref.repo, ref.number), true);
   store.close();
   out(`tracking ${ref.repo}#${ref.number} (daemon not running; it will evaluate on start)`);
@@ -142,11 +181,14 @@ async function cmdAutoMerge(argv: string[], p: Paths) {
   const { config } = await projectContext();
   const ref = await resolveRef(argv[0], config);
   const mode = argv[1];
-  const enabled = mode === "on" ? true : mode === "off" ? false : mode === "default" ? null : undefined;
-  if (enabled === undefined) throw new CliError("usage: pr-autopilot auto-merge <pr> on|off|default");
+  const enabled =
+    mode === "on" ? true : mode === "off" ? false : mode === "default" ? null : undefined;
+  if (enabled === undefined)
+    throw new CliError("usage: pr-autopilot auto-merge <pr> on|off|default");
   if (!(await api(p, "POST", "/auto-merge", { ...ref, enabled }))) {
     const store = offlineStore(p);
-    if (!store.getPr(prKey(ref.repo, ref.number))) throw new CliError(`${ref.repo}#${ref.number} is not tracked`);
+    if (!store.getPr(prKey(ref.repo, ref.number)))
+      throw new CliError(`${ref.repo}#${ref.number} is not tracked`);
     store.setAutoMerge(prKey(ref.repo, ref.number), enabled);
     store.close();
   }
@@ -157,7 +199,13 @@ async function fetchEvaluation(ref: PrRef, p: Paths) {
   const { config, source } = await configFor(ref.repo, p);
   const parsers = await loadParsers(config.reviewers, source ? dirname(source) : process.cwd());
   const gh = new GitHubHttp();
-  let { snap, reads } = await fetchSettled(gh, systemClock, ref.repo, ref.number, config.daemon.backoffMs);
+  let { snap, reads } = await fetchSettled(
+    gh,
+    systemClock,
+    ref.repo,
+    ref.number,
+    config.daemon.backoffMs,
+  );
   if (config.readiness.baseFreshness.policy !== "off" && snap.baseSha && snap.state === "OPEN") {
     snap = { ...snap, baseComparison: await gh.compare(ref.repo, snap.headSha, snap.baseSha) };
   }
@@ -165,7 +213,11 @@ async function fetchEvaluation(ref: PrRef, p: Paths) {
 }
 
 async function cmdCheck(argv: string[], p: Paths) {
-  const { values, positionals } = parseArgs({ args: argv, allowPositionals: true, options: { json: { type: "boolean" } } });
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: { json: { type: "boolean" } },
+  });
   const { config } = await projectContext();
   const ref = await resolveRef(positionals[0], config);
   const { evaluation: e, cost, reads } = await fetchEvaluation(ref, p);
@@ -176,21 +228,27 @@ async function cmdCheck(argv: string[], p: Paths) {
     `ready ${e.ready}  mergeable now ${e.mergeableNow}  awaiting human ${e.awaitingHuman}`,
     `base ${e.baseRef}${e.base.sha ? ` @ ${e.base.sha.slice(0, 10)}` : ""}  freshness ${e.base.policy}${e.base.behindBy !== null ? ` (behind ${e.base.behindBy})` : ""}`,
     `checks: failed ${e.checks.failed.map((f) => `${f.name}${f.required ? "*" : ""}=${f.conclusion}`).join(", ") || "none"}; pending required ${e.checks.pendingRequired.join(", ") || "none"}; gates ${e.checks.gates.map((g) => `${g.name}=${g.conclusion}`).join(", ") || "none"}`,
-    ...e.reviewers.map((r) => `reviewer ${r.name}: score ${r.score ?? "-"}${r.maxScore ? `/${r.maxScore}` : ""} on ${r.reviewedSha?.slice(0, 10) ?? "-"} (on head ${r.onHead}, reviews ${r.reviewsCount ?? "-"})`),
+    ...e.reviewers.map(
+      (r) =>
+        `reviewer ${r.name}: score ${r.score ?? "-"}${r.maxScore ? `/${r.maxScore}` : ""} on ${r.reviewedSha?.slice(0, 10) ?? "-"} (on head ${r.onHead}, reviews ${r.reviewsCount ?? "-"})`,
+    ),
     `threads open ${e.threadsOpen}; approvals on head ${e.approvals.onHead.join(", ") || "none"}; stale ${e.approvals.stale.join(", ") || "none"}`,
     ...e.reasons.map((r) => `  - ${r.code}: ${r.detail}`),
   ];
   out(lines.join("\n"));
 }
 
-const fill = (template: string, vars: Record<string, string>) => template.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+const fill = (template: string, vars: Record<string, string>) =>
+  template.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
 
 async function cmdRequestReview(argv: string[], p: Paths) {
   const { config: local } = await projectContext();
   const ref = await resolveRef(argv[0], local);
   const { config } = await configFor(ref.repo, p);
   const status = await loadStatus(p);
-  let summary = status.prs.find((x) => x.repo.toLowerCase() === ref.repo.toLowerCase() && x.number === ref.number);
+  let summary = status.prs.find(
+    (x) => x.repo.toLowerCase() === ref.repo.toLowerCase() && x.number === ref.number,
+  );
   let head = summary?.head ?? null;
   let title = summary?.title ?? "";
   let url = summary?.url ?? `https://github.com/${ref.repo}/pull/${ref.number}`;
@@ -201,13 +259,26 @@ async function cmdRequestReview(argv: string[], p: Paths) {
     url = evaluation.url;
   }
   const rr = config.reviewRequest;
-  if (!rr.command && !rr.instruction) throw new CliError("no reviewRequest.command or reviewRequest.instruction configured");
+  if (!rr.command && !rr.instruction)
+    throw new CliError("no reviewRequest.command or reviewRequest.instruction configured");
   const vars = { repo: ref.repo, number: String(ref.number), url, title, head };
   if (rr.command) {
-    const env = transitionEnv({ id: 0, ts: "", kind: "awaiting_human", repo: ref.repo, number: ref.number, head, reason: "review requested", data: {}, title, url });
+    const env = transitionEnv({
+      id: 0,
+      ts: "",
+      kind: "awaiting_human",
+      repo: ref.repo,
+      number: ref.number,
+      head,
+      reason: "review requested",
+      data: {},
+      title,
+      url,
+    });
     const r = await shellRunner.run(rr.command, env);
     if (r.stdout.trim()) out(r.stdout.trim());
-    if (r.code !== 0) throw new CliError(`review request command exited ${r.code}: ${r.stderr.trim()}`);
+    if (r.code !== 0)
+      throw new CliError(`review request command exited ${r.code}: ${r.stderr.trim()}`);
   }
   if (rr.instruction) out(`Review request instruction: ${fill(rr.instruction, vars)}`);
   if (!(await api(p, "POST", "/review-requested", { ...ref, head }))) {
@@ -219,10 +290,14 @@ async function cmdRequestReview(argv: string[], p: Paths) {
 }
 
 async function cmdInit(argv: string[], p: Paths) {
-  const { values } = parseArgs({ args: argv, options: { repo: { type: "string" }, force: { type: "boolean" } } });
+  const { values } = parseArgs({
+    args: argv,
+    options: { repo: { type: "string" }, force: { type: "boolean" } },
+  });
   const root = (await git("rev-parse", "--show-toplevel")) ?? process.cwd();
   const file = join(root, ".pr-autopilot.yaml");
-  if (existsSync(file) && !values.force) throw new CliError(`${file} exists; pass --force to overwrite`);
+  if (existsSync(file) && !values.force)
+    throw new CliError(`${file} exists; pass --force to overwrite`);
   const repo = values.repo ?? (await defaultRepo(null));
   if (!repo) throw new CliError("could not detect the GitHub repo; pass --repo owner/name");
   writeFileSync(file, initTemplate(repo));
@@ -234,16 +309,20 @@ async function cmdRegister(argv: string[], p: Paths) {
   const path = argv[0];
   if (!path) throw new CliError("usage: pr-autopilot register <config path>");
   const r = await loadConfigFile(resolve(path));
-  if (!r.ok) throw new CliError(`${path}:\n${r.issues.map((i) => `  ${i.path}: ${i.message}`).join("\n")}`);
+  if (!r.ok)
+    throw new CliError(`${path}:\n${r.issues.map((i) => `  ${i.path}: ${i.message}`).join("\n")}`);
   const added = addProject(p.projects, path);
-  out(`${added ? "registered" : "already registered"} ${resolve(path)} (${r.config.repos.join(", ")})`);
+  out(
+    `${added ? "registered" : "already registered"} ${resolve(path)} (${r.config.repos.join(", ")})`,
+  );
 }
 
 async function cmdValidate(argv: string[]) {
   const path = argv[0] ?? findConfig(process.cwd());
   if (!path) throw new CliError("no config found");
   const r = await loadConfigFile(path);
-  if (!r.ok) throw new CliError(`${path}:\n${r.issues.map((i) => `  ${i.path}: ${i.message}`).join("\n")}`);
+  if (!r.ok)
+    throw new CliError(`${path}:\n${r.issues.map((i) => `  ${i.path}: ${i.message}`).join("\n")}`);
   out(`${path}: ok (${r.config.repos.join(", ")})`);
 }
 
@@ -251,7 +330,8 @@ function configArgs(args: string[]) {
   const out: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--config" && args[i + 1]) out.push("--config", resolve(args[++i]!));
-    else if (args[i]!.startsWith("--config=")) out.push("--config", resolve(args[i]!.slice("--config=".length)));
+    else if (args[i]!.startsWith("--config="))
+      out.push("--config", resolve(args[i]!.slice("--config=".length)));
   }
   return out;
 }
@@ -260,7 +340,11 @@ function serviceSpec(p: Paths, extra: string[] = []) {
   return {
     label: SERVICE_LABEL,
     program: [process.execPath, join(ROOT, "src/daemon/main.ts"), ...extra],
-    env: { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: process.env.HOME ?? "", PR_AUTOPILOT_HOME: p.home },
+    env: {
+      PATH: process.env.PATH ?? "/usr/bin:/bin",
+      HOME: process.env.HOME ?? "",
+      PR_AUTOPILOT_HOME: p.home,
+    },
     logPath: p.daemonLog,
   };
 }
@@ -275,9 +359,16 @@ async function cmdDaemon(argv: string[], p: Paths) {
     case "start": {
       if (await daemonHealth(p.socket)) return out("daemon already running");
       mkdirSync(p.home, { recursive: true });
-      const extra = configArgs(rest).map((a) => JSON.stringify(a)).join(" ");
+      const extra = configArgs(rest)
+        .map((a) => JSON.stringify(a))
+        .join(" ");
       const cmd = `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(join(ROOT, "src/daemon/main.ts"))} ${extra} >> ${JSON.stringify(p.daemonLog)} 2>&1`;
-      const proc = Bun.spawn(["sh", "-c", cmd], { stdin: "ignore", stdout: "ignore", stderr: "ignore", env: { ...process.env, PR_AUTOPILOT_HOME: p.home } });
+      const proc = Bun.spawn(["sh", "-c", cmd], {
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "ignore",
+        env: { ...process.env, PR_AUTOPILOT_HOME: p.home },
+      });
       proc.unref();
       for (let i = 0; i < 50; i++) {
         if (await daemonHealth(p.socket)) return out(`daemon started (log ${p.daemonLog})`);
@@ -290,7 +381,10 @@ async function cmdDaemon(argv: string[], p: Paths) {
       if (!h) return out("daemon not running");
       process.kill(h.pid, "SIGTERM");
       const svc = serviceFor(process.platform, shellRunner);
-      if (svc && existsSync(svc.path(SERVICE_LABEL))) out(`note: the ${svc.kind} service will restart it; use \`pr-autopilot daemon uninstall\` to stop it for good`);
+      if (svc && existsSync(svc.path(SERVICE_LABEL)))
+        out(
+          `note: the ${svc.kind} service will restart it; use \`pr-autopilot daemon uninstall\` to stop it for good`,
+        );
       return out(`sent SIGTERM to ${h.pid}`);
     }
     case "status": {
@@ -299,7 +393,10 @@ async function cmdDaemon(argv: string[], p: Paths) {
     }
     case "install": {
       const svc = serviceFor(process.platform, shellRunner);
-      if (!svc) throw new CliError(`no service manager for ${process.platform}; run \`pr-autopilot daemon run\` under your supervisor`);
+      if (!svc)
+        throw new CliError(
+          `no service manager for ${process.platform}; run \`pr-autopilot daemon run\` under your supervisor`,
+        );
       const spec = serviceSpec(p, configArgs(rest));
       if (rest.includes("--print")) return out(svc.render(spec));
       return out(`installed ${svc.kind} service at ${await svc.install(spec)}`);
@@ -311,7 +408,9 @@ async function cmdDaemon(argv: string[], p: Paths) {
       return out(`removed ${svc.kind} service ${SERVICE_LABEL}`);
     }
   }
-  throw new CliError("usage: pr-autopilot daemon run|start|stop|status|install [--print]|uninstall");
+  throw new CliError(
+    "usage: pr-autopilot daemon run|start|stop|status|install [--print]|uninstall",
+  );
 }
 
 export async function main(argv: string[]) {
@@ -361,9 +460,20 @@ export async function main(argv: string[]) {
     case "ship-context": {
       const { shipContext } = await import("../hooks/logic.ts");
       try {
-        const { config, configPath } = await projectContext().then((c) => c, () => ({ config: null, configPath: null }));
+        const { config, configPath } = await projectContext().then(
+          (c) => c,
+          () => ({ config: null, configPath: null }),
+        );
         const root = (await git("rev-parse", "--show-toplevel")) ?? process.cwd();
-        return out(shipContext({ config, configPath, root, health: await daemonHealth(p.socket), exists: existsSync }));
+        return out(
+          shipContext({
+            config,
+            configPath,
+            root,
+            health: await daemonHealth(p.socket),
+            exists: existsSync,
+          }),
+        );
       } catch (e) {
         return out(`- Context unavailable: ${(e as Error).message}`);
       }

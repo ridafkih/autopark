@@ -8,9 +8,15 @@ import type { Paths } from "../daemon/paths.ts";
 export async function runWatch(p: Paths) {
   const { config } = await cwdConfig(process.cwd());
   const mode = config?.delivery.monitor ?? "auto";
-  const emit = monitorShouldEmit(mode, config?.delivery.channel ?? true, mode === "auto" ? channelLoaded(ancestorArgs()) : false);
+  const emit = monitorShouldEmit(
+    mode,
+    config?.delivery.channel ?? true,
+    mode === "auto" ? channelLoaded(ancestorArgs()) : false,
+  );
   if (!emit) {
-    process.stderr.write(`pr-autopilot watch: silent (monitor=${mode}${mode === "auto" ? ", channel loaded" : ""})\n`);
+    process.stderr.write(
+      `pr-autopilot watch: silent (monitor=${mode}${mode === "auto" ? ", channel loaded" : ""})\n`,
+    );
     await new Promise(() => {});
   }
   const scope = { repos: config?.repos ?? null };

@@ -22,10 +22,12 @@ export async function loadParsers(reviewers: ReviewerConfig[], baseDir = process
   for (const r of reviewers) {
     let parser = BUILTIN_PARSERS[r.parser];
     if (!parser) {
-      if (!r.parser.startsWith(".") && !isAbsolute(r.parser)) throw new Error(`unknown reviewer parser "${r.parser}" for ${r.name}`);
+      if (!r.parser.startsWith(".") && !isAbsolute(r.parser))
+        throw new Error(`unknown reviewer parser "${r.parser}" for ${r.name}`);
       const mod = await import(resolve(baseDir, r.parser));
       parser = (mod.default ?? mod.parser) as ReviewerParser;
-      if (!parser || typeof parser.parse !== "function") throw new Error(`${r.parser} does not export a reviewer parser`);
+      if (!parser || typeof parser.parse !== "function")
+        throw new Error(`${r.parser} does not export a reviewer parser`);
     }
     parser.validate?.(r.options);
     out.set(r.name, parser);

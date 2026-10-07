@@ -25,7 +25,21 @@ function spawnServer(configYaml: string | null) {
   mkdirSync(home, { recursive: true });
   mkdirSync(proj, { recursive: true });
   if (configYaml) writeFileSync(join(proj, ".pr-autopilot.yaml"), configYaml);
-  writeFileSync(join(home, "transitions.jsonl"), JSON.stringify({ id: 1, kind: "ready", repo: "acme/widgets", number: 1, head: "a", reason: "old", data: {}, title: "", url: "u", ts: "" }) + "\n");
+  writeFileSync(
+    join(home, "transitions.jsonl"),
+    JSON.stringify({
+      id: 1,
+      kind: "ready",
+      repo: "acme/widgets",
+      number: 1,
+      head: "a",
+      reason: "old",
+      data: {},
+      title: "",
+      url: "u",
+      ts: "",
+    }) + "\n",
+  );
   const proc = Bun.spawn([process.execPath, join(ROOT, "src/channel/server.ts")], {
     cwd: proj,
     env: { ...process.env, PR_AUTOPILOT_HOME: home, MCP_PROTOCOL_NEGOTIATION: "legacy" },
@@ -46,12 +60,32 @@ function spawnServer(configYaml: string | null) {
 }
 
 const transition = (id: number, repo: string, kind = "conflicted") =>
-  JSON.stringify({ id, ts: "2026-10-06T00:00:00.000Z", kind, repo, number: 7, head: "1".repeat(40), reason: "conflicts with main", data: { base: "main" }, title: "Tidy", url: `https://github.com/${repo}/pull/7` }) + "\n";
+  JSON.stringify({
+    id,
+    ts: "2026-10-06T00:00:00.000Z",
+    kind,
+    repo,
+    number: 7,
+    head: "1".repeat(40),
+    reason: "conflicts with main",
+    data: { base: "main" },
+    title: "Tidy",
+    url: `https://github.com/${repo}/pull/7`,
+  }) + "\n";
 
 test("speaks MCP over stdio and pushes new in-scope transitions as channel notifications", async () => {
   const s = spawnServer("repos:\n  - acme/widgets\n");
   try {
-    s.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2026-07-28", capabilities: {}, clientInfo: { name: "test", version: "0" } } });
+    s.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2026-07-28",
+        capabilities: {},
+        clientInfo: { name: "test", version: "0" },
+      },
+    });
     const init = await s.next();
     expect(init.result.protocolVersion).toBe("2025-06-18");
     expect(init.result.capabilities).toEqual({ experimental: { "claude/channel": {} } });
@@ -63,8 +97,16 @@ test("speaks MCP over stdio and pushes new in-scope transitions as channel notif
     appendFileSync(s.log, transition(3, "acme/widgets"));
     const n = await s.next();
     expect(n.method).toBe("notifications/claude/channel");
-    expect(n.params.meta).toMatchObject({ kind: "conflicted", repo: "acme/widgets", pr: "7", transition_id: "3", base: "main" });
-    expect(n.params.content).toBe("acme/widgets#7 conflicted: conflicts with main (Tidy) https://github.com/acme/widgets/pull/7");
+    expect(n.params.meta).toMatchObject({
+      kind: "conflicted",
+      repo: "acme/widgets",
+      pr: "7",
+      transition_id: "3",
+      base: "main",
+    });
+    expect(n.params.content).toBe(
+      "acme/widgets#7 conflicted: conflicts with main (Tidy) https://github.com/acme/widgets/pull/7",
+    );
   } finally {
     s.proc.kill();
   }
@@ -73,10 +115,17 @@ test("speaks MCP over stdio and pushes new in-scope transitions as channel notif
 test("delivery.channel false keeps the server connected but silent", async () => {
   const s = spawnServer("repos:\n  - acme/widgets\ndelivery:\n  channel: false\n");
   try {
-    s.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } });
+    s.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: { protocolVersion: "2025-06-18" },
+    });
     await s.next();
     s.send({ jsonrpc: "2.0", method: "notifications/initialized" });
-    expect(await s.nextErr()).toBe("[pr-autopilot channel] delivery.channel is false; staying silent");
+    expect(await s.nextErr()).toBe(
+      "[pr-autopilot channel] delivery.channel is false; staying silent",
+    );
     appendFileSync(s.log, transition(2, "acme/widgets"));
     s.send({ jsonrpc: "2.0", id: 9, method: "ping" });
     expect(await s.next()).toEqual({ jsonrpc: "2.0", id: 9, result: {} });

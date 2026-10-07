@@ -23,7 +23,9 @@ export async function harness(opts: { clock?: Clock; cfg?: Record<string, unknow
   const github = new FakeGitHub();
   const clock = opts.clock ?? new ImmediateClock();
   const runner = new RecordingRunner();
-  const configs = await ConfigSet.fromConfigs([{ config: config(opts.cfg), source: "/virtual/.pr-autopilot.yaml" }]);
+  const configs = await ConfigSet.fromConfigs([
+    { config: config(opts.cfg), source: "/virtual/.pr-autopilot.yaml" },
+  ]);
   const engine = new Engine({ store, sink, github, clock, configs, runner });
   const kinds = () => sink.lines.map((l) => l.kind);
   return { store, sink, github, clock, runner, configs, engine, kinds };

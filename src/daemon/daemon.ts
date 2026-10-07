@@ -30,7 +30,11 @@ export interface DaemonOptions {
 }
 
 export async function controlFetch(socket: string, path: string, init: RequestInit = {}) {
-  return fetch(`http://localhost${path}`, { ...init, unix: socket, signal: AbortSignal.timeout(2000) } as RequestInit);
+  return fetch(`http://localhost${path}`, {
+    ...init,
+    unix: socket,
+    signal: AbortSignal.timeout(2000),
+  } as RequestInit);
 }
 
 export async function daemonHealth(socket: string): Promise<Health | null> {
@@ -46,11 +50,20 @@ export async function daemonHealth(socket: string): Promise<Health | null> {
 export async function startDaemon(o: DaemonOptions) {
   const p = paths(o.home);
   const log = o.log ?? ((m: string) => console.error(`[pr-autopilotd] ${m}`));
-  if (await daemonHealth(p.socket)) throw new Error(`a daemon is already running (socket ${p.socket})`);
+  if (await daemonHealth(p.socket))
+    throw new Error(`a daemon is already running (socket ${p.socket})`);
   const clock = o.clock ?? systemClock;
   const store = new Store(p.db);
   const sink = new FileSink(p.log);
-  const engine = new Engine({ store, sink, github: o.github, clock, configs: o.configs, runner: o.runner ?? shellRunner, log });
+  const engine = new Engine({
+    store,
+    sink,
+    github: o.github,
+    clock,
+    configs: o.configs,
+    runner: o.runner ?? shellRunner,
+    log,
+  });
   const d = o.configs.daemon;
   const secret = process.env[d.secretEnv] || randomBytes(32).toString("hex");
   const source =
@@ -63,7 +76,14 @@ export async function startDaemon(o: DaemonOptions) {
       baseDir: dirname(o.configs.entries[0]!.source),
     }));
   const startedAt = new Date(clock.now()).toISOString();
-  const health = (): Health => ({ ok: true, pid: process.pid, startedAt, version: VERSION, repos: o.configs.repos(), source: source.status() });
+  const health = (): Health => ({
+    ok: true,
+    pid: process.pid,
+    startedAt,
+    version: VERSION,
+    repos: o.configs.repos(),
+    source: source.status(),
+  });
 
   rmSync(p.socket, { force: true });
   const control = Bun.serve({ unix: p.socket, fetch: controlHandler(engine, health) });

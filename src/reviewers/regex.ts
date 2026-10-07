@@ -1,9 +1,16 @@
 import type { ReviewerParser } from "./types.ts";
 
-type Options = { marker?: string; score: string; maxScore?: number; reviewedCommit?: string; reviewsCount?: string };
+type Options = {
+  marker?: string;
+  score: string;
+  maxScore?: number;
+  reviewedCommit?: string;
+  reviewsCount?: string;
+};
 
 function read(options: Record<string, unknown>): Options {
-  if (typeof options.score !== "string") throw new Error("regex parser needs options.score (a pattern whose first group is the score)");
+  if (typeof options.score !== "string")
+    throw new Error("regex parser needs options.score (a pattern whose first group is the score)");
   return options as unknown as Options;
 }
 

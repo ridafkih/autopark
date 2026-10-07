@@ -47,4 +47,6 @@ export class ReplaySource implements EventSource {
 }
 
 export const replayFactory = (options: Record<string, unknown>, deps: SourceDeps) =>
-  new ReplaySource({ file: typeof options.file === "string" ? resolve(deps.baseDir, options.file) : undefined });
+  new ReplaySource({
+    file: typeof options.file === "string" ? resolve(deps.baseDir, options.file) : undefined,
+  });

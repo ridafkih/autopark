@@ -15,10 +15,35 @@ const raw = {
   labels: { nodes: [{ name: "autopilot" }] },
   mergeable: "CONFLICTING",
   mergeStateStatus: "DIRTY",
-  latestOpinionatedReviews: { nodes: [{ author: { login: "r" }, state: "APPROVED", commit: { oid: "ABCDEF1234567890ABCDEF1234567890ABCDEF12" } }] },
-  reviewThreads: { nodes: [{ id: "T1", isResolved: false, isOutdated: true, path: "a.ts", comments: { nodes: [{ author: { login: "greptile-apps" }, url: "u" }] } }] },
-  firstComments: { nodes: [{ id: "C1", author: { login: "greptile-apps" }, body: "x", updatedAt: "1" }] },
-  lastComments: { nodes: [{ id: "C1", author: { login: "greptile-apps" }, body: "x", updatedAt: "1" }, { id: "C2", author: null, body: "y", updatedAt: "2" }] },
+  latestOpinionatedReviews: {
+    nodes: [
+      {
+        author: { login: "r" },
+        state: "APPROVED",
+        commit: { oid: "ABCDEF1234567890ABCDEF1234567890ABCDEF12" },
+      },
+    ],
+  },
+  reviewThreads: {
+    nodes: [
+      {
+        id: "T1",
+        isResolved: false,
+        isOutdated: true,
+        path: "a.ts",
+        comments: { nodes: [{ author: { login: "greptile-apps" }, url: "u" }] },
+      },
+    ],
+  },
+  firstComments: {
+    nodes: [{ id: "C1", author: { login: "greptile-apps" }, body: "x", updatedAt: "1" }],
+  },
+  lastComments: {
+    nodes: [
+      { id: "C1", author: { login: "greptile-apps" }, body: "x", updatedAt: "1" },
+      { id: "C2", author: null, body: "y", updatedAt: "2" },
+    ],
+  },
   commits: {
     nodes: [
       {
@@ -28,9 +53,31 @@ const raw = {
             state: "FAILURE",
             contexts: {
               nodes: [
-                { __typename: "CheckRun", name: "build", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: "d", isRequired: true, checkSuite: { app: { slug: "github-actions" } } },
-                { __typename: "CheckRun", name: "lint", status: "IN_PROGRESS", conclusion: null, detailsUrl: null, isRequired: false, checkSuite: { app: { slug: "github-actions" } } },
-                { __typename: "StatusContext", context: "legacy/ci", state: "PENDING", targetUrl: "t", isRequired: false },
+                {
+                  __typename: "CheckRun",
+                  name: "build",
+                  status: "COMPLETED",
+                  conclusion: "FAILURE",
+                  detailsUrl: "d",
+                  isRequired: true,
+                  checkSuite: { app: { slug: "github-actions" } },
+                },
+                {
+                  __typename: "CheckRun",
+                  name: "lint",
+                  status: "IN_PROGRESS",
+                  conclusion: null,
+                  detailsUrl: null,
+                  isRequired: false,
+                  checkSuite: { app: { slug: "github-actions" } },
+                },
+                {
+                  __typename: "StatusContext",
+                  context: "legacy/ci",
+                  state: "PENDING",
+                  targetUrl: "t",
+                  isRequired: false,
+                },
               ],
             },
           },
@@ -64,11 +111,24 @@ describe("normalizePr", () => {
   test("keeps mergeability, labels and threads", () => {
     expect(s.mergeable).toBe("CONFLICTING");
     expect(s.labels).toEqual(["autopilot"]);
-    expect(s.threads).toEqual([{ id: "T1", resolved: false, outdated: true, author: "greptile-apps", path: "a.ts", url: "u" }]);
+    expect(s.threads).toEqual([
+      {
+        id: "T1",
+        resolved: false,
+        outdated: true,
+        author: "greptile-apps",
+        path: "a.ts",
+        url: "u",
+      },
+    ]);
   });
 
   test("merged PRs normalise to MERGED and missing rollups to no checks", () => {
-    const m = normalizePr("acme/widgets", { ...raw, state: "MERGED", commits: { nodes: [{ commit: { oid: "x", statusCheckRollup: null } }] } });
+    const m = normalizePr("acme/widgets", {
+      ...raw,
+      state: "MERGED",
+      commits: { nodes: [{ commit: { oid: "x", statusCheckRollup: null } }] },
+    });
     expect(m.state).toBe("MERGED");
     expect(m.checks).toEqual([]);
   });

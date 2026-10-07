@@ -12,7 +12,12 @@ export interface RouteResult {
   candidates: Candidate[];
 }
 
-const PR_EVENTS = new Set(["pull_request", "pull_request_review", "pull_request_review_comment", "pull_request_review_thread"]);
+const PR_EVENTS = new Set([
+  "pull_request",
+  "pull_request_review",
+  "pull_request_review_comment",
+  "pull_request_review_thread",
+]);
 
 function candidateOf(repo: string, pr: any): Candidate {
   return {

@@ -55,7 +55,9 @@ export class Store {
 
   constructor(path: string, opts: { readonly?: boolean } = {}) {
     if (path !== ":memory:" && !opts.readonly) mkdirSync(dirname(path), { recursive: true });
-    this.db = opts.readonly ? new Database(path, { readonly: true }) : new Database(path, { create: true });
+    this.db = opts.readonly
+      ? new Database(path, { readonly: true })
+      : new Database(path, { create: true });
     if (!opts.readonly) {
       this.db.run("PRAGMA journal_mode = WAL");
       this.db.run("PRAGMA busy_timeout = 2000");
@@ -64,14 +66,24 @@ export class Store {
   }
 
   markDelivery(id: string, event: string, now: number) {
-    return this.db.query("INSERT OR IGNORE INTO deliveries (id, event, received_at) VALUES (?, ?, ?)").run(id, event, now).changes > 0;
+    return (
+      this.db
+        .query("INSERT OR IGNORE INTO deliveries (id, event, received_at) VALUES (?, ?, ?)")
+        .run(id, event, now).changes > 0
+    );
   }
 
   pruneDeliveries(olderThan: number) {
     this.db.query("DELETE FROM deliveries WHERE received_at < ?").run(olderThan);
   }
 
-  track(p: { repo: string; number: number; source: "explicit" | "filter"; sessionId: string | null; now: number }) {
+  track(p: {
+    repo: string;
+    number: number;
+    source: "explicit" | "filter";
+    sessionId: string | null;
+    now: number;
+  }) {
     const key = prKey(p.repo, p.number);
     this.db
       .query(
@@ -91,7 +103,9 @@ export class Store {
   }
 
   listPrs(opts: { trackedOnly: boolean }): PrRecord[] {
-    const sql = opts.trackedOnly ? "SELECT * FROM prs WHERE tracked = 1 ORDER BY key" : "SELECT * FROM prs ORDER BY key";
+    const sql = opts.trackedOnly
+      ? "SELECT * FROM prs WHERE tracked = 1 ORDER BY key"
+      : "SELECT * FROM prs ORDER BY key";
     return this.db.query(sql).all().map(toRecord);
   }
 
@@ -100,7 +114,9 @@ export class Store {
   }
 
   setAutoMerge(key: string, enabled: boolean | null) {
-    this.db.query("UPDATE prs SET auto_merge = ? WHERE key = ?").run(enabled === null ? null : enabled ? 1 : 0, key);
+    this.db
+      .query("UPDATE prs SET auto_merge = ? WHERE key = ?")
+      .run(enabled === null ? null : enabled ? 1 : 0, key);
   }
 
   setReviewRequested(key: string, head: string | null) {
@@ -112,7 +128,9 @@ export class Store {
   }
 
   saveEvaluation(key: string, evaluation: Evaluation, now: number) {
-    this.db.query("UPDATE prs SET evaluation = ?, updated_at = ? WHERE key = ?").run(JSON.stringify(evaluation), now, key);
+    this.db
+      .query("UPDATE prs SET evaluation = ?, updated_at = ? WHERE key = ?")
+      .run(JSON.stringify(evaluation), now, key);
   }
 
   appendTransition(t: Transition, now: number): number {
@@ -135,7 +153,9 @@ export class Store {
   }
 
   setMeta(k: string, v: string) {
-    this.db.query("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").run(k, v);
+    this.db
+      .query("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
+      .run(k, v);
   }
 
   close() {

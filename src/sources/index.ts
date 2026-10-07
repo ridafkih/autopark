@@ -8,13 +8,19 @@ export const BUILTIN_SOURCES: Record<string, SourceFactory> = {
   replay: replayFactory,
 };
 
-export async function createSource(type: string, options: Record<string, unknown>, deps: SourceDeps): Promise<EventSource> {
+export async function createSource(
+  type: string,
+  options: Record<string, unknown>,
+  deps: SourceDeps,
+): Promise<EventSource> {
   let factory = BUILTIN_SOURCES[type];
   if (!factory) {
-    if (!type.startsWith(".") && !isAbsolute(type)) throw new Error(`unknown event source "${type}"`);
+    if (!type.startsWith(".") && !isAbsolute(type))
+      throw new Error(`unknown event source "${type}"`);
     const mod = await import(resolve(deps.baseDir, type));
     factory = (mod.default ?? mod.createSource) as SourceFactory;
-    if (typeof factory !== "function") throw new Error(`${type} does not export an event source factory`);
+    if (typeof factory !== "function")
+      throw new Error(`${type} does not export an event source factory`);
   }
   return factory(options, deps);
 }

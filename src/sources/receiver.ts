@@ -34,7 +34,10 @@ export function webhookHandler(opts: ReceiverOptions) {
     if (new URL(req.url).pathname !== opts.path) return new Response("not found", { status: 404 });
     if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
     const body = await req.text();
-    if (opts.secret && !verifySignature(opts.secret, body, req.headers.get("x-hub-signature-256"))) {
+    if (
+      opts.secret &&
+      !verifySignature(opts.secret, body, req.headers.get("x-hub-signature-256"))
+    ) {
       return new Response("bad signature", { status: 401 });
     }
     const id = req.headers.get("x-github-delivery");

@@ -2,7 +2,14 @@ import { evaluate } from "../core/evaluate.ts";
 import { diff } from "../core/transitions.ts";
 import { route, type PrIndex } from "../core/route.ts";
 import { matchesTrackFilter, type Candidate } from "../core/track.ts";
-import { prKey, type BaseComparison, type Evaluation, type LoggedTransition, type Snapshot, type Transition } from "../core/types.ts";
+import {
+  prKey,
+  type BaseComparison,
+  type Evaluation,
+  type LoggedTransition,
+  type Snapshot,
+  type Transition,
+} from "../core/types.ts";
 import type { GitHub } from "../github/types.ts";
 import type { Clock } from "./clock.ts";
 import type { ConfigSet, RepoEntry } from "./config-set.ts";
@@ -31,7 +38,13 @@ const DELIVERY_TTL_MS = 7 * 24 * 3600 * 1000;
 
 const settledState = (s: Snapshot) => s.state !== "OPEN" || s.mergeable !== "UNKNOWN";
 
-export async function fetchSettled(github: GitHub, clock: Clock, repo: string, number: number, backoff: number[]) {
+export async function fetchSettled(
+  github: GitHub,
+  clock: Clock,
+  repo: string,
+  number: number,
+  backoff: number[],
+) {
   let snap = await github.fetchPr(repo, number);
   if (settledState(snap)) return { snap, exhausted: false, reads: 1 };
   let reads = 1;
@@ -98,7 +111,8 @@ export class Engine {
         for (const author of authors) {
           try {
             const resolved = author === "@me" ? await this.viewer() : author;
-            for (const c of await github.searchOpenPrs(repo, resolved)) await this.maybeAutoTrack(c, entry);
+            for (const c of await github.searchOpenPrs(repo, resolved))
+              await this.maybeAutoTrack(c, entry);
           } catch (e) {
             this.log(`resync search failed for ${repo}: ${(e as Error).message}`);
           }
@@ -108,10 +122,20 @@ export class Engine {
     for (const pr of store.listPrs({ trackedOnly: true })) this.schedule(pr.key);
   }
 
-  track(repo: string, number: number, opts: { sessionId?: string | null; autoMerge?: boolean | null } = {}) {
+  track(
+    repo: string,
+    number: number,
+    opts: { sessionId?: string | null; autoMerge?: boolean | null } = {},
+  ) {
     const { store, clock, configs } = this.deps;
     if (!configs.get(repo)) throw new Error(`${repo} is not in any loaded pr-autopilot config`);
-    const key = store.track({ repo, number, source: "explicit", sessionId: opts.sessionId ?? null, now: clock.now() });
+    const key = store.track({
+      repo,
+      number,
+      source: "explicit",
+      sessionId: opts.sessionId ?? null,
+      now: clock.now(),
+    });
     if (opts.autoMerge !== undefined) store.setAutoMerge(key, opts.autoMerge);
     this.schedule(key);
     return key;
@@ -182,9 +206,16 @@ export class Engine {
     const key = prKey(c.repo, c.number);
     if (this.deps.store.getPr(key)) return;
     const needsViewer = entry.config.track.authors.includes("@me");
-    if (!matchesTrackFilter(c, entry.config.track, needsViewer ? await this.viewer() : null)) return;
+    if (!matchesTrackFilter(c, entry.config.track, needsViewer ? await this.viewer() : null))
+      return;
     const repo = entry.config.repos.find((r) => r.toLowerCase() === c.repo.toLowerCase()) ?? c.repo;
-    this.deps.store.track({ repo, number: c.number, source: "filter", sessionId: null, now: this.deps.clock.now() });
+    this.deps.store.track({
+      repo,
+      number: c.number,
+      source: "filter",
+      sessionId: null,
+      now: this.deps.clock.now(),
+    });
     this.schedule(key);
   }
 
@@ -200,7 +231,13 @@ export class Engine {
   }
 
   private async withComparison(snap: Snapshot, entry: RepoEntry): Promise<Snapshot> {
-    if (entry.config.readiness.baseFreshness.policy === "off" || snap.state !== "OPEN" || !snap.baseSha || !snap.headSha) return snap;
+    if (
+      entry.config.readiness.baseFreshness.policy === "off" ||
+      snap.state !== "OPEN" ||
+      !snap.baseSha ||
+      !snap.headSha
+    )
+      return snap;
     const k = `${snap.repo.toLowerCase()}:${snap.headSha}..${snap.baseSha}`;
     let cmp = this.compareCache.get(k);
     if (!cmp) {
@@ -222,7 +259,13 @@ export class Engine {
     if (!rec?.tracked) return;
     const entry = configs.get(rec.repo);
     if (!entry) return;
-    const settled = await fetchSettled(this.deps.github, this.deps.clock, rec.repo, rec.number, entry.config.daemon.backoffMs);
+    const settled = await fetchSettled(
+      this.deps.github,
+      this.deps.clock,
+      rec.repo,
+      rec.number,
+      entry.config.daemon.backoffMs,
+    );
     const snap = await this.withComparison(settled.snap, entry);
     const prev = store.getPr(key)?.evaluation ?? null;
     const next = evaluate(snap, entry.config, entry.parsers, prev);
@@ -236,7 +279,13 @@ export class Engine {
   private async emit(t: Transition, e: Evaluation, entry: RepoEntry) {
     const now = this.deps.clock.now();
     const id = this.deps.store.appendTransition(t, now);
-    const lt: LoggedTransition = { ...t, id, ts: new Date(now).toISOString(), title: e.title, url: e.url };
+    const lt: LoggedTransition = {
+      ...t,
+      id,
+      ts: new Date(now).toISOString(),
+      title: e.title,
+      url: e.url,
+    };
     this.deps.sink.append(lt);
     await notify(lt, entry.config, this.deps.runner, this.log);
   }
@@ -249,10 +298,23 @@ export class Engine {
 
   private async maybeAutoMerge(key: string, e: Evaluation, entry: RepoEntry) {
     const rec = this.deps.store.getPr(key);
-    if (!rec || !e.mergeableNow || !this.autoMergeEnabled(rec, e, entry) || rec.mergeAttemptHead === e.headSha) return;
+    if (
+      !rec ||
+      !e.mergeableNow ||
+      !this.autoMergeEnabled(rec, e, entry) ||
+      rec.mergeAttemptHead === e.headSha
+    )
+      return;
     this.deps.store.setMergeAttempt(key, e.headSha);
     const method = entry.config.autoMerge.method;
-    const base: Transition = { kind: "merge_attempted", repo: e.repo, number: e.number, head: e.headSha, reason: "", data: { method } };
+    const base: Transition = {
+      kind: "merge_attempted",
+      repo: e.repo,
+      number: e.number,
+      head: e.headSha,
+      reason: "",
+      data: { method },
+    };
     try {
       const cmd = entry.config.autoMerge.command;
       if (cmd) {
@@ -262,9 +324,25 @@ export class Engine {
       } else {
         await this.deps.github.merge(e.repo, e.number, e.headSha, method);
       }
-      await this.emit({ ...base, reason: `auto-merge (${method}) requested for ${e.headSha.slice(0, 7)}`, data: { method, ok: true } }, e, entry);
+      await this.emit(
+        {
+          ...base,
+          reason: `auto-merge (${method}) requested for ${e.headSha.slice(0, 7)}`,
+          data: { method, ok: true },
+        },
+        e,
+        entry,
+      );
     } catch (err) {
-      await this.emit({ ...base, reason: `auto-merge failed: ${(err as Error).message}`, data: { method, ok: false, error: (err as Error).message } }, e, entry);
+      await this.emit(
+        {
+          ...base,
+          reason: `auto-merge failed: ${(err as Error).message}`,
+          data: { method, ok: false, error: (err as Error).message },
+        },
+        e,
+        entry,
+      );
     }
   }
 }

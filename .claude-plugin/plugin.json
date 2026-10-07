@@ -5,19 +5,11 @@
   "author": {
     "name": "pr-autopilot contributors"
   },
-  "keywords": [
-    "github",
-    "pull-requests",
-    "ci",
-    "webhooks",
-    "channels"
-  ],
+  "keywords": ["github", "pull-requests", "ci", "webhooks", "channels"],
   "mcpServers": {
     "pr-autopilot": {
       "command": "bun",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/src/channel/server.ts"
-      ],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/src/channel/server.ts"],
       "env": {
         "MCP_PROTOCOL_NEGOTIATION": "legacy"
       }

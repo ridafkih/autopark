@@ -14,7 +14,8 @@ export interface Health {
 const json = (body: unknown, status = 200) => Response.json(body, { status });
 
 function prArgs(b: any) {
-  if (typeof b?.repo !== "string" || !Number.isInteger(b?.number)) throw new Error("body needs repo (owner/name) and number");
+  if (typeof b?.repo !== "string" || !Number.isInteger(b?.number))
+    throw new Error("body needs repo (owner/name) and number");
   return { repo: b.repo as string, number: b.number as number };
 }
 
@@ -23,14 +24,17 @@ export function controlHandler(engine: Engine, health: () => Health) {
     const path = new URL(req.url).pathname;
     try {
       if (req.method === "GET" && path === "/health") return json(health());
-      if (req.method === "GET" && path === "/status") return json({ prs: engine.status().map(summarize) });
+      if (req.method === "GET" && path === "/status")
+        return json({ prs: engine.status().map(summarize) });
       if (req.method !== "POST") return json({ error: "not found" }, 404);
       const body: any = await req.json().catch(() => ({}));
       switch (path) {
         case "/track": {
           const { repo, number } = prArgs(body);
           const autoMerge = typeof body.autoMerge === "boolean" ? body.autoMerge : undefined;
-          return json({ key: engine.track(repo, number, { sessionId: body.sessionId ?? null, autoMerge }) });
+          return json({
+            key: engine.track(repo, number, { sessionId: body.sessionId ?? null, autoMerge }),
+          });
         }
         case "/untrack": {
           const { repo, number } = prArgs(body);
@@ -39,7 +43,8 @@ export function controlHandler(engine: Engine, health: () => Health) {
         }
         case "/auto-merge": {
           const { repo, number } = prArgs(body);
-          if (body.enabled !== null && typeof body.enabled !== "boolean") throw new Error("enabled must be true, false or null");
+          if (body.enabled !== null && typeof body.enabled !== "boolean")
+            throw new Error("enabled must be true, false or null");
           engine.setAutoMerge(repo, number, body.enabled);
           return json({ ok: true });
         }

@@ -10,8 +10,17 @@ import { RecordingRunner } from "./fixtures/harness.ts";
 
 const spec: ServiceSpec = {
   label: "dev.pr-autopilot.daemon",
-  program: ["/opt/bun/bin/bun", "/plugins/pr autopilot/src/daemon/main.ts", "--config", "/repo/.pr-autopilot.yaml"],
-  env: { PATH: "/opt/homebrew/bin:/usr/bin", PR_AUTOPILOT_HOME: "/Users/x/.pr-autopilot", NOTE: "a<b&c" },
+  program: [
+    "/opt/bun/bin/bun",
+    "/plugins/pr autopilot/src/daemon/main.ts",
+    "--config",
+    "/repo/.pr-autopilot.yaml",
+  ],
+  env: {
+    PATH: "/opt/homebrew/bin:/usr/bin",
+    PR_AUTOPILOT_HOME: "/Users/x/.pr-autopilot",
+    NOTE: "a<b&c",
+  },
   logPath: "/Users/x/.pr-autopilot/daemon.log",
 };
 
@@ -50,7 +59,9 @@ describe("systemd", () => {
   const unit = renderUnit(spec);
 
   test("restarts always and quotes arguments with spaces", () => {
-    expect(unit).toContain('ExecStart=/opt/bun/bin/bun "/plugins/pr autopilot/src/daemon/main.ts" --config /repo/.pr-autopilot.yaml');
+    expect(unit).toContain(
+      'ExecStart=/opt/bun/bin/bun "/plugins/pr autopilot/src/daemon/main.ts" --config /repo/.pr-autopilot.yaml',
+    );
     expect(unit).toContain("Restart=always");
     expect(unit).toContain('Environment="PR_AUTOPILOT_HOME=/Users/x/.pr-autopilot"');
     expect(unit).toContain("WantedBy=default.target");
@@ -62,7 +73,9 @@ describe("systemd", () => {
     const svc = new SystemdService({ unitDir: dir, runner });
     const file = await svc.install(spec);
     expect(file).toBe(join(dir, "dev.pr-autopilot.daemon.service"));
-    expect(runner.calls.map((c) => c.command)).toEqual(["systemctl --user daemon-reload && systemctl --user enable --now 'dev.pr-autopilot.daemon.service'"]);
+    expect(runner.calls.map((c) => c.command)).toEqual([
+      "systemctl --user daemon-reload && systemctl --user enable --now 'dev.pr-autopilot.daemon.service'",
+    ]);
   });
 });
 

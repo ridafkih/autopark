@@ -11,7 +11,8 @@ export async function resolveToken(): Promise<string> {
   if (env) return env;
   const out = await Bun.$`gh auth token`.quiet().nothrow();
   const token = out.stdout.toString().trim();
-  if (out.exitCode !== 0 || !token) throw new Error("no GitHub token: set GH_TOKEN or run `gh auth login`");
+  if (out.exitCode !== 0 || !token)
+    throw new Error("no GitHub token: set GH_TOKEN or run `gh auth login`");
   return token;
 }
 
@@ -48,13 +49,20 @@ export class GitHubHttp implements GitHub {
     });
     const text = await res.text();
     const json = text ? JSON.parse(text) : null;
-    if (!res.ok) throw new Error(`GitHub ${init.method ?? "GET"} ${path} -> ${res.status}: ${json?.message ?? text}`);
+    if (!res.ok)
+      throw new Error(
+        `GitHub ${init.method ?? "GET"} ${path} -> ${res.status}: ${json?.message ?? text}`,
+      );
     return json;
   }
 
   async graphql(query: string, variables: Record<string, unknown>) {
-    const json = await this.request("/graphql", { method: "POST", body: JSON.stringify({ query, variables }) });
-    if (json?.errors?.length) throw new Error(`GraphQL: ${json.errors.map((e: any) => e.message).join("; ")}`);
+    const json = await this.request("/graphql", {
+      method: "POST",
+      body: JSON.stringify({ query, variables }),
+    });
+    if (json?.errors?.length)
+      throw new Error(`GraphQL: ${json.errors.map((e: any) => e.message).join("; ")}`);
     if (json?.data?.rateLimit) this.lastCost = json.data.rateLimit.cost;
     return json.data;
   }
@@ -101,6 +109,9 @@ export class GitHubHttp implements GitHub {
   }
 
   async merge(repo: string, number: number, sha: string, method: "merge" | "squash" | "rebase") {
-    await this.request(`/repos/${repo}/pulls/${number}/merge`, { method: "PUT", body: JSON.stringify({ sha, merge_method: method }) });
+    await this.request(`/repos/${repo}/pulls/${number}/merge`, {
+      method: "PUT",
+      body: JSON.stringify({ sha, merge_method: method }),
+    });
   }
 }

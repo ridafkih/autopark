@@ -15,7 +15,12 @@ export function transitionEnv(t: LoggedTransition): Record<string, string> {
   };
 }
 
-export async function notify(t: LoggedTransition, cfg: Config, runner: CommandRunner, log: (m: string) => void) {
+export async function notify(
+  t: LoggedTransition,
+  cfg: Config,
+  runner: CommandRunner,
+  log: (m: string) => void,
+) {
   for (const target of cfg.notify) {
     if (!target.on.includes(t.kind)) continue;
     try {

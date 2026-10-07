@@ -10,7 +10,10 @@ export class ClockGapWakeDetector implements WakeDetector {
 
   constructor(
     private clock: Clock,
-    private opts: { intervalMs: number; toleranceMs: number } = { intervalMs: 15_000, toleranceMs: 45_000 },
+    private opts: { intervalMs: number; toleranceMs: number } = {
+      intervalMs: 15_000,
+      toleranceMs: 45_000,
+    },
   ) {}
 
   start(onWake: (gapMs: number) => void) {

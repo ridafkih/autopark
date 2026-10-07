@@ -20,22 +20,75 @@ const base: LoggedTransition = {
   title: "Tidy the widget loader",
   url: "https://github.com/acme/widgets/pull/7",
 };
-const t = (kind: TransitionKind, data: Record<string, unknown> = {}, reason = "r"): LoggedTransition => ({ ...base, kind, data, reason });
+const t = (
+  kind: TransitionKind,
+  data: Record<string, unknown> = {},
+  reason = "r",
+): LoggedTransition => ({ ...base, kind, data, reason });
 
 describe("channel meta", () => {
   test.each<[TransitionKind, Record<string, unknown>, Record<string, string>]>([
-    ["checks_failed", { names: ["build", "lint"], required: ["build"] }, { failed: "build,lint", required_failed: "build" }],
-    ["review_scored", { bot: "greptile", score: 3, maxScore: 5, minScore: 4, head: "abc", onHead: true, meetsThreshold: false }, { bot: "greptile", score: "3", max_score: "5", min_score: "4", reviewed_head: "abc", on_head: "true", meets_threshold: "false" }],
+    [
+      "checks_failed",
+      { names: ["build", "lint"], required: ["build"] },
+      { failed: "build,lint", required_failed: "build" },
+    ],
+    [
+      "review_scored",
+      {
+        bot: "greptile",
+        score: 3,
+        maxScore: 5,
+        minScore: 4,
+        head: "abc",
+        onHead: true,
+        meetsThreshold: false,
+      },
+      {
+        bot: "greptile",
+        score: "3",
+        max_score: "5",
+        min_score: "4",
+        reviewed_head: "abc",
+        on_head: "true",
+        meets_threshold: "false",
+      },
+    ],
     ["threads_open", { count: 2, previous: 0 }, { count: "2" }],
-    ["stale_base", { base: "main", baseSha: "bbb", behindBy: 4, touched: ["a.ts"], policy: "contains-tip" }, { base: "main", base_sha: "bbb", behind_by: "4", touched: "a.ts", policy: "contains-tip" }],
+    [
+      "stale_base",
+      { base: "main", baseSha: "bbb", behindBy: 4, touched: ["a.ts"], policy: "contains-tip" },
+      { base: "main", base_sha: "bbb", behind_by: "4", touched: "a.ts", policy: "contains-tip" },
+    ],
     ["head_moved", { from: "a", to: "b" }, { from: "a", to: "b" }],
     ["approved_on_head", { by: ["r1", "r2"] }, { by: "r1,r2" }],
-    ["not_ready", { reasons: [{ code: "conflict", detail: "x" }, { code: "threads_open", detail: "y" }] }, { reasons: "conflict,threads_open" }],
-    ["merge_attempted", { method: "squash", ok: false, error: "nope" }, { method: "squash", ok: "false", error: "nope" }],
+    [
+      "not_ready",
+      {
+        reasons: [
+          { code: "conflict", detail: "x" },
+          { code: "threads_open", detail: "y" },
+        ],
+      },
+      { reasons: "conflict,threads_open" },
+    ],
+    [
+      "merge_attempted",
+      { method: "squash", ok: false, error: "nope" },
+      { method: "squash", ok: "false", error: "nope" },
+    ],
     ["ready", { mergeableNow: true }, { mergeable_now: "true" }],
   ])("%s", (kind, data, extra) => {
     const meta = channelMeta(t(kind, data));
-    expect(meta).toMatchObject({ kind, repo: "acme/widgets", pr: "7", head: base.head!, transition_id: "42", url: base.url, ...extra });
+    expect(meta).toMatchObject({
+      kind,
+      repo: "acme/widgets",
+      pr: "7",
+      head: base.head!,
+      transition_id: "42",
+      url: base.url,
+      ...extra,
+    });
     for (const [k, v] of Object.entries(meta)) {
       expect(k).toMatch(/^[A-Za-z0-9_]+$/);
       expect(typeof v).toBe("string");
@@ -43,11 +96,15 @@ describe("channel meta", () => {
   });
 
   test("content is a factual one-liner with the PR link", () => {
-    expect(channelContent(t("conflicted", {}, "conflicts with main"))).toBe("acme/widgets#7 conflicted: conflicts with main (Tidy the widget loader) https://github.com/acme/widgets/pull/7");
+    expect(channelContent(t("conflicted", {}, "conflicts with main"))).toBe(
+      "acme/widgets#7 conflicted: conflicts with main (Tidy the widget loader) https://github.com/acme/widgets/pull/7",
+    );
   });
 
   test("monitor line carries kind, pr, short head and reason on one line", () => {
-    expect(monitorLine(t("checks_failed", {}, "required failed: build (FAILURE)\nsecond line"))).toBe(
+    expect(
+      monitorLine(t("checks_failed", {}, "required failed: build (FAILURE)\nsecond line")),
+    ).toBe(
       "pr-autopilot acme/widgets#7 checks_failed head=1111111: required failed: build (FAILURE) second line https://github.com/acme/widgets/pull/7",
     );
   });
@@ -72,7 +129,19 @@ describe("mcp message handling", () => {
   const info = { name: "pr-autopilot", version: "0.1.0", instructions: "react with the playbook" };
 
   test("initialize declares the claude/channel capability and instructions", () => {
-    const r = handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "claude-code" } } }, info);
+    const r = handleRpc(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "claude-code" },
+        },
+      },
+      info,
+    );
     expect(r.response).toEqual({
       jsonrpc: "2.0",
       id: 1,
@@ -86,10 +155,30 @@ describe("mcp message handling", () => {
   });
 
   test.each([
-    ["initialized notification flips the ready flag", { jsonrpc: "2.0", method: "notifications/initialized" }, undefined, true],
-    ["ping answers with an empty result", { jsonrpc: "2.0", id: 2, method: "ping" }, { jsonrpc: "2.0", id: 2, result: {} }, false],
-    ["unknown request is method-not-found", { jsonrpc: "2.0", id: 3, method: "tools/list" }, { jsonrpc: "2.0", id: 3, error: { code: -32601, message: "method not found: tools/list" } }, false],
-    ["unknown notification is ignored", { jsonrpc: "2.0", method: "notifications/cancelled" }, undefined, false],
+    [
+      "initialized notification flips the ready flag",
+      { jsonrpc: "2.0", method: "notifications/initialized" },
+      undefined,
+      true,
+    ],
+    [
+      "ping answers with an empty result",
+      { jsonrpc: "2.0", id: 2, method: "ping" },
+      { jsonrpc: "2.0", id: 2, result: {} },
+      false,
+    ],
+    [
+      "unknown request is method-not-found",
+      { jsonrpc: "2.0", id: 3, method: "tools/list" },
+      { jsonrpc: "2.0", id: 3, error: { code: -32601, message: "method not found: tools/list" } },
+      false,
+    ],
+    [
+      "unknown notification is ignored",
+      { jsonrpc: "2.0", method: "notifications/cancelled" },
+      undefined,
+      false,
+    ],
   ] as const)("%s", (_l, msg, response, initialized) => {
     const r = handleRpc(msg, info);
     expect(r.response).toEqual(response as any);
@@ -156,11 +245,30 @@ describe("delivery scope", () => {
   });
 
   test.each([
-    ["dev channel flag naming the plugin", ["claude --dangerously-load-development-channels plugin:pr-autopilot@pr-autopilot"], true],
-    ["approved channels flag naming the plugin", ["/usr/local/bin/claude --channels plugin:pr-autopilot@team"], true],
-    ["dev channel flag for another plugin", ["claude --dangerously-load-development-channels plugin:fakechat@x"], false],
+    [
+      "dev channel flag naming the plugin",
+      ["claude --dangerously-load-development-channels plugin:pr-autopilot@pr-autopilot"],
+      true,
+    ],
+    [
+      "approved channels flag naming the plugin",
+      ["/usr/local/bin/claude --channels plugin:pr-autopilot@team"],
+      true,
+    ],
+    [
+      "dev channel flag for another plugin",
+      ["claude --dangerously-load-development-channels plugin:fakechat@x"],
+      false,
+    ],
     ["plain session", ["claude", "zsh"], false],
-    ["flag on an ancestor further up", ["sh -c pr-autopilot watch", "node claude --dangerously-load-development-channels server:pr-autopilot"], true],
+    [
+      "flag on an ancestor further up",
+      [
+        "sh -c pr-autopilot watch",
+        "node claude --dangerously-load-development-channels server:pr-autopilot",
+      ],
+      true,
+    ],
   ] as const)("channelLoaded: %s", (_l, args, expected) => {
     expect(channelLoaded([...args])).toBe(expected);
   });

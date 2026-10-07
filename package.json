@@ -1,23 +1,26 @@
 {
   "name": "pr-autopilot",
   "version": "0.1.0",
-  "description": "Drive pull requests to ready through live GitHub events instead of polling.",
-  "type": "module",
   "private": true,
+  "description": "Drive pull requests to ready through live GitHub events instead of polling.",
   "bin": {
     "pr-autopilot": "bin/pr-autopilot",
     "pr-autopilotd": "bin/pr-autopilotd"
   },
+  "type": "module",
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "schema": "bun src/cli/main.ts schema > schema/pr-autopilot.schema.json"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.87.0",
     "@types/bun": "latest",
     "eslint-plugin-unicorn": "77.0.0",
+    "oxfmt": "0.72.0",
     "oxlint": "1.87.0",
     "typescript": "^5.9.0"
   }

@@ -47,7 +47,10 @@ export class SystemdService implements ServiceManager {
     mkdirSync(this.dir, { recursive: true });
     const file = this.path(spec.label);
     writeFileSync(file, renderUnit(spec));
-    const r = await this.o.runner.run(`systemctl --user daemon-reload && systemctl --user enable --now ${shq(`${spec.label}.service`)}`, {});
+    const r = await this.o.runner.run(
+      `systemctl --user daemon-reload && systemctl --user enable --now ${shq(`${spec.label}.service`)}`,
+      {},
+    );
     if (r.code !== 0) throw new Error(`systemctl enable failed: ${r.stderr.trim()}`);
     return file;
   }

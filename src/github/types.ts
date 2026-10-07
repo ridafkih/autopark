@@ -6,5 +6,10 @@ export interface GitHub {
   fetchPr(repo: string, number: number): Promise<Snapshot>;
   compare(repo: string, headSha: string, baseSha: string): Promise<BaseComparison>;
   searchOpenPrs(repo: string, author: string | null): Promise<Candidate[]>;
-  merge(repo: string, number: number, sha: string, method: "merge" | "squash" | "rebase"): Promise<void>;
+  merge(
+    repo: string,
+    number: number,
+    sha: string,
+    method: "merge" | "squash" | "rebase",
+  ): Promise<void>;
 }

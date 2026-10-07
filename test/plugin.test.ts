@@ -19,18 +19,24 @@ describe("plugin packaging", () => {
     const server = m.mcpServers["pr-autopilot"];
     expect(server.env.MCP_PROTOCOL_NEGOTIATION).toBe("legacy");
     expect(existsSync(join(ROOT, pluginPath(server.args[0])!))).toBe(true);
-    expect(m.channels).toEqual([{ server: "pr-autopilot", displayName: "PR autopilot transitions" }]);
+    expect(m.channels).toEqual([
+      { server: "pr-autopilot", displayName: "PR autopilot transitions" },
+    ]);
   });
 
   test("marketplace lists the plugin at the repo root", () => {
-    expect(json(".claude-plugin/marketplace.json").plugins[0]).toMatchObject({ name: "pr-autopilot", source: "./" });
+    expect(json(".claude-plugin/marketplace.json").plugins[0]).toMatchObject({
+      name: "pr-autopilot",
+      source: "./",
+    });
   });
 
   test("hooks call existing entry points", () => {
     const h = json("hooks/hooks.json").hooks;
     expect(Object.keys(h)).toEqual(["SessionStart", "Stop"]);
     for (const event of Object.values<any>(h)) {
-      for (const cmd of event[0].hooks.map((x: any) => x.command)) expect(existsSync(join(ROOT, pluginPath(cmd)!))).toBe(true);
+      for (const cmd of event[0].hooks.map((x: any) => x.command))
+        expect(existsSync(join(ROOT, pluginPath(cmd)!))).toBe(true);
     }
     expect(h.SessionStart[0].hooks[0].command).toEndWith("hook session-start");
     expect(h.Stop[0].hooks[0].command).toEndWith("hook stop");

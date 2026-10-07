@@ -27,14 +27,22 @@ async function main() {
   let tailer: LogTailer | null = null;
 
   const mcp = new StdioMcp(
-    { name: "pr-autopilot", version: VERSION, instructions: channelInstructions(playbookRef(config, path)) },
+    {
+      name: "pr-autopilot",
+      version: VERSION,
+      instructions: channelInstructions(playbookRef(config, path)),
+    },
     (s) => process.stdout.write(s),
     () => {
       if (!enabled) return log("delivery.channel is false; staying silent");
       tailer = new LogTailer(p.log, (line) => {
         try {
           const t = JSON.parse(line) as LoggedTransition;
-          if (inScope(t, scope)) mcp.notify("notifications/claude/channel", { content: channelContent(t), meta: channelMeta(t) });
+          if (inScope(t, scope))
+            mcp.notify("notifications/claude/channel", {
+              content: channelContent(t),
+              meta: channelMeta(t),
+            });
         } catch (e) {
           log(`skipping bad line: ${(e as Error).message}`);
         }

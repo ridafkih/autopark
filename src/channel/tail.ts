@@ -1,4 +1,13 @@
-import { closeSync, existsSync, mkdirSync, openSync, readSync, statSync, watch, type FSWatcher } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  statSync,
+  watch,
+  type FSWatcher,
+} from "node:fs";
 import { basename, dirname } from "node:path";
 
 export class LogTailer {

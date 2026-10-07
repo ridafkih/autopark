@@ -1,6 +1,13 @@
 import type { Clock } from "../daemon/clock.ts";
 import { startReceiver } from "./receiver.ts";
-import type { ChildHandle, EventSource, SourceContext, SourceDeps, SourceState, Spawner } from "./types.ts";
+import type {
+  ChildHandle,
+  EventSource,
+  SourceContext,
+  SourceDeps,
+  SourceState,
+  Spawner,
+} from "./types.ts";
 
 export const DEFAULT_EVENTS = [
   "push",
@@ -25,7 +32,15 @@ export interface GhForwardOptions {
 }
 
 export function forwardArgs(o: GhForwardOptions, repo: string, port: number, secret: string) {
-  return [o.gh, "webhook", "forward", `--repo=${repo}`, `--events=${o.events.join(",")}`, `--url=http://${o.hostname}:${port}${o.path}`, `--secret=${secret}`];
+  return [
+    o.gh,
+    "webhook",
+    "forward",
+    `--repo=${repo}`,
+    `--events=${o.events.join(",")}`,
+    `--url=http://${o.hostname}:${port}${o.path}`,
+    `--secret=${secret}`,
+  ];
 }
 
 export class GhWebhookForwardSource implements EventSource {
@@ -46,7 +61,13 @@ export class GhWebhookForwardSource implements EventSource {
     this.running = true;
     let port = this.deps.port;
     if (this.deps.listen !== false) {
-      this.server = startReceiver({ hostname: this.o.hostname, port, path: this.o.path, secret: this.deps.secret, deliver: (d) => ctx.deliver(d) });
+      this.server = startReceiver({
+        hostname: this.o.hostname,
+        port,
+        path: this.o.path,
+        secret: this.deps.secret,
+        deliver: (d) => ctx.deliver(d),
+      });
       port = this.server.port ?? port;
     }
     for (const repo of ctx.repos) this.loops.push(this.supervise(repo, port, ctx));
@@ -75,7 +96,8 @@ export class GhWebhookForwardSource implements EventSource {
       this.children.delete(repo);
       if (!this.running) break;
       this.states.set(repo, "disconnected");
-      const delay = this.o.restartBackoffMs[Math.min(failures, this.o.restartBackoffMs.length - 1)] ?? 5000;
+      const delay =
+        this.o.restartBackoffMs[Math.min(failures, this.o.restartBackoffMs.length - 1)] ?? 5000;
       failures++;
       ctx.log(`gh webhook forward for ${repo} exited ${code}; restarting in ${delay}ms`);
       await this.deps.clock.sleep(delay);
@@ -141,7 +163,12 @@ async function* linesOf(...streams: ReadableStream<Uint8Array>[]) {
 }
 
 export const bunSpawner: Spawner = (cmd, env) => {
-  const proc = Bun.spawn(cmd, { env: { ...process.env, ...env }, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn(cmd, {
+    env: { ...process.env, ...env },
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   return { lines: linesOf(proc.stdout, proc.stderr), exited: proc.exited, kill: () => proc.kill() };
 };
 
@@ -152,7 +179,9 @@ export const ghForwardFactory = (options: Record<string, unknown>, deps: SourceD
       events: Array.isArray(options.events) ? (options.events as string[]) : DEFAULT_EVENTS,
       hostname: typeof options.hostname === "string" ? options.hostname : "127.0.0.1",
       path: typeof options.path === "string" ? options.path : "/github",
-      restartBackoffMs: Array.isArray(options.restartBackoffMs) ? (options.restartBackoffMs as number[]) : [1000, 2000, 5000, 10000, 30000, 60000],
+      restartBackoffMs: Array.isArray(options.restartBackoffMs)
+        ? (options.restartBackoffMs as number[])
+        : [1000, 2000, 5000, 10000, 30000, 60000],
     },
     deps,
   );

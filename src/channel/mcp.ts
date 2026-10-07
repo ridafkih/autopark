@@ -1,7 +1,9 @@
 export const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 export function negotiate(requested: unknown) {
-  return typeof requested === "string" && SUPPORTED_PROTOCOLS.includes(requested) ? requested : SUPPORTED_PROTOCOLS[0]!;
+  return typeof requested === "string" && SUPPORTED_PROTOCOLS.includes(requested)
+    ? requested
+    : SUPPORTED_PROTOCOLS[0]!;
 }
 
 export interface ServerInfo {
@@ -10,7 +12,10 @@ export interface ServerInfo {
   instructions: string;
 }
 
-export function handleRpc(msg: any, info: ServerInfo): { response?: object; initialized?: boolean } {
+export function handleRpc(
+  msg: any,
+  info: ServerInfo,
+): { response?: object; initialized?: boolean } {
   const isRequest = msg && msg.id !== undefined && msg.id !== null;
   switch (msg?.method) {
     case "initialize":
@@ -32,7 +37,13 @@ export function handleRpc(msg: any, info: ServerInfo): { response?: object; init
       return isRequest ? { response: { jsonrpc: "2.0", id: msg.id, result: {} } } : {};
   }
   if (!isRequest) return {};
-  return { response: { jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `method not found: ${msg?.method}` } } };
+  return {
+    response: {
+      jsonrpc: "2.0",
+      id: msg.id,
+      error: { code: -32601, message: `method not found: ${msg?.method}` },
+    },
+  };
 }
 
 export class StdioMcp {

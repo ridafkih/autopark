@@ -6,7 +6,13 @@ const parser: ReviewerParser = {
   parse(comment) {
     const m = /SCORE (\d+)/.exec(comment.body);
     if (!m) return null;
-    return { score: Number(m[1]), maxScore: 10, reviewedSha: null, reviewsCount: null, commentId: comment.id };
+    return {
+      score: Number(m[1]),
+      maxScore: 10,
+      reviewedSha: null,
+      reviewsCount: null,
+      commentId: comment.id,
+    };
   },
 };
 

@@ -3,8 +3,14 @@ import { definePlugin, defineRule, type ESTree } from "@oxlint/plugins";
 const noLet = defineRule({
   meta: {
     type: "suggestion",
-    docs: { description: "Disallow `let`; bind with `const` and derive new values instead of reassigning." },
-    messages: { noLet: "Use `const`. Derive a new binding, return early or extract a helper instead of reassigning." },
+    docs: {
+      description:
+        "Disallow `let`; bind with `const` and derive new values instead of reassigning.",
+    },
+    messages: {
+      noLet:
+        "Use `const`. Derive a new binding, return early or extract a helper instead of reassigning.",
+    },
   },
   create(context) {
     return {

@@ -21,7 +21,8 @@ export class ConfigSet {
       for (const repo of e.config.repos) {
         const k = repo.toLowerCase();
         const existing = this.byRepo.get(k);
-        if (existing) throw new Error(`${repo} is configured twice (${existing.source} and ${e.source})`);
+        if (existing)
+          throw new Error(`${repo} is configured twice (${existing.source} and ${e.source})`);
         this.byRepo.set(k, e);
       }
     }
@@ -41,7 +42,8 @@ export class ConfigSet {
 
   static async fromConfigs(configs: Array<{ config: Config; source: string }>) {
     const entries: RepoEntry[] = [];
-    for (const c of configs) entries.push({ ...c, parsers: await loadParsers(c.config.reviewers, dirname(c.source)) });
+    for (const c of configs)
+      entries.push({ ...c, parsers: await loadParsers(c.config.reviewers, dirname(c.source)) });
     return new ConfigSet(entries);
   }
 
@@ -49,7 +51,8 @@ export class ConfigSet {
     const configs: Array<{ config: Config; source: string }> = [];
     for (const p of paths) {
       const r = await loadConfigFile(p);
-      if (!r.ok) throw new Error(`${p}: ${r.issues.map((i) => `${i.path} ${i.message}`).join("; ")}`);
+      if (!r.ok)
+        throw new Error(`${p}: ${r.issues.map((i) => `${i.path} ${i.message}`).join("; ")}`);
       configs.push({ config: r.config, source: p });
     }
     return ConfigSet.fromConfigs(configs);

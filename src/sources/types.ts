@@ -1,7 +1,13 @@
 import type { Clock } from "../daemon/clock.ts";
 import type { Delivery } from "../daemon/engine.ts";
 
-export type SourceState = "idle" | "connecting" | "connected" | "disconnected" | "stopped" | "error";
+export type SourceState =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "stopped"
+  | "error";
 
 export interface SourceStatus {
   name: string;

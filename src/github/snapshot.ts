@@ -1,4 +1,11 @@
-import type { CheckContext, CheckOutcome, Mergeable, PrComment, PrState, Snapshot } from "../core/types.ts";
+import type {
+  CheckContext,
+  CheckOutcome,
+  Mergeable,
+  PrComment,
+  PrState,
+  Snapshot,
+} from "../core/types.ts";
 
 const PASS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
 const STATUS_PENDING = new Set(["PENDING", "EXPECTED"]);
@@ -14,7 +21,8 @@ export function statusOutcome(state: string): CheckOutcome {
   return "fail";
 }
 
-const mergeableOf = (v: unknown): Mergeable => (v === "MERGEABLE" || v === "CONFLICTING" ? v : "UNKNOWN");
+const mergeableOf = (v: unknown): Mergeable =>
+  v === "MERGEABLE" || v === "CONFLICTING" ? v : "UNKNOWN";
 
 export function normalizePr(repo: string, pr: any): Snapshot {
   const commit = pr.commits?.nodes?.[0]?.commit;
@@ -42,13 +50,23 @@ export function normalizePr(repo: string, pr: any): Snapshot {
   );
   const seen = new Set<string>();
   const comments: PrComment[] = [];
-  for (const c of [...(pr.firstComments?.nodes ?? []), ...(pr.lastComments?.nodes ?? []), ...(pr.comments?.nodes ?? [])]) {
+  for (const c of [
+    ...(pr.firstComments?.nodes ?? []),
+    ...(pr.lastComments?.nodes ?? []),
+    ...(pr.comments?.nodes ?? []),
+  ]) {
     const id = String(c.id ?? c.databaseId);
     if (seen.has(id)) continue;
     seen.add(id);
-    comments.push({ id, author: c.author?.login ?? null, body: c.body ?? "", updatedAt: c.updatedAt ?? "" });
+    comments.push({
+      id,
+      author: c.author?.login ?? null,
+      body: c.body ?? "",
+      updatedAt: c.updatedAt ?? "",
+    });
   }
-  const state: PrState = pr.state === "MERGED" || pr.merged ? "MERGED" : pr.state === "CLOSED" ? "CLOSED" : "OPEN";
+  const state: PrState =
+    pr.state === "MERGED" || pr.merged ? "MERGED" : pr.state === "CLOSED" ? "CLOSED" : "OPEN";
   return {
     repo,
     number: pr.number,

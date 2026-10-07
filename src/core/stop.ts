@@ -7,7 +7,12 @@ export interface TrackedView {
   reviewRequestedHead: string | null;
 }
 
-export type ActionKind = "conflict" | "stale_base" | "failed_checks" | "review_findings" | "review_not_requested";
+export type ActionKind =
+  | "conflict"
+  | "stale_base"
+  | "failed_checks"
+  | "review_findings"
+  | "review_not_requested";
 
 export interface ActionItem {
   pr: string;
@@ -30,10 +35,20 @@ export function itemsFor(v: TrackedView, cfg: StopConfig): ActionItem[] {
   const pr = `${e.repo}#${e.number}`;
   const out: ActionItem[] = [];
   if (cfg.blockOnConflict && e.mergeable === "CONFLICTING") {
-    out.push({ pr, kind: "conflict", detail: `conflicts with ${e.baseRef}`, next: `merge ${e.baseRef} into the branch, resolve, push.` });
+    out.push({
+      pr,
+      kind: "conflict",
+      detail: `conflicts with ${e.baseRef}`,
+      next: `merge ${e.baseRef} into the branch, resolve, push.`,
+    });
   }
   if (cfg.blockOnStaleBase && e.base.stale) {
-    out.push({ pr, kind: "stale_base", detail: detailOf(e, "stale_base"), next: `merge ${e.baseRef} in so required checks run against the current base, push.` });
+    out.push({
+      pr,
+      kind: "stale_base",
+      detail: detailOf(e, "stale_base"),
+      next: `merge ${e.baseRef} in so required checks run against the current base, push.`,
+    });
   }
   const failedRequired = e.checks.failed.filter((f) => f.required);
   if (cfg.blockOnFailedChecks && failedRequired.length) {
@@ -45,13 +60,27 @@ export function itemsFor(v: TrackedView, cfg: StopConfig): ActionItem[] {
     });
   }
   if (cfg.blockOnReviewFindings) {
-    const low = e.reviewers.filter((r) => r.required && r.onHead && r.score !== null && !r.meetsThreshold);
-    const parts = low.map((r) => `${r.name} scored ${r.score}${r.maxScore ? `/${r.maxScore}` : ""} on head, needs ${r.minScore}`);
-    if (e.threadsOpen > 0 && e.reasons.some((r) => r.code === "threads_open")) parts.push(`${e.threadsOpen} unresolved review thread(s)`);
-    if (parts.length) out.push({ pr, kind: "review_findings", detail: parts.join("; "), next: "address the findings, reply to and resolve each thread, push." });
+    const low = e.reviewers.filter(
+      (r) => r.required && r.onHead && r.score !== null && !r.meetsThreshold,
+    );
+    const parts = low.map(
+      (r) =>
+        `${r.name} scored ${r.score}${r.maxScore ? `/${r.maxScore}` : ""} on head, needs ${r.minScore}`,
+    );
+    if (e.threadsOpen > 0 && e.reasons.some((r) => r.code === "threads_open"))
+      parts.push(`${e.threadsOpen} unresolved review thread(s)`);
+    if (parts.length)
+      out.push({
+        pr,
+        kind: "review_findings",
+        detail: parts.join("; "),
+        next: "address the findings, reply to and resolve each thread, push.",
+      });
   }
   if (cfg.blockOnHeadMovedWithoutReview) {
-    const needsApproval = e.reasons.some((r) => r.code === "approval_missing" || r.code === "approval_stale");
+    const needsApproval = e.reasons.some(
+      (r) => r.code === "approval_missing" || r.code === "approval_stale",
+    );
     const requestedOnHead = v.reviewRequestedHead === e.headSha;
     if (needsApproval && !requestedOnHead && (v.reviewRequestedHead !== null || e.awaitingHuman)) {
       out.push({
@@ -70,7 +99,11 @@ export interface ScopeContext {
   repos: string[];
 }
 
-export function viewsInScope(views: TrackedView[], scope: "session" | "repo" | "all", ctx: ScopeContext) {
+export function viewsInScope(
+  views: TrackedView[],
+  scope: "session" | "repo" | "all",
+  ctx: ScopeContext,
+) {
   const repos = ctx.repos.map((r) => r.toLowerCase());
   return views.filter((v) => {
     if (scope === "all") return true;
@@ -90,7 +123,12 @@ export interface StopDecision {
   systemMessage?: string;
 }
 
-export function decideStop(input: { items: ActionItem[]; stopHookActive: boolean; priorBlocks: number; maxBlocks: number }): StopDecision {
+export function decideStop(input: {
+  items: ActionItem[];
+  stopHookActive: boolean;
+  priorBlocks: number;
+  maxBlocks: number;
+}): StopDecision {
   const { items, stopHookActive, priorBlocks, maxBlocks } = input;
   if (!items.length) return { decision: "allow", blocks: 0 };
   if (stopHookActive && priorBlocks >= maxBlocks) {

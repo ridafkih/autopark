@@ -1,7 +1,16 @@
 import type { Config } from "../config/schema.ts";
 import type { ReviewerParser } from "../reviewers/types.ts";
 import { loginMatches } from "../reviewers/index.ts";
-import type { CheckContext, CheckOutcome, Evaluation, FailedCheck, Reason, ReviewerEval, ReviewerResult, Snapshot } from "./types.ts";
+import type {
+  CheckContext,
+  CheckOutcome,
+  Evaluation,
+  FailedCheck,
+  Reason,
+  ReviewerEval,
+  ReviewerResult,
+  Snapshot,
+} from "./types.ts";
 
 const MERGE_NOW_STATES = new Set(["CLEAN", "HAS_HOOKS", "UNSTABLE"]);
 const HUMAN_ONLY = new Set(["approval_missing", "approval_stale"]);
@@ -31,15 +40,24 @@ function evaluateChecks(s: Snapshot, cfg: Config) {
   }
   const required = new Set(cfg.checks.required.filter((n) => !gates.has(n) && !ignore.has(n)));
   if (cfg.checks.useGitHubRequired) {
-    for (const [name, cs] of byName) if (!gates.has(name) && cs.some((c) => c.isRequired)) required.add(name);
+    for (const [name, cs] of byName)
+      if (!gates.has(name) && cs.some((c) => c.isRequired)) required.add(name);
   }
-  const requiredSet = required.size ? required : new Set([...byName.keys()].filter((n) => !gates.has(n)));
+  const requiredSet = required.size
+    ? required
+    : new Set([...byName.keys()].filter((n) => !gates.has(n)));
 
   const failed: FailedCheck[] = [];
   for (const [name, cs] of byName) {
     if (gates.has(name)) continue;
     const w = worst(cs);
-    if (w.outcome === "fail") failed.push({ name, conclusion: w.context.conclusion, required: requiredSet.has(name), url: w.context.url });
+    if (w.outcome === "fail")
+      failed.push({
+        name,
+        conclusion: w.context.conclusion,
+        required: requiredSet.has(name),
+        url: w.context.url,
+      });
   }
   const pendingRequired = [...requiredSet].filter((n) => {
     const cs = byName.get(n);
@@ -55,7 +73,11 @@ function evaluateChecks(s: Snapshot, cfg: Config) {
   return { failed, pendingRequired, gates: gateStates, requiredGreen };
 }
 
-function evaluateReviewers(s: Snapshot, cfg: Config, parsers: Map<string, ReviewerParser>): ReviewerEval[] {
+function evaluateReviewers(
+  s: Snapshot,
+  cfg: Config,
+  parsers: Map<string, ReviewerParser>,
+): ReviewerEval[] {
   return cfg.reviewers.map((r) => {
     const parser = parsers.get(r.name);
     const logins = r.logins.length ? r.logins : (parser?.defaultLogins ?? []);
@@ -64,20 +86,42 @@ function evaluateReviewers(s: Snapshot, cfg: Config, parsers: Map<string, Review
       for (const c of s.comments) {
         if (logins.length && !loginMatches(c.author, logins)) continue;
         const result = parser.parse(c, r.options);
-        if (result && (!best || c.updatedAt >= best.updatedAt)) best = { result, updatedAt: c.updatedAt };
+        if (result && (!best || c.updatedAt >= best.updatedAt))
+          best = { result, updatedAt: c.updatedAt };
       }
     }
-    const res = best?.result ?? { score: null, maxScore: null, reviewedSha: null, reviewsCount: null, commentId: null };
+    const res = best?.result ?? {
+      score: null,
+      maxScore: null,
+      reviewedSha: null,
+      reviewsCount: null,
+      commentId: null,
+    };
     const onHead = r.requireOnHead ? shaMatches(res.reviewedSha, s.headSha) : true;
     const meetsThreshold = res.score !== null && (r.minScore === null || res.score >= r.minScore);
-    return { ...res, name: r.name, present: !!best, onHead, required: r.required, minScore: r.minScore, meetsThreshold };
+    return {
+      ...res,
+      name: r.name,
+      present: !!best,
+      onHead,
+      required: r.required,
+      minScore: r.minScore,
+      meetsThreshold,
+    };
   });
 }
 
 function evaluateBase(s: Snapshot, cfg: Config): Evaluation["base"] & { unknown: boolean } {
   const { policy, maxBehind, paths } = cfg.readiness.baseFreshness;
   const cmp = s.baseComparison;
-  const base = { sha: s.baseSha, behindBy: cmp?.behindBy ?? null, touched: [] as string[], stale: false, policy, unknown: false };
+  const base = {
+    sha: s.baseSha,
+    behindBy: cmp?.behindBy ?? null,
+    touched: [] as string[],
+    stale: false,
+    policy,
+    unknown: false,
+  };
   if (policy === "off" || s.state !== "OPEN") return base;
   if (!cmp) return { ...base, unknown: true };
   if (policy === "contains-tip") base.stale = cmp.behindBy > 0;
@@ -93,13 +137,20 @@ function evaluateBase(s: Snapshot, cfg: Config): Evaluation["base"] & { unknown:
 function staleDetail(s: Snapshot, b: Evaluation["base"]) {
   const where = `${s.baseRef}${b.sha ? ` @ ${b.sha.slice(0, 7)}` : ""}`;
   if (b.policy === "paths") {
-    const touched = b.touched.length ? `touched ${b.touched.slice(0, 5).join(", ")}${b.touched.length > 5 ? ", …" : ""}` : "changed files beyond the compare limit";
+    const touched = b.touched.length
+      ? `touched ${b.touched.slice(0, 5).join(", ")}${b.touched.length > 5 ? ", …" : ""}`
+      : "changed files beyond the compare limit";
     return `${where} moved ${b.behindBy} commit(s) and ${touched}; merge ${s.baseRef} in and re-run checks`;
   }
   return `head is ${b.behindBy} commit(s) behind ${where}; merge ${s.baseRef} in and re-run checks`;
 }
 
-export function evaluate(s: Snapshot, cfg: Config, parsers: Map<string, ReviewerParser>, prev: Evaluation | null): Evaluation {
+export function evaluate(
+  s: Snapshot,
+  cfg: Config,
+  parsers: Map<string, ReviewerParser>,
+  prev: Evaluation | null,
+): Evaluation {
   const rd = cfg.readiness;
   const reasons: Reason[] = [];
   const add = (code: Reason["code"], detail: string) => reasons.push({ code, detail });
@@ -108,7 +159,8 @@ export function evaluate(s: Snapshot, cfg: Config, parsers: Map<string, Reviewer
   if (s.isDraft && !rd.allowDraft) add("draft", "PR is a draft");
   if (rd.noConflict) {
     if (s.mergeable === "CONFLICTING") add("conflict", `conflicts with ${s.baseRef}`);
-    else if (s.mergeable === "UNKNOWN" && s.state === "OPEN") add("mergeability_unknown", "GitHub has not computed mergeability yet");
+    else if (s.mergeable === "UNKNOWN" && s.state === "OPEN")
+      add("mergeability_unknown", "GitHub has not computed mergeability yet");
   }
 
   const { unknown: baseUnknown, ...base } = evaluateBase(s, cfg);
@@ -118,35 +170,56 @@ export function evaluate(s: Snapshot, cfg: Config, parsers: Map<string, Reviewer
   const checks = evaluateChecks(s, cfg);
   if (rd.requiredChecksPass) {
     const failedRequired = checks.failed.filter((f) => f.required);
-    if (failedRequired.length) add("checks_failed", `required checks failed: ${failedRequired.map((f) => f.name).join(", ")}`);
-    if (checks.pendingRequired.length) add("checks_pending", `required checks pending: ${checks.pendingRequired.join(", ")}`);
+    if (failedRequired.length)
+      add(
+        "checks_failed",
+        `required checks failed: ${failedRequired.map((f) => f.name).join(", ")}`,
+      );
+    if (checks.pendingRequired.length)
+      add("checks_pending", `required checks pending: ${checks.pendingRequired.join(", ")}`);
   }
 
   const reviewers = evaluateReviewers(s, cfg, parsers);
   for (const r of reviewers) {
     if (!r.required) continue;
     if (!r.present || r.score === null) add("review_missing", `${r.name} has not scored this PR`);
-    else if (!r.onHead) add("review_stale", `${r.name} scored ${r.reviewedSha?.slice(0, 7) ?? "an unknown commit"}, not head ${s.headSha.slice(0, 7)}`);
-    else if (!r.meetsThreshold) add("review_below_threshold", `${r.name} scored ${r.score}${r.maxScore ? `/${r.maxScore}` : ""}, needs ${r.minScore}`);
+    else if (!r.onHead)
+      add(
+        "review_stale",
+        `${r.name} scored ${r.reviewedSha?.slice(0, 7) ?? "an unknown commit"}, not head ${s.headSha.slice(0, 7)}`,
+      );
+    else if (!r.meetsThreshold)
+      add(
+        "review_below_threshold",
+        `${r.name} scored ${r.score}${r.maxScore ? `/${r.maxScore}` : ""}, needs ${r.minScore}`,
+      );
   }
 
-  const threadsOpen = s.threads.filter((t) => !t.resolved && (rd.countOutdatedThreads || !t.outdated)).length;
-  if (rd.noUnresolvedThreads && threadsOpen > 0) add("threads_open", `${threadsOpen} unresolved review thread(s)`);
+  const threadsOpen = s.threads.filter(
+    (t) => !t.resolved && (rd.countOutdatedThreads || !t.outdated),
+  ).length;
+  if (rd.noUnresolvedThreads && threadsOpen > 0)
+    add("threads_open", `${threadsOpen} unresolved review thread(s)`);
 
   const approved = s.approvals.filter((a) => a.state === "APPROVED");
   const onHead = approved.filter((a) => shaMatches(a.sha, s.headSha)).map((a) => a.login);
   const stale = approved.filter((a) => !shaMatches(a.sha, s.headSha)).map((a) => a.login);
-  const changesRequested = s.approvals.filter((a) => a.state === "CHANGES_REQUESTED").map((a) => a.login);
-  if (changesRequested.length) add("changes_requested", `changes requested by ${changesRequested.join(", ")}`);
+  const changesRequested = s.approvals
+    .filter((a) => a.state === "CHANGES_REQUESTED")
+    .map((a) => a.login);
+  if (changesRequested.length)
+    add("changes_requested", `changes requested by ${changesRequested.join(", ")}`);
   const counted = rd.approvalOnHead ? onHead.length : onHead.length + stale.length;
   if (counted < rd.minApprovals) {
-    if (rd.approvalOnHead && stale.length) add("approval_stale", `approval by ${stale.join(", ")} is on an older commit`);
+    if (rd.approvalOnHead && stale.length)
+      add("approval_stale", `approval by ${stale.join(", ")} is on an older commit`);
     else add("approval_missing", `needs ${rd.minApprovals} approval(s) on head, has ${counted}`);
   }
 
   const ready = reasons.length === 0;
   const gatesPass = checks.gates.every((g) => g.outcome === "pass");
-  const lastKnownMergeable = s.mergeable !== "UNKNOWN" ? s.mergeable : (prev?.lastKnownMergeable ?? "UNKNOWN");
+  const lastKnownMergeable =
+    s.mergeable !== "UNKNOWN" ? s.mergeable : (prev?.lastKnownMergeable ?? "UNKNOWN");
 
   return {
     repo: s.repo,

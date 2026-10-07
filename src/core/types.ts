@@ -142,7 +142,13 @@ export interface Evaluation {
   baseRef: string;
   headSha: string;
   labels: string[];
-  base: { sha: string | null; behindBy: number | null; touched: string[]; stale: boolean; policy: string };
+  base: {
+    sha: string | null;
+    behindBy: number | null;
+    touched: string[];
+    stale: boolean;
+    policy: string;
+  };
   mergeable: Mergeable;
   lastKnownMergeable: Mergeable;
   mergeStateStatus: string;

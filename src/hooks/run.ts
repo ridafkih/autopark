@@ -14,7 +14,11 @@ export function readViews(db: string): TrackedView[] {
     return store
       .listPrs({ trackedOnly: true })
       .filter((r) => r.evaluation)
-      .map((r) => ({ evaluation: r.evaluation!, sessionId: r.sessionId, reviewRequestedHead: r.reviewRequestedHead }));
+      .map((r) => ({
+        evaluation: r.evaluation!,
+        sessionId: r.sessionId,
+        reviewRequestedHead: r.reviewRequestedHead,
+      }));
   } finally {
     store.close();
   }
@@ -37,7 +41,9 @@ function writeStopState(p: Paths, sessionId: string, blocks: number) {
 }
 
 export async function hookState(input: any, p: Paths): Promise<HookState> {
-  const { config, path } = await cwdConfig(typeof input.cwd === "string" ? input.cwd : process.cwd());
+  const { config, path } = await cwdConfig(
+    typeof input.cwd === "string" ? input.cwd : process.cwd(),
+  );
   return {
     health: await daemonHealth(p.socket),
     views: readViews(p.db),
@@ -53,11 +59,19 @@ export async function runHook(kind: string, stdin: string): Promise<string | nul
   const s = await hookState(input, p);
   if (kind === "session-start") {
     const ctx = sessionStartContext(s);
-    return ctx ? JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ctx } }) : null;
+    return ctx
+      ? JSON.stringify({
+          hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ctx },
+        })
+      : null;
   }
   if (kind === "stop") {
     const key = s.sessionId ?? "unknown";
-    const r = stopHook({ ...s, stopHookActive: input.stop_hook_active === true, priorBlocks: readStopState(p)[key] ?? 0 });
+    const r = stopHook({
+      ...s,
+      stopHookActive: input.stop_hook_active === true,
+      priorBlocks: readStopState(p)[key] ?? 0,
+    });
     if (existsSync(p.home)) writeStopState(p, key, r.blocks);
     return r.output ? JSON.stringify(r.output) : null;
   }
