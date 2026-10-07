@@ -49,6 +49,7 @@ export class Engine {
   private compareCache = new Map<string, BaseComparison>();
   private viewerLogin: string | null = null;
   private deliveriesSincePrune = 0;
+  private resyncs = new Set<Promise<void>>();
   private log: (msg: string) => void;
 
   constructor(private deps: EngineDeps) {
@@ -80,7 +81,13 @@ export class Engine {
     return { accepted: true, scheduled };
   }
 
-  async resync(reason: string) {
+  resync(reason: string): Promise<void> {
+    const p: Promise<void> = this.doResync(reason).finally(() => this.resyncs.delete(p));
+    this.resyncs.add(p);
+    return p;
+  }
+
+  private async doResync(reason: string) {
     const { store, configs, github } = this.deps;
     this.log(`resync: ${reason}`);
     for (const entry of configs.entries) {
@@ -158,7 +165,9 @@ export class Engine {
   }
 
   async idle() {
-    while (this.runs.size) await Promise.all([...this.runs.values()].map((r) => r.promise));
+    while (this.runs.size || this.resyncs.size) {
+      await Promise.all([...this.resyncs, ...[...this.runs.values()].map((r) => r.promise)]);
+    }
   }
 
   private async viewer() {

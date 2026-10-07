@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, closeSync, mkdirSync, openSync } from "node:fs";
 import { dirname } from "node:path";
 import type { LoggedTransition } from "../core/types.ts";
 
@@ -9,6 +9,7 @@ export interface TransitionSink {
 export class FileSink implements TransitionSink {
   constructor(readonly path: string) {
     mkdirSync(dirname(path), { recursive: true });
+    closeSync(openSync(path, "a"));
   }
   append(t: LoggedTransition) {
     appendFileSync(this.path, JSON.stringify(t) + "\n");
