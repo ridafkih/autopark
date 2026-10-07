@@ -29,6 +29,21 @@ export interface EngineDeps {
 
 const DELIVERY_TTL_MS = 7 * 24 * 3600 * 1000;
 
+const settledState = (s: Snapshot) => s.state !== "OPEN" || s.mergeable !== "UNKNOWN";
+
+export async function fetchSettled(github: GitHub, clock: Clock, repo: string, number: number, backoff: number[]) {
+  let snap = await github.fetchPr(repo, number);
+  if (settledState(snap)) return { snap, exhausted: false, reads: 1 };
+  let reads = 1;
+  for (const ms of backoff) {
+    await clock.sleep(ms);
+    snap = await github.fetchPr(repo, number);
+    reads++;
+    if (settledState(snap)) return { snap, exhausted: false, reads };
+  }
+  return { snap, exhausted: true, reads };
+}
+
 export class Engine {
   private runs = new Map<string, { dirty: boolean; promise: Promise<void> }>();
   private compareCache = new Map<string, BaseComparison>();
@@ -175,17 +190,6 @@ export class Engine {
     };
   }
 
-  private async fetchSettled(repo: string, number: number, backoff: number[]) {
-    let snap = await this.deps.github.fetchPr(repo, number);
-    if (snap.state !== "OPEN" || snap.mergeable !== "UNKNOWN") return { snap, exhausted: false };
-    for (const ms of backoff) {
-      await this.deps.clock.sleep(ms);
-      snap = await this.deps.github.fetchPr(repo, number);
-      if (snap.state !== "OPEN" || snap.mergeable !== "UNKNOWN") return { snap, exhausted: false };
-    }
-    return { snap, exhausted: true };
-  }
-
   private async withComparison(snap: Snapshot, entry: RepoEntry): Promise<Snapshot> {
     if (entry.config.readiness.baseFreshness.policy === "off" || snap.state !== "OPEN" || !snap.baseSha || !snap.headSha) return snap;
     const k = `${snap.repo.toLowerCase()}:${snap.headSha}..${snap.baseSha}`;
@@ -209,7 +213,7 @@ export class Engine {
     if (!rec?.tracked) return;
     const entry = configs.get(rec.repo);
     if (!entry) return;
-    const settled = await this.fetchSettled(rec.repo, rec.number, entry.config.daemon.backoffMs);
+    const settled = await fetchSettled(this.deps.github, this.deps.clock, rec.repo, rec.number, entry.config.daemon.backoffMs);
     const snap = await this.withComparison(settled.snap, entry);
     const prev = store.getPr(key)?.evaluation ?? null;
     const next = evaluate(snap, entry.config, entry.parsers, prev);
