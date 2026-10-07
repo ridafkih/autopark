@@ -8,6 +8,7 @@ export interface HookState {
   config: Config | null;
   sessionId: string | null;
   playbook: string;
+  now: number;
 }
 
 export const configOrDefaults = (config: Config | null) => config ?? defaultConfig(["owner/repo"]);

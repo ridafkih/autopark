@@ -1,11 +1,15 @@
 import type { Config } from "../../config/schema.ts";
 import { formatFailedChecks, formatPullRequest, formatScore, shortSha } from "../format.ts";
+import type { HoldView } from "../hold.ts";
+import { nudgeKindsOf, type NudgeState } from "../nudge.ts";
 import type { Evaluation, ReasonCode, ReviewerEvaluation } from "../types.ts";
 
 export interface TrackedView {
   evaluation: Evaluation;
   sessionId: string | null;
   reviewRequestedHead: string | null;
+  nudge?: NudgeState | null;
+  hold?: HoldView | null;
 }
 
 export type ActionKind =
@@ -13,7 +17,8 @@ export type ActionKind =
   | "stale_base"
   | "failed_checks"
   | "review_findings"
-  | "review_not_requested";
+  | "review_not_requested"
+  | "nudged";
 
 export interface ActionItem {
   pr: string;
@@ -94,11 +99,11 @@ const reviewFindingsItem: ItemBuilder = ({ evaluation, config }) => {
 };
 
 const reviewNotRequestedItem: ItemBuilder = ({ evaluation, view, config, label }) => {
-  if (!config.blockOnHeadMovedWithoutReview) return null;
   const needsApproval = hasReason(evaluation, "approval_missing", "approval_stale");
   const requestedHead = view.reviewRequestedHead;
   const isRequestedOnHead = requestedHead === evaluation.headSha;
-  const isDue = requestedHead !== null || evaluation.awaitingHuman;
+  const isHeadMoved = config.blockOnHeadMovedWithoutReview && requestedHead !== null;
+  const isDue = isHeadMoved || evaluation.awaitingHuman;
   if (!needsApproval || isRequestedOnHead || !isDue) return null;
   return {
     kind: "review_not_requested",
@@ -117,12 +122,26 @@ const ITEM_BUILDERS: ItemBuilder[] = [
 
 const isPresent = (draft: ItemDraft | null): draft is ItemDraft => draft !== null;
 
+function nudgedItem({ evaluation, view }: ItemContext): ItemDraft[] {
+  const { nudge } = view;
+  if (!nudge || nudge.count === 0) return [];
+  const kinds = nudgeKindsOf(evaluation).join(", ");
+  const situation = kinds ? `stuck on ${kinds}` : "ready but not merged";
+  const next = nudge.next ?? "clear what `autopark status` lists as blocking";
+  return [{ kind: "nudged", detail: `${situation}, nudged ${nudge.count}x`, next: `${next}.` }];
+}
+
 export function actionItemsFor(view: TrackedView, config: StopConfig): ActionItem[] {
   const { evaluation } = view;
   if (evaluation.state !== "OPEN") return [];
   const label = formatPullRequest(evaluation);
   const context: ItemContext = { evaluation, view, config, label };
-  return ITEM_BUILDERS.map((build) => build(context))
-    .filter(isPresent)
-    .map((draft) => ({ pr: label, kind: draft.kind, detail: draft.detail, next: draft.next }));
+  const drafts = ITEM_BUILDERS.map((build) => build(context)).filter(isPresent);
+  const items = drafts.length > 0 ? drafts : nudgedItem(context);
+  return items.map((draft) => ({
+    pr: label,
+    kind: draft.kind,
+    detail: draft.detail,
+    next: draft.next,
+  }));
 }

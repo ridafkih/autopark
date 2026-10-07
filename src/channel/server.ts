@@ -1,3 +1,4 @@
+import { PAUSE_RULE } from "../core/nudge-message.ts";
 import { VERSION } from "../daemon/client.ts";
 import { resolvePaths } from "../daemon/paths.ts";
 import { cwdConfig } from "./context.ts";
@@ -16,6 +17,8 @@ export function channelInstructions(playbook: string) {
     `React to each kind using ${playbook}.`,
     "Act on PRs this session is driving (`autopark status --session <session id>`); treat other PRs' events as information.",
     "Pending checks or reviews need no action, and GitHub never needs to be polled: the next event arrives on its own.",
+    "A stuck PR is re-announced as a `nudge` until it is ready, merged or held.",
+    PAUSE_RULE,
   ].join(" ");
 }
 

@@ -1,4 +1,5 @@
 import type { Config } from "../config/schema.ts";
+import { PAUSE_RULE } from "./nudge-message.ts";
 import { actionItemsFor } from "./stop/items.ts";
 import type { ActionItem, TrackedView } from "./stop/items.ts";
 
@@ -39,8 +40,12 @@ export function viewsInScope(
   });
 }
 
+export const isHeld = (view: TrackedView) => view.hold !== null && view.hold !== undefined;
+
 export const actionableItems = (views: TrackedView[], config: StopConfig, context: ScopeContext) =>
-  viewsInScope(views, config.scope, context).flatMap((view) => actionItemsFor(view, config));
+  viewsInScope(views, config.scope, context)
+    .filter((view) => !isHeld(view))
+    .flatMap((view) => actionItemsFor(view, config));
 
 const describeItem = (item: ActionItem) =>
   `- ${item.pr} ${item.kind}: ${item.detail}. Next: ${item.next}`;
@@ -64,6 +69,6 @@ export function decideStop({
   return {
     decision: "block",
     blocks: stopHookActive ? priorBlocks + 1 : 1,
-    reason: `Tracked PRs have actionable items:\n${lines}`,
+    reason: `${PAUSE_RULE}\nTracked PRs have actionable items:\n${lines}`,
   };
 }

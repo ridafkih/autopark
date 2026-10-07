@@ -59,10 +59,10 @@ describe("decideStop", () => {
     expect(decideStop(stopInput)).toMatchObject(expected);
   });
 
-  test("block reason is factual and lists each PR with its next step", () => {
+  test("block reason states the pause rule and lists each PR with its next step", () => {
     const decision = decideStop(input(items, false, 0));
     expect(decision.reason).toBe(
-      "Tracked PRs have actionable items:\n- acme/widgets#7 conflict: conflicts with main. Next: merge main into the branch, resolve, push.",
+      "A declined tool call or a quiet conversation does not pause PR work. Only `autopark hold` does.\nTracked PRs have actionable items:\n- acme/widgets#7 conflict: conflicts with main. Next: merge main into the branch, resolve, push.",
     );
   });
 

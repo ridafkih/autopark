@@ -31,5 +31,6 @@ export const hookState = (overrides: Partial<HookState> = {}): HookState => ({
   config: defaultConfig,
   sessionId: "s1",
   playbook: PLAYBOOK,
+  now: 0,
   ...overrides,
 });
