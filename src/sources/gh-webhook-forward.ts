@@ -4,7 +4,7 @@ import type {
   ChildHandle,
   EventSource,
   SourceContext,
-  SourceDeps,
+  SourceDependencies,
   SourceState,
   Spawner,
 } from "./types.ts";
@@ -172,7 +172,7 @@ export const bunSpawner: Spawner = (cmd, env) => {
   return { lines: linesOf(proc.stdout, proc.stderr), exited: proc.exited, kill: () => proc.kill() };
 };
 
-export const ghForwardFactory = (options: Record<string, unknown>, deps: SourceDeps) =>
+export const ghForwardFactory = (options: Record<string, unknown>, deps: SourceDependencies) =>
   new GhWebhookForwardSource(
     {
       gh: typeof options.gh === "string" ? options.gh : "gh",

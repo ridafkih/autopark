@@ -36,7 +36,7 @@ describe("pr records", () => {
   test("track, untrack and flags round-trip", () => {
     const s = new Store(":memory:");
     s.track({ repo: "Acme/Widgets", number: 7, source: "explicit", sessionId: "s1", now: 1 });
-    expect(s.getPr("acme/widgets#7")).toMatchObject({
+    expect(s.getPullRequest("acme/widgets#7")).toMatchObject({
       repo: "Acme/Widgets",
       number: 7,
       tracked: true,
@@ -47,14 +47,14 @@ describe("pr records", () => {
     s.setAutoMerge("acme/widgets#7", true);
     s.setReviewRequested("acme/widgets#7", "abc");
     s.setMergeAttempt("acme/widgets#7", "abc");
-    expect(s.getPr("acme/widgets#7")).toMatchObject({
+    expect(s.getPullRequest("acme/widgets#7")).toMatchObject({
       autoMerge: true,
       reviewRequestedHead: "abc",
       mergeAttemptHead: "abc",
     });
     s.setTracked("acme/widgets#7", false);
-    expect(s.listPrs({ trackedOnly: true })).toEqual([]);
-    expect(s.listPrs({ trackedOnly: false })).toHaveLength(1);
+    expect(s.listPullRequests({ trackedOnly: true })).toEqual([]);
+    expect(s.listPullRequests({ trackedOnly: false })).toHaveLength(1);
   });
 
   test("re-tracking keeps flags and an explicit source wins over filter", () => {
@@ -62,14 +62,17 @@ describe("pr records", () => {
     s.track({ repo: "acme/widgets", number: 7, source: "filter", sessionId: null, now: 1 });
     s.setAutoMerge("acme/widgets#7", true);
     s.track({ repo: "acme/widgets", number: 7, source: "explicit", sessionId: "s9", now: 2 });
-    expect(s.getPr("acme/widgets#7")).toMatchObject({
+    expect(s.getPullRequest("acme/widgets#7")).toMatchObject({
       source: "explicit",
       sessionId: "s9",
       autoMerge: true,
       tracked: true,
     });
     s.track({ repo: "acme/widgets", number: 7, source: "filter", sessionId: null, now: 3 });
-    expect(s.getPr("acme/widgets#7")).toMatchObject({ source: "explicit", sessionId: "s9" });
+    expect(s.getPullRequest("acme/widgets#7")).toMatchObject({
+      source: "explicit",
+      sessionId: "s9",
+    });
   });
 
   test("transitions get increasing ids and can be read back", () => {

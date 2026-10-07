@@ -1,7 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { ghForwardFactory } from "./gh-webhook-forward.ts";
 import { replayFactory } from "./replay.ts";
-import type { EventSource, SourceDeps, SourceFactory } from "./types.ts";
+import type { EventSource, SourceDependencies, SourceFactory } from "./types.ts";
 
 export const BUILTIN_SOURCES: Record<string, SourceFactory> = {
   "gh-webhook-forward": ghForwardFactory,
@@ -11,7 +11,7 @@ export const BUILTIN_SOURCES: Record<string, SourceFactory> = {
 export async function createSource(
   type: string,
   options: Record<string, unknown>,
-  deps: SourceDeps,
+  deps: SourceDependencies,
 ): Promise<EventSource> {
   let factory = BUILTIN_SOURCES[type];
   if (!factory) {

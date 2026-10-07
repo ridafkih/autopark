@@ -1,9 +1,9 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { prKey, type Evaluation, type Transition } from "../core/types.ts";
+import { pullRequestKey, type Evaluation, type Transition } from "../core/types.ts";
 
-export interface PrRecord {
+export interface PullRequestRecord {
   key: string;
   repo: string;
   number: number;
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS transitions (id INTEGER PRIMARY KEY AUTOINCREMENT, at
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 `;
 
-function toRecord(r: any): PrRecord {
+function toRecord(r: any): PullRequestRecord {
   return {
     key: r.key,
     repo: r.repo,
@@ -84,7 +84,7 @@ export class Store {
     sessionId: string | null;
     now: number;
   }) {
-    const key = prKey(p.repo, p.number);
+    const key = pullRequestKey(p.repo, p.number);
     this.db
       .query(
         `INSERT INTO prs (key, repo, number, tracked, source, session_id, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)
@@ -97,12 +97,12 @@ export class Store {
     return key;
   }
 
-  getPr(key: string): PrRecord | null {
+  getPullRequest(key: string): PullRequestRecord | null {
     const r = this.db.query("SELECT * FROM prs WHERE key = ?").get(key);
     return r ? toRecord(r) : null;
   }
 
-  listPrs(opts: { trackedOnly: boolean }): PrRecord[] {
+  listPullRequests(opts: { trackedOnly: boolean }): PullRequestRecord[] {
     const sql = opts.trackedOnly
       ? "SELECT * FROM prs WHERE tracked = 1 ORDER BY key"
       : "SELECT * FROM prs ORDER BY key";
@@ -136,7 +136,7 @@ export class Store {
   appendTransition(t: Transition, now: number): number {
     const r = this.db
       .query("INSERT INTO transitions (at, key, kind, json) VALUES (?, ?, ?, ?) RETURNING id")
-      .get(now, prKey(t.repo, t.number), t.kind, JSON.stringify(t)) as { id: number };
+      .get(now, pullRequestKey(t.repo, t.number), t.kind, JSON.stringify(t)) as { id: number };
     return r.id;
   }
 

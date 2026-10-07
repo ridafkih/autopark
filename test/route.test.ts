@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { route, type PrIndex } from "../src/core/route.ts";
+import { route, type PullRequestIndex } from "../src/core/route.ts";
 import { matchesTrackFilter } from "../src/core/track.ts";
 
-const index: PrIndex = {
+const index: PullRequestIndex = {
   bySha: (repo, sha) => (repo === "acme/widgets" && sha === "abc" ? [7] : []),
   byHeadRef: (repo, ref) => (repo === "acme/widgets" && ref === "bot/tidy" ? [7] : []),
   byBaseRef: (repo, ref) =>

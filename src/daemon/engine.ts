@@ -1,9 +1,9 @@
 import { evaluate } from "../core/evaluate.ts";
 import { diff } from "../core/transitions.ts";
-import { route, type PrIndex } from "../core/route.ts";
+import { route, type PullRequestIndex } from "../core/route.ts";
 import { matchesTrackFilter, type Candidate } from "../core/track.ts";
 import {
-  prKey,
+  pullRequestKey,
   type BaseComparison,
   type Evaluation,
   type LoggedTransition,
@@ -16,7 +16,7 @@ import type { ConfigSet, RepoEntry } from "./config-set.ts";
 import type { TransitionSink } from "./log.ts";
 import { notify, transitionEnv } from "./notify.ts";
 import type { CommandRunner } from "./runner.ts";
-import type { PrRecord, Store } from "./store.ts";
+import type { PullRequestRecord, Store } from "./store.ts";
 
 export interface Delivery {
   id: string;
@@ -24,7 +24,7 @@ export interface Delivery {
   payload: unknown;
 }
 
-export interface EngineDeps {
+export interface EngineDependencies {
   store: Store;
   sink: TransitionSink;
   github: GitHub;
@@ -45,12 +45,12 @@ export async function fetchSettled(
   number: number,
   backoff: number[],
 ) {
-  let snap = await github.fetchPr(repo, number);
+  let snap = await github.fetchPullRequest(repo, number);
   if (settledState(snap)) return { snap, exhausted: false, reads: 1 };
   let reads = 1;
   for (const ms of backoff) {
     await clock.sleep(ms);
-    snap = await github.fetchPr(repo, number);
+    snap = await github.fetchPullRequest(repo, number);
     reads++;
     if (settledState(snap)) return { snap, exhausted: false, reads };
   }
@@ -65,7 +65,7 @@ export class Engine {
   private resyncs = new Set<Promise<void>>();
   private log: (msg: string) => void;
 
-  constructor(private deps: EngineDeps) {
+  constructor(private deps: EngineDependencies) {
     this.log = deps.log ?? (() => {});
     this.viewerLogin = deps.store.getMeta("viewer");
   }
@@ -85,8 +85,8 @@ export class Engine {
     for (const c of r.candidates) await this.maybeAutoTrack(c, entry);
     const scheduled: string[] = [];
     for (const n of r.prs) {
-      const key = prKey(r.repo, n);
-      if (store.getPr(key)?.tracked) {
+      const key = pullRequestKey(r.repo, n);
+      if (store.getPullRequest(key)?.tracked) {
         this.schedule(key);
         scheduled.push(key);
       }
@@ -111,7 +111,7 @@ export class Engine {
         for (const author of authors) {
           try {
             const resolved = author === "@me" ? await this.viewer() : author;
-            for (const c of await github.searchOpenPrs(repo, resolved))
+            for (const c of await github.searchOpenPullRequests(repo, resolved))
               await this.maybeAutoTrack(c, entry);
           } catch (e) {
             this.log(`resync search failed for ${repo}: ${(e as Error).message}`);
@@ -119,7 +119,7 @@ export class Engine {
         }
       }
     }
-    for (const pr of store.listPrs({ trackedOnly: true })) this.schedule(pr.key);
+    for (const pr of store.listPullRequests({ trackedOnly: true })) this.schedule(pr.key);
   }
 
   track(
@@ -142,27 +142,27 @@ export class Engine {
   }
 
   untrack(repo: string, number: number) {
-    this.deps.store.setTracked(prKey(repo, number), false);
+    this.deps.store.setTracked(pullRequestKey(repo, number), false);
   }
 
   setAutoMerge(repo: string, number: number, enabled: boolean | null) {
-    const key = prKey(repo, number);
-    if (!this.deps.store.getPr(key)) throw new Error(`${repo}#${number} is not tracked`);
+    const key = pullRequestKey(repo, number);
+    if (!this.deps.store.getPullRequest(key)) throw new Error(`${repo}#${number} is not tracked`);
     this.deps.store.setAutoMerge(key, enabled);
     this.schedule(key);
   }
 
   markReviewRequested(repo: string, number: number, head?: string) {
-    const key = prKey(repo, number);
-    const rec = this.deps.store.getPr(key);
+    const key = pullRequestKey(repo, number);
+    const rec = this.deps.store.getPullRequest(key);
     if (!rec) throw new Error(`${repo}#${number} is not tracked`);
     const sha = head ?? rec.evaluation?.headSha ?? null;
     this.deps.store.setReviewRequested(key, sha);
     return sha;
   }
 
-  status(): PrRecord[] {
-    return this.deps.store.listPrs({ trackedOnly: true });
+  status(): PullRequestRecord[] {
+    return this.deps.store.listPullRequests({ trackedOnly: true });
   }
 
   schedule(key: string) {
@@ -203,8 +203,8 @@ export class Engine {
   }
 
   private async maybeAutoTrack(c: Candidate, entry: RepoEntry) {
-    const key = prKey(c.repo, c.number);
-    if (this.deps.store.getPr(key)) return;
+    const key = pullRequestKey(c.repo, c.number);
+    if (this.deps.store.getPullRequest(key)) return;
     const needsViewer = entry.config.track.authors.includes("@me");
     if (!matchesTrackFilter(c, entry.config.track, needsViewer ? await this.viewer() : null))
       return;
@@ -219,8 +219,8 @@ export class Engine {
     this.schedule(key);
   }
 
-  private index(): PrIndex {
-    const prs = this.deps.store.listPrs({ trackedOnly: true });
+  private index(): PullRequestIndex {
+    const prs = this.deps.store.listPullRequests({ trackedOnly: true });
     const match = (repo: string, pred: (e: Evaluation | null) => boolean) =>
       prs.filter((p) => p.repo.toLowerCase() === repo && pred(p.evaluation)).map((p) => p.number);
     return {
@@ -255,7 +255,7 @@ export class Engine {
 
   private async recompute(key: string) {
     const { store, configs, clock } = this.deps;
-    const rec = store.getPr(key);
+    const rec = store.getPullRequest(key);
     if (!rec?.tracked) return;
     const entry = configs.get(rec.repo);
     if (!entry) return;
@@ -267,7 +267,7 @@ export class Engine {
       entry.config.daemon.backoffMs,
     );
     const snap = await this.withComparison(settled.snap, entry);
-    const prev = store.getPr(key)?.evaluation ?? null;
+    const prev = store.getPullRequest(key)?.evaluation ?? null;
     const next = evaluate(snap, entry.config, entry.parsers, prev);
     const transitions = diff(prev, next, { mergeabilityExhausted: settled.exhausted });
     store.saveEvaluation(key, next, clock.now());
@@ -290,14 +290,14 @@ export class Engine {
     await notify(lt, entry.config, this.deps.runner, this.log);
   }
 
-  private autoMergeEnabled(rec: PrRecord, e: Evaluation, entry: RepoEntry) {
+  private autoMergeEnabled(rec: PullRequestRecord, e: Evaluation, entry: RepoEntry) {
     if (rec.autoMerge !== null) return rec.autoMerge;
     const am = entry.config.autoMerge;
     return am.default || e.labels.some((l) => am.labels.includes(l));
   }
 
   private async maybeAutoMerge(key: string, e: Evaluation, entry: RepoEntry) {
-    const rec = this.deps.store.getPr(key);
+    const rec = this.deps.store.getPullRequest(key);
     if (
       !rec ||
       !e.mergeableNow ||

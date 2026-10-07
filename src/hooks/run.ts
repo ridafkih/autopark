@@ -12,7 +12,7 @@ export function readViews(db: string): TrackedView[] {
   const store = new Store(db, { readonly: true });
   try {
     return store
-      .listPrs({ trackedOnly: true })
+      .listPullRequests({ trackedOnly: true })
       .filter((r) => r.evaluation)
       .map((r) => ({
         evaluation: r.evaluation!,

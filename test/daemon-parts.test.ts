@@ -38,7 +38,7 @@ function stubFetch(routes: Record<string, (body: any) => unknown>) {
 }
 
 describe("GitHub HTTP client", () => {
-  const prNode = {
+  const pullRequestNode = {
     number: 7,
     state: "OPEN",
     headRefOid: "A".repeat(40),
@@ -46,17 +46,17 @@ describe("GitHub HTTP client", () => {
     commits: { nodes: [] },
   };
 
-  test("fetchPr sends owner, name and number and normalises the result", async () => {
+  test("fetchPullRequest sends owner, name and number and normalises the result", async () => {
     const { f, calls } = stubFetch({
       "/graphql": () => ({
         data: {
           rateLimit: { cost: 1 },
-          repository: { nameWithOwner: "Acme/Widgets", pullRequest: prNode },
+          repository: { nameWithOwner: "Acme/Widgets", pullRequest: pullRequestNode },
         },
       }),
     });
     const gh = new GitHubHttp({ token: async () => "t", fetch: f });
-    const s = await gh.fetchPr("acme/widgets", 7);
+    const s = await gh.fetchPullRequest("acme/widgets", 7);
     expect(calls[0]!.body.variables).toEqual({ owner: "acme", name: "widgets", n: 7 });
     expect(s).toMatchObject({ repo: "Acme/Widgets", number: 7, headSha: "a".repeat(40) });
     expect(gh.lastCost).toBe(1);
@@ -65,7 +65,7 @@ describe("GitHub HTTP client", () => {
   test("graphql errors throw", async () => {
     const { f } = stubFetch({ "/graphql": () => ({ errors: [{ message: "Could not resolve" }] }) });
     await expect(
-      new GitHubHttp({ token: async () => "t", fetch: f }).fetchPr("a/b", 1),
+      new GitHubHttp({ token: async () => "t", fetch: f }).fetchPullRequest("a/b", 1),
     ).rejects.toThrow(/Could not resolve/);
   });
 
@@ -106,7 +106,7 @@ describe("GitHub HTTP client", () => {
         };
       },
     });
-    const out = await new GitHubHttp({ token: async () => "t", fetch: f }).searchOpenPrs(
+    const out = await new GitHubHttp({ token: async () => "t", fetch: f }).searchOpenPullRequests(
       "acme/widgets",
       "octo",
     );

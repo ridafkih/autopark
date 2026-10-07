@@ -7,7 +7,7 @@ import type {
   Evaluation,
   FailedCheck,
   Reason,
-  ReviewerEval,
+  ReviewerEvaluation,
   ReviewerResult,
   Snapshot,
 } from "./types.ts";
@@ -77,7 +77,7 @@ function evaluateReviewers(
   s: Snapshot,
   cfg: Config,
   parsers: Map<string, ReviewerParser>,
-): ReviewerEval[] {
+): ReviewerEvaluation[] {
   return cfg.reviewers.map((r) => {
     const parser = parsers.get(r.name);
     const logins = r.logins.length ? r.logins : (parser?.defaultLogins ?? []);

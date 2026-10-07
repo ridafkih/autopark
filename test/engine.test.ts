@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { check, HEAD, HEAD2, REPO, snap } from "./fixtures/build.ts";
 import { FakeClock, ImmediateClock } from "./fixtures/clock.ts";
-import { harness, prPayload, repository } from "./fixtures/harness.ts";
+import { harness, pullRequestPayload, repository } from "./fixtures/harness.ts";
 import type { Snapshot, TransitionKind } from "../src/core/types.ts";
 
 const review = (id: string, number = 7) => ({
   id,
   event: "pull_request_review",
-  payload: { action: "submitted", pull_request: prPayload(number), repository },
+  payload: { action: "submitted", pull_request: pullRequestPayload(number), repository },
 });
 
 describe("delivery dedupe", () => {
@@ -186,10 +186,13 @@ describe("routing through the engine", () => {
     await h.engine.handleDelivery({
       id: "o1",
       event: "pull_request",
-      payload: { action: "opened", pull_request: prPayload(7), repository },
+      payload: { action: "opened", pull_request: pullRequestPayload(7), repository },
     });
     await h.engine.idle();
-    expect(h.store.getPr("acme/widgets#7")).toMatchObject({ tracked: true, source: "filter" });
+    expect(h.store.getPullRequest("acme/widgets#7")).toMatchObject({
+      tracked: true,
+      source: "filter",
+    });
     expect(h.kinds()).toContain("ready");
   });
 
@@ -202,7 +205,7 @@ describe("routing through the engine", () => {
     await h.engine.handleDelivery({
       id: "s1",
       event: "pull_request",
-      payload: { action: "synchronize", pull_request: prPayload(7), repository },
+      payload: { action: "synchronize", pull_request: pullRequestPayload(7), repository },
     });
     await h.engine.idle();
     expect(h.engine.status()).toEqual([]);
@@ -215,7 +218,7 @@ describe("routing through the engine", () => {
       event: "pull_request",
       payload: {
         action: "opened",
-        pull_request: prPayload(7, { user: { login: "someone" } }),
+        pull_request: pullRequestPayload(7, { user: { login: "someone" } }),
         repository,
       },
     });
@@ -224,7 +227,7 @@ describe("routing through the engine", () => {
       event: "pull_request",
       payload: {
         action: "opened",
-        pull_request: prPayload(7),
+        pull_request: pullRequestPayload(7),
         repository: { full_name: "other/repo" },
       },
     });
@@ -370,7 +373,7 @@ describe("notifications and bookkeeping", () => {
     h.engine.track(REPO, 7, { sessionId: "s1" });
     await h.engine.idle();
     expect(h.engine.markReviewRequested(REPO, 7)).toBe(HEAD);
-    expect(h.store.getPr("acme/widgets#7")).toMatchObject({
+    expect(h.store.getPullRequest("acme/widgets#7")).toMatchObject({
       reviewRequestedHead: HEAD,
       sessionId: "s1",
     });

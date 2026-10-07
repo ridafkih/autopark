@@ -1,9 +1,9 @@
-export interface PrRef {
+export interface PullRequestRef {
   repo: string;
   number: number;
 }
 
-export function parseRef(input: string, defaultRepo: string | null): PrRef {
+export function parseRef(input: string, defaultRepo: string | null): PullRequestRef {
   const s = input.trim();
   const url = /^https?:\/\/[^/]+\/([^/]+\/[^/]+)\/pull\/(\d+)/.exec(s);
   if (url) return { repo: url[1]!, number: Number(url[2]) };

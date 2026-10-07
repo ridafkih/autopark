@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { Delivery } from "../daemon/engine.ts";
-import type { EventSource, SourceContext, SourceDeps, SourceState } from "./types.ts";
+import type { EventSource, SourceContext, SourceDependencies, SourceState } from "./types.ts";
 
 export async function readDeliveries(path: string): Promise<Delivery[]> {
   const text = await Bun.file(path).text();
@@ -46,7 +46,7 @@ export class ReplaySource implements EventSource {
   }
 }
 
-export const replayFactory = (options: Record<string, unknown>, deps: SourceDeps) =>
+export const replayFactory = (options: Record<string, unknown>, deps: SourceDependencies) =>
   new ReplaySource({
     file: typeof options.file === "string" ? resolve(deps.baseDir, options.file) : undefined,
   });

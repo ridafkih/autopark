@@ -33,7 +33,7 @@ export async function harness(opts: { clock?: Clock; cfg?: Record<string, unknow
 
 export const repository = { full_name: "acme/widgets" };
 
-export const prPayload = (number: number, extra: Record<string, unknown> = {}) => ({
+export const pullRequestPayload = (number: number, extra: Record<string, unknown> = {}) => ({
   number,
   state: "open",
   user: { login: "octo" },

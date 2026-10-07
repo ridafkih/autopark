@@ -1,4 +1,4 @@
-export const PR_SNAPSHOT_QUERY = `query PrSnapshot($owner: String!, $name: String!, $n: Int!) {
+export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: String!, $name: String!, $n: Int!) {
   rateLimit { cost remaining }
   repository(owner: $owner, name: $name) {
     nameWithOwner

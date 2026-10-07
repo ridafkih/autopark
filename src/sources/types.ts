@@ -38,7 +38,7 @@ export interface ChildHandle {
 
 export type Spawner = (cmd: string[], env: Record<string, string>) => ChildHandle;
 
-export interface SourceDeps {
+export interface SourceDependencies {
   clock: Clock;
   port: number;
   secret: string;
@@ -46,4 +46,7 @@ export interface SourceDeps {
   baseDir: string;
 }
 
-export type SourceFactory = (options: Record<string, unknown>, deps: SourceDeps) => EventSource;
+export type SourceFactory = (
+  options: Record<string, unknown>,
+  deps: SourceDependencies,
+) => EventSource;

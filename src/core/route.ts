@@ -1,6 +1,6 @@
 import type { Candidate } from "./track.ts";
 
-export interface PrIndex {
+export interface PullRequestIndex {
   bySha(repo: string, sha: string): number[];
   byHeadRef(repo: string, ref: string): number[];
   byBaseRef(repo: string, ref: string): number[];
@@ -31,7 +31,7 @@ function candidateOf(repo: string, pr: any): Candidate {
   };
 }
 
-export function route(event: string, payload: any, index: PrIndex): RouteResult {
+export function route(event: string, payload: any, index: PullRequestIndex): RouteResult {
   const repo: string | null = payload?.repository?.full_name?.toLowerCase() ?? null;
   const none: RouteResult = { repo, prs: [], candidates: [] };
   if (!repo) return none;

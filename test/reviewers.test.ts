@@ -3,9 +3,9 @@ import { greptile } from "../src/reviewers/greptile.ts";
 import { regexParser } from "../src/reviewers/regex.ts";
 import { loadParsers, loginMatches } from "../src/reviewers/index.ts";
 import { greptileSummary, SHA_A, SHA_B } from "./fixtures/greptile.ts";
-import type { PrComment, ReviewerResult } from "../src/core/types.ts";
+import type { PullRequestComment, ReviewerResult } from "../src/core/types.ts";
 
-const comment = (body: string, author = "greptile-apps"): PrComment => ({
+const comment = (body: string, author = "greptile-apps"): PullRequestComment => ({
   id: "c1",
   author,
   body,

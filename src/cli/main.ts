@@ -4,8 +4,8 @@ import { parseArgs } from "node:util";
 import { configJsonSchema, defaultConfig, type Config } from "../config/schema.ts";
 import { findConfig, loadConfigFile } from "../config/load.ts";
 import { evaluate } from "../core/evaluate.ts";
-import { formatSummaries, summarize, type PrSummary } from "../core/summary.ts";
-import { prKey } from "../core/types.ts";
+import { formatSummaries, summarize, type PullRequestSummary } from "../core/summary.ts";
+import { pullRequestKey } from "../core/types.ts";
 import { controlFetch, daemonHealth } from "../daemon/daemon.ts";
 import { fetchSettled } from "../daemon/engine.ts";
 import { systemClock } from "../daemon/clock.ts";
@@ -17,7 +17,7 @@ import { Store } from "../daemon/store.ts";
 import { GitHubHttp } from "../github/client.ts";
 import { loadParsers } from "../reviewers/index.ts";
 import { SERVICE_LABEL, serviceFor } from "../service/index.ts";
-import { parseRef, repoFromRemote, type PrRef } from "./ref.ts";
+import { parseRef, repoFromRemote, type PullRequestRef } from "./ref.ts";
 import { initTemplate } from "./template.ts";
 
 export const ROOT = resolve(import.meta.dir, "../..");
@@ -66,7 +66,10 @@ async function defaultRepo(config: Config | null) {
   return remote ? repoFromRemote(remote) : null;
 }
 
-async function resolveRef(input: string | undefined, config: Config | null): Promise<PrRef> {
+async function resolveRef(
+  input: string | undefined,
+  config: Config | null,
+): Promise<PullRequestRef> {
   if (!input) throw new CliError("missing <pr>");
   return parseRef(input, await defaultRepo(config));
 }
@@ -102,7 +105,7 @@ function offlineStore(p: Paths) {
   return new Store(p.db);
 }
 
-async function loadStatus(p: Paths): Promise<{ daemon: string; prs: PrSummary[] }> {
+async function loadStatus(p: Paths): Promise<{ daemon: string; prs: PullRequestSummary[] }> {
   const health = await daemonHealth(p.socket);
   if (health) {
     const res: any = await api(p, "GET", "/status");
@@ -116,7 +119,7 @@ async function loadStatus(p: Paths): Promise<{ daemon: string; prs: PrSummary[] 
   try {
     return {
       daemon: "daemon: not running (last known state)",
-      prs: store.listPrs({ trackedOnly: true }).map(summarize),
+      prs: store.listPullRequests({ trackedOnly: true }).map(summarize),
     };
   } finally {
     store.close();
@@ -161,7 +164,7 @@ async function cmdTrack(argv: string[], p: Paths) {
     sessionId: body.sessionId,
     now: Date.now(),
   });
-  if (body.autoMerge) store.setAutoMerge(prKey(ref.repo, ref.number), true);
+  if (body.autoMerge) store.setAutoMerge(pullRequestKey(ref.repo, ref.number), true);
   store.close();
   out(`tracking ${ref.repo}#${ref.number} (daemon not running; it will evaluate on start)`);
 }
@@ -171,7 +174,7 @@ async function cmdUntrack(argv: string[], p: Paths) {
   const ref = await resolveRef(argv[0], config);
   if (!(await api(p, "POST", "/untrack", ref))) {
     const store = offlineStore(p);
-    store.setTracked(prKey(ref.repo, ref.number), false);
+    store.setTracked(pullRequestKey(ref.repo, ref.number), false);
     store.close();
   }
   out(`untracked ${ref.repo}#${ref.number}`);
@@ -187,15 +190,15 @@ async function cmdAutoMerge(argv: string[], p: Paths) {
     throw new CliError("usage: pr-autopilot auto-merge <pr> on|off|default");
   if (!(await api(p, "POST", "/auto-merge", { ...ref, enabled }))) {
     const store = offlineStore(p);
-    if (!store.getPr(prKey(ref.repo, ref.number)))
+    if (!store.getPullRequest(pullRequestKey(ref.repo, ref.number)))
       throw new CliError(`${ref.repo}#${ref.number} is not tracked`);
-    store.setAutoMerge(prKey(ref.repo, ref.number), enabled);
+    store.setAutoMerge(pullRequestKey(ref.repo, ref.number), enabled);
     store.close();
   }
   out(`auto-merge ${mode} for ${ref.repo}#${ref.number}`);
 }
 
-async function fetchEvaluation(ref: PrRef, p: Paths) {
+async function fetchEvaluation(ref: PullRequestRef, p: Paths) {
   const { config, source } = await configFor(ref.repo, p);
   const parsers = await loadParsers(config.reviewers, source ? dirname(source) : process.cwd());
   const gh = new GitHubHttp();
@@ -283,7 +286,7 @@ async function cmdRequestReview(argv: string[], p: Paths) {
   if (rr.instruction) out(`Review request instruction: ${fill(rr.instruction, vars)}`);
   if (!(await api(p, "POST", "/review-requested", { ...ref, head }))) {
     const store = offlineStore(p);
-    store.setReviewRequested(prKey(ref.repo, ref.number), head);
+    store.setReviewRequested(pullRequestKey(ref.repo, ref.number), head);
     store.close();
   }
   out(`recorded review request for ${ref.repo}#${ref.number} at ${head.slice(0, 7)}`);

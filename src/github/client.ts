@@ -1,7 +1,7 @@
 import type { BaseComparison, Snapshot } from "../core/types.ts";
 import type { Candidate } from "../core/track.ts";
-import { PR_SNAPSHOT_QUERY, SEARCH_QUERY, VIEWER_QUERY } from "./query.ts";
-import { normalizePr } from "./snapshot.ts";
+import { PULL_REQUEST_SNAPSHOT_QUERY, SEARCH_QUERY, VIEWER_QUERY } from "./query.ts";
+import { normalizePullRequest } from "./snapshot.ts";
 import type { GitHub } from "./types.ts";
 
 type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
@@ -71,11 +71,11 @@ export class GitHubHttp implements GitHub {
     return (await this.graphql(VIEWER_QUERY, {})).viewer.login as string;
   }
 
-  async fetchPr(repo: string, number: number): Promise<Snapshot> {
-    const data = await this.graphql(PR_SNAPSHOT_QUERY, { ...split(repo), n: number });
+  async fetchPullRequest(repo: string, number: number): Promise<Snapshot> {
+    const data = await this.graphql(PULL_REQUEST_SNAPSHOT_QUERY, { ...split(repo), n: number });
     const pr = data?.repository?.pullRequest;
     if (!pr) throw new Error(`${repo}#${number} not found`);
-    return normalizePr(data.repository.nameWithOwner ?? repo, pr);
+    return normalizePullRequest(data.repository.nameWithOwner ?? repo, pr);
   }
 
   async compare(repo: string, headSha: string, baseSha: string): Promise<BaseComparison> {
@@ -84,7 +84,7 @@ export class GitHubHttp implements GitHub {
     return { behindBy: json.ahead_by ?? 0, files, truncated: files.length >= 300 };
   }
 
-  async searchOpenPrs(repo: string, author: string | null): Promise<Candidate[]> {
+  async searchOpenPullRequests(repo: string, author: string | null): Promise<Candidate[]> {
     const q = `repo:${repo} is:pr is:open${author ? ` author:${author}` : ""}`;
     const out: Candidate[] = [];
     let after: string | null = null;

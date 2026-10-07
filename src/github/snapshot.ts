@@ -2,8 +2,8 @@ import type {
   CheckContext,
   CheckOutcome,
   Mergeable,
-  PrComment,
-  PrState,
+  PullRequestComment,
+  PullRequestState,
   Snapshot,
 } from "../core/types.ts";
 
@@ -24,7 +24,7 @@ export function statusOutcome(state: string): CheckOutcome {
 const mergeableOf = (v: unknown): Mergeable =>
   v === "MERGEABLE" || v === "CONFLICTING" ? v : "UNKNOWN";
 
-export function normalizePr(repo: string, pr: any): Snapshot {
+export function normalizePullRequest(repo: string, pr: any): Snapshot {
   const commit = pr.commits?.nodes?.[0]?.commit;
   const contexts: any[] = commit?.statusCheckRollup?.contexts?.nodes ?? [];
   const checks: CheckContext[] = contexts.map((c) =>
@@ -49,7 +49,7 @@ export function normalizePr(repo: string, pr: any): Snapshot {
         },
   );
   const seen = new Set<string>();
-  const comments: PrComment[] = [];
+  const comments: PullRequestComment[] = [];
   for (const c of [
     ...(pr.firstComments?.nodes ?? []),
     ...(pr.lastComments?.nodes ?? []),
@@ -65,7 +65,7 @@ export function normalizePr(repo: string, pr: any): Snapshot {
       updatedAt: c.updatedAt ?? "",
     });
   }
-  const state: PrState =
+  const state: PullRequestState =
     pr.state === "MERGED" || pr.merged ? "MERGED" : pr.state === "CLOSED" ? "CLOSED" : "OPEN";
   return {
     repo,

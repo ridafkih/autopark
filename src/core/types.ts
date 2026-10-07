@@ -21,7 +21,7 @@ export const TRANSITION_KINDS = [
 export type TransitionKind = (typeof TRANSITION_KINDS)[number];
 
 export type Mergeable = "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
-export type PrState = "OPEN" | "CLOSED" | "MERGED";
+export type PullRequestState = "OPEN" | "CLOSED" | "MERGED";
 export type CheckOutcome = "pass" | "fail" | "pending";
 
 export interface CheckContext {
@@ -49,7 +49,7 @@ export interface ReviewThread {
   url: string | null;
 }
 
-export interface PrComment {
+export interface PullRequestComment {
   id: string;
   author: string | null;
   body: string;
@@ -67,7 +67,7 @@ export interface Snapshot {
   number: number;
   title: string;
   url: string;
-  state: PrState;
+  state: PullRequestState;
   isDraft: boolean;
   author: string | null;
   headRef: string;
@@ -81,7 +81,7 @@ export interface Snapshot {
   checks: CheckContext[];
   approvals: Approval[];
   threads: ReviewThread[];
-  comments: PrComment[];
+  comments: PullRequestComment[];
 }
 
 export interface ReviewerResult {
@@ -92,7 +92,7 @@ export interface ReviewerResult {
   commentId: string | null;
 }
 
-export interface ReviewerEval extends ReviewerResult {
+export interface ReviewerEvaluation extends ReviewerResult {
   name: string;
   present: boolean;
   onHead: boolean;
@@ -136,7 +136,7 @@ export interface Evaluation {
   number: number;
   title: string;
   url: string;
-  state: PrState;
+  state: PullRequestState;
   isDraft: boolean;
   headRef: string;
   baseRef: string;
@@ -158,7 +158,7 @@ export interface Evaluation {
     gates: Array<{ name: string; outcome: CheckOutcome | "missing"; conclusion: string }>;
     requiredGreen: boolean;
   };
-  reviewers: ReviewerEval[];
+  reviewers: ReviewerEvaluation[];
   threadsOpen: number;
   approvals: { onHead: string[]; stale: string[]; changesRequested: string[] };
   reasons: Reason[];
@@ -183,4 +183,4 @@ export interface LoggedTransition extends Transition {
   url: string;
 }
 
-export const prKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;
+export const pullRequestKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;

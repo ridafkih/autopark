@@ -1,7 +1,7 @@
-import type { PrRecord } from "../daemon/store.ts";
+import type { PullRequestRecord } from "../daemon/store.ts";
 import type { Reason } from "./types.ts";
 
-export interface PrSummary {
+export interface PullRequestSummary {
   pr: string;
   repo: string;
   number: number;
@@ -19,7 +19,7 @@ export interface PrSummary {
   updatedAt: number;
 }
 
-export function summarize(r: PrRecord): PrSummary {
+export function summarize(r: PullRequestRecord): PullRequestSummary {
   const e = r.evaluation;
   return {
     pr: `${r.repo}#${r.number}`,
@@ -48,7 +48,10 @@ export function summarize(r: PrRecord): PrSummary {
   };
 }
 
-export function formatSummaries(list: PrSummary[], opts: { daemon: string } = { daemon: "" }) {
+export function formatSummaries(
+  list: PullRequestSummary[],
+  opts: { daemon: string } = { daemon: "" },
+) {
   const lines: string[] = [];
   if (opts.daemon) lines.push(opts.daemon);
   if (!list.length) lines.push("No tracked PRs.");

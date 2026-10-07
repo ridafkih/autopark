@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { checkRunOutcome, normalizePr, statusOutcome } from "../src/github/snapshot.ts";
+import { checkRunOutcome, normalizePullRequest, statusOutcome } from "../src/github/snapshot.ts";
 
 const raw = {
   number: 7,
@@ -87,8 +87,8 @@ const raw = {
   },
 };
 
-describe("normalizePr", () => {
-  const s = normalizePr("acme/widgets", raw);
+describe("normalizePullRequest", () => {
+  const s = normalizePullRequest("acme/widgets", raw);
 
   test("lowercases shas and reads the base tip", () => {
     expect(s.headSha).toBe("abcdef1234567890abcdef1234567890abcdef12");
@@ -124,7 +124,7 @@ describe("normalizePr", () => {
   });
 
   test("merged PRs normalise to MERGED and missing rollups to no checks", () => {
-    const m = normalizePr("acme/widgets", {
+    const m = normalizePullRequest("acme/widgets", {
       ...raw,
       state: "MERGED",
       commits: { nodes: [{ commit: { oid: "x", statusCheckRollup: null } }] },
