@@ -133,6 +133,27 @@ export const REASON_CODES = [
 
 export type ReasonCode = (typeof REASON_CODES)[number];
 
+export const NUDGE_KINDS = [
+  "draft",
+  "conflict",
+  "mergeability_unknown",
+  "stale_base",
+  "base_unknown",
+  "checks_failed",
+  "checks_pending",
+  "review_missing",
+  "review_stale",
+  "review_below_threshold",
+  "threads_open",
+  "changes_requested",
+  "approval_missing",
+  "approval_stale",
+  "human_gate_pending",
+  "awaiting_human",
+] as const;
+
+export type NudgeKind = (typeof NUDGE_KINDS)[number];
+
 export interface Reason {
   code: ReasonCode;
   detail: string;

@@ -342,6 +342,89 @@
       },
       "additionalProperties": false
     },
+    "nudge": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "string",
+          "pattern": "^(?:\\d+(?:ms|s|m|h|d))+$",
+          "default": "10m",
+          "description": "First nudge once a PR has been blocked by the same reasons for this long"
+        },
+        "every": {
+          "type": "string",
+          "pattern": "^(?:\\d+(?:ms|s|m|h|d))+$",
+          "default": "10m",
+          "description": "Repeat the nudge this often while the PR stays blocked"
+        },
+        "escalateAfter": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:\\d+(?:ms|s|m|h|d))+$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mark nudges escalated (and louder) once a PR has been blocked this long"
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "conflict",
+              "mergeability_unknown",
+              "stale_base",
+              "base_unknown",
+              "checks_failed",
+              "checks_pending",
+              "review_missing",
+              "review_stale",
+              "review_below_threshold",
+              "threads_open",
+              "changes_requested",
+              "approval_missing",
+              "approval_stale",
+              "human_gate_pending",
+              "awaiting_human"
+            ]
+          },
+          "default": [
+            "conflict",
+            "mergeability_unknown",
+            "stale_base",
+            "base_unknown",
+            "checks_failed",
+            "checks_pending",
+            "review_missing",
+            "review_stale",
+            "review_below_threshold",
+            "threads_open",
+            "changes_requested",
+            "approval_missing",
+            "approval_stale",
+            "human_gate_pending",
+            "awaiting_human"
+          ],
+          "description": "Blocking reasons that nudge; a draft stays silent unless draft is listed. awaiting_human covers PRs that wait only on approval"
+        },
+        "quietWhenHeadMoving": {
+          "type": "boolean",
+          "default": true,
+          "description": "No nudge while the head moved within the last `after`"
+        },
+        "nudgeReadyUnmerged": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also nudge PRs that are ready but not merged"
+        }
+      },
+      "additionalProperties": false
+    },
     "standards": {
       "type": "object",
       "properties": {

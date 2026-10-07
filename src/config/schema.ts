@@ -1,5 +1,6 @@
 import { arraySchema, objectSchema } from "./dsl/collections.ts";
 import type { Issue, Schema } from "./dsl/core.ts";
+import { nudgeSection } from "./nudge-section.ts";
 import {
   autoMergeSection,
   checksSection,
@@ -24,6 +25,7 @@ export const configSchema = objectSchema({
   notify: arraySchema(notifyTargetSchema, { default: [] }),
   autoMerge: autoMergeSection,
   reviewRequest: reviewRequestSection,
+  nudge: nudgeSection,
   standards: standardsSection,
   delivery: deliverySection,
   hooks: hooksSection,
