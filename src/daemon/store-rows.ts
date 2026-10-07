@@ -1,4 +1,6 @@
+import { memberOf, numberAt, parseJson, stringAt, valueAt } from "../core/json.ts";
 import type { Evaluation } from "../core/types.ts";
+import { isEvaluation } from "./evaluation-guard.ts";
 
 export interface PullRequestRecord {
   key: string;
@@ -12,26 +14,6 @@ export interface PullRequestRecord {
   mergeAttemptHead: string | null;
   evaluation: Evaluation | null;
   updatedAt: number;
-}
-
-export interface PullRequestRow {
-  key: string;
-  repo: string;
-  number: number;
-  tracked: number;
-  source: "explicit" | "filter";
-  session_id: string | null;
-  auto_merge: number | null;
-  review_requested_head: string | null;
-  merge_attempt_head: string | null;
-  evaluation: string | null;
-  updated_at: number;
-}
-
-export interface TransitionRow {
-  id: number;
-  at: number;
-  json: string;
 }
 
 export const SCHEMA = `
@@ -51,16 +33,41 @@ export const toSqlBoolean = (value: boolean | null) => {
   return value ? 1 : 0;
 };
 
-export const toRecord = (row: PullRequestRow): PullRequestRecord => ({
-  key: row.key,
-  repo: row.repo,
-  number: row.number,
-  tracked: Boolean(row.tracked),
-  source: row.source,
-  sessionId: row.session_id,
-  autoMerge: row.auto_merge === null ? null : Boolean(row.auto_merge),
-  reviewRequestedHead: row.review_requested_head,
-  mergeAttemptHead: row.merge_attempt_head,
-  evaluation: row.evaluation ? (JSON.parse(row.evaluation) as Evaluation) : null,
-  updatedAt: row.updated_at,
-});
+const isTrackSource = memberOf(["explicit", "filter"] as const);
+
+const fromSqlBoolean = (value: unknown) =>
+  value === null || value === undefined ? null : Boolean(value);
+
+function parseEvaluation(text: string | undefined) {
+  if (!text) return null;
+  const value = parseJson(text);
+  return isEvaluation(value) ? value : null;
+}
+
+function rowIdentity(row: unknown) {
+  const key = stringAt(row, "key");
+  const repo = stringAt(row, "repo");
+  const number = numberAt(row, "number");
+  const source = valueAt(row, "source");
+  if (key === undefined || repo === undefined || number === undefined || !isTrackSource(source)) {
+    throw new Error("malformed prs row");
+  }
+  return { key, repo, number, source };
+}
+
+export function toRecord(row: unknown): PullRequestRecord {
+  const { key, repo, number, source } = rowIdentity(row);
+  return {
+    key,
+    repo,
+    number,
+    tracked: Boolean(valueAt(row, "tracked")),
+    source,
+    sessionId: stringAt(row, "session_id") ?? null,
+    autoMerge: fromSqlBoolean(valueAt(row, "auto_merge")),
+    reviewRequestedHead: stringAt(row, "review_requested_head") ?? null,
+    mergeAttemptHead: stringAt(row, "merge_attempt_head") ?? null,
+    evaluation: parseEvaluation(stringAt(row, "evaluation")),
+    updatedAt: numberAt(row, "updated_at") ?? 0,
+  };
+}

@@ -2,14 +2,9 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { pullRequestKey, type Evaluation, type Transition } from "../core/types.ts";
-import {
-  SCHEMA,
-  toRecord,
-  toSqlBoolean,
-  type PullRequestRecord,
-  type PullRequestRow,
-  type TransitionRow,
-} from "./store-rows.ts";
+import { numberAt, parseJson, stringAt } from "../core/json.ts";
+import { toTransition } from "../core/transition-codec.ts";
+import { SCHEMA, toRecord, toSqlBoolean, type PullRequestRecord } from "./store-rows.ts";
 
 export type { PullRequestRecord } from "./store-rows.ts";
 
@@ -31,6 +26,16 @@ const TRACK_SQL = `INSERT INTO prs (key, repo, number, tracked, source, session_
            source = CASE WHEN prs.source = 'explicit' THEN 'explicit' ELSE excluded.source END,
            session_id = COALESCE(excluded.session_id, prs.session_id),
            updated_at = excluded.updated_at`;
+
+function toStoredTransition(row: unknown): StoredTransition {
+  const id = numberAt(row, "id");
+  const storedAt = numberAt(row, "at");
+  const transition = toTransition(parseJson(stringAt(row, "json") ?? "null"));
+  if (id === undefined || storedAt === undefined || !transition) {
+    throw new Error("malformed transitions row");
+  }
+  return Object.assign(transition, { id, at: storedAt });
+}
 
 function openDatabase(path: string, isReadonly: boolean) {
   if (isReadonly) return new Database(path, { readonly: true });
@@ -65,7 +70,7 @@ export class Store {
   }
 
   getPullRequest(key: string): PullRequestRecord | null {
-    const row = this.db.query<PullRequestRow, [string]>("SELECT * FROM prs WHERE key = ?").get(key);
+    const row: unknown = this.db.query("SELECT * FROM prs WHERE key = ?").get(key);
     return row ? toRecord(row) : null;
   }
 
@@ -73,7 +78,7 @@ export class Store {
     const sql = trackedOnly
       ? "SELECT * FROM prs WHERE tracked = 1 ORDER BY key"
       : "SELECT * FROM prs ORDER BY key";
-    return this.db.query<PullRequestRow, []>(sql).all().map(toRecord);
+    return this.db.query(sql).all().map(toRecord);
   }
 
   setTracked(key: string, isTracked: boolean) {
@@ -101,24 +106,22 @@ export class Store {
   appendTransition(transition: Transition, now: number): number {
     const insert = "INSERT INTO transitions (at, key, kind, json) VALUES (?, ?, ?, ?) RETURNING id";
     const key = pullRequestKey(transition.repo, transition.number);
-    const row = this.db
-      .query<{ id: number }, [number, string, string, string]>(insert)
+    const row: unknown = this.db
+      .query(insert)
       .get(now, key, transition.kind, JSON.stringify(transition));
-    if (!row) throw new Error("transition insert returned no id");
-    return row.id;
+    const id = numberAt(row, "id");
+    if (id === undefined) throw new Error("transition insert returned no id");
+    return id;
   }
 
   transitionsSince(id: number, limit = 500): StoredTransition[] {
     const select = "SELECT id, at, json FROM transitions WHERE id > ? ORDER BY id LIMIT ?";
-    return this.db
-      .query<TransitionRow, [number, number]>(select)
-      .all(id, limit)
-      .map((row) => Object.assign(JSON.parse(row.json) as Transition, { id: row.id, at: row.at }));
+    return this.db.query(select).all(id, limit).map(toStoredTransition);
   }
 
   getMeta(key: string): string | null {
-    const row = this.db.query<{ v: string }, [string]>("SELECT v FROM meta WHERE k = ?").get(key);
-    return row?.v ?? null;
+    const row: unknown = this.db.query("SELECT v FROM meta WHERE k = ?").get(key);
+    return stringAt(row, "v") ?? null;
   }
 
   setMeta(key: string, value: string) {

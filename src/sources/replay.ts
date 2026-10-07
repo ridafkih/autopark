@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { parseJson, stringAt, valueAt } from "../core/json.ts";
 import type {
   Delivery,
   EventSource,
@@ -12,13 +13,20 @@ interface ReplayOptions {
   deliveries?: Delivery[];
 }
 
+function toDelivery(value: unknown): Delivery {
+  const id = stringAt(value, "id");
+  const event = stringAt(value, "event");
+  if (id === undefined || event === undefined) throw new Error("replay line is not a delivery");
+  return { id, event, payload: valueAt(value, "payload") };
+}
+
 export async function readDeliveries(path: string): Promise<Delivery[]> {
   const text = await Bun.file(path).text();
   return text
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line !== "")
-    .map((line) => JSON.parse(line) as Delivery);
+    .map((line) => toDelivery(parseJson(line)));
 }
 
 export class ReplaySource implements EventSource {

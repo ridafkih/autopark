@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { cwdConfig } from "../channel/context.ts";
+import { isNumber, isRecord, parseJson } from "../core/json.ts";
 import { playbookRef } from "../channel/playbook.ts";
 import type { TrackedView } from "../core/stop.ts";
 import { daemonHealth } from "../daemon/client.ts";
@@ -39,9 +40,16 @@ export function readViews(db: string): TrackedView[] {
   }
 }
 
+function toStopState(value: unknown): StopState {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, number] => isNumber(entry[1])),
+  );
+}
+
 function readStopState(paths: Paths): StopState {
   try {
-    return JSON.parse(readFileSync(paths.stopState, "utf8")) as StopState;
+    return toStopState(parseJson(readFileSync(paths.stopState, "utf8")));
   } catch {
     return {};
   }
@@ -91,7 +99,8 @@ function stopOutput(state: HookState, input: HookInput, paths: Paths) {
 }
 
 export async function runHook(kind: string, stdin: string): Promise<string | null> {
-  const input = (stdin.trim() ? JSON.parse(stdin) : {}) as HookInput;
+  const parsed = stdin.trim() ? parseJson(stdin) : {};
+  const input: HookInput = isRecord(parsed) ? parsed : {};
   const paths = resolvePaths();
   const state = await hookState(input, paths);
   if (kind === "session-start") return sessionStartOutput(state);

@@ -1,5 +1,6 @@
 import { errorMessage } from "../core/errors.ts";
-import type { LoggedTransition } from "../core/types.ts";
+import { parseJson } from "../core/json.ts";
+import { toLoggedTransition } from "../core/transition-codec.ts";
 import type { StdioMcp } from "./mcp.ts";
 import { channelContent, channelMeta } from "./meta.ts";
 import { inScope, type DeliveryScope } from "./scope.ts";
@@ -35,7 +36,11 @@ export class ChannelRelay {
 
   private forward(line: string) {
     try {
-      const transition = JSON.parse(line) as LoggedTransition;
+      const transition = toLoggedTransition(parseJson(line));
+      if (!transition) {
+        this.options.log("skipping bad line: not a transition");
+        return;
+      }
       if (!inScope(transition, this.options.scope)) return;
       this.mcp.notify("notifications/claude/channel", {
         content: channelContent(transition),

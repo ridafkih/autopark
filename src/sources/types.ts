@@ -6,13 +6,16 @@ export interface Delivery {
   payload: unknown;
 }
 
-export type SourceState =
-  | "idle"
-  | "connecting"
-  | "connected"
-  | "disconnected"
-  | "stopped"
-  | "error";
+export const SOURCE_STATES = [
+  "idle",
+  "connecting",
+  "connected",
+  "disconnected",
+  "stopped",
+  "error",
+] as const;
+
+export type SourceState = (typeof SOURCE_STATES)[number];
 
 export interface SourceStatus {
   name: string;

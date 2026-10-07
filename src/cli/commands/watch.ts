@@ -9,18 +9,10 @@ import {
 } from "../../channel/scope.ts";
 import { LogTailer } from "../../channel/tail.ts";
 import type { Config } from "../../config/schema.ts";
-import type { LoggedTransition } from "../../core/types.ts";
+import { parseLoggedTransition } from "../../core/transition-codec.ts";
 import type { Invocation } from "./types.ts";
 
 const waitForever = () => new Promise<never>(() => {});
-
-function parseTransition(line: string): LoggedTransition | null {
-  try {
-    return JSON.parse(line) as LoggedTransition;
-  } catch {
-    return null;
-  }
-}
 
 function shouldEmit(config: Config | null) {
   const mode = config?.delivery.monitor ?? "auto";
@@ -29,7 +21,7 @@ function shouldEmit(config: Config | null) {
 }
 
 function printInScope(line: string, scope: DeliveryScope) {
-  const transition = parseTransition(line);
+  const transition = parseLoggedTransition(line);
   if (transition && inScope(transition, scope)) {
     process.stdout.write(`${monitorLine(transition)}\n`);
   }
