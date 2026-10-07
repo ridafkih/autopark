@@ -1,0 +1,520 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pr-autopilot config",
+  "type": "object",
+  "properties": {
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$",
+        "description": "owner/name"
+      },
+      "minItems": 1,
+      "description": "Repositories this project tracks"
+    },
+    "track": {
+      "type": "object",
+      "properties": {
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Auto-track PRs by these authors; @me is the authenticated user"
+        },
+        "branchPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Auto-track PRs whose head branch starts with one of these"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Auto-track PRs carrying any of these labels"
+        }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "object",
+      "properties": {
+        "useGitHubRequired": {
+          "type": "boolean",
+          "default": true,
+          "description": "Treat checks GitHub marks required (branch protection/rulesets) as required"
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Extra required check names; a missing one counts as pending"
+        },
+        "humanGates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Checks that wait on a human; never treated as failures"
+        },
+        "ignore": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Check names to ignore entirely"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reviewers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "description": "Identifier used in transitions and status"
+          },
+          "parser": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Built-in parser id (greptile, regex) or a module path"
+          },
+          "logins": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "default": [],
+            "description": "Author logins whose comments the parser reads; empty means the parser's defaults"
+          },
+          "minScore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Minimum score for readiness; null disables the threshold"
+          },
+          "required": {
+            "type": "boolean",
+            "default": true,
+            "description": "Block readiness until this reviewer has scored the head"
+          },
+          "requireOnHead": {
+            "type": "boolean",
+            "default": true,
+            "description": "Only count a score whose reviewed commit equals the PR head"
+          },
+          "options": {
+            "type": "object",
+            "default": {},
+            "description": "Parser-specific options"
+          }
+        },
+        "required": [
+          "name",
+          "parser"
+        ],
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "readiness": {
+      "type": "object",
+      "properties": {
+        "noUnresolvedThreads": {
+          "type": "boolean",
+          "default": true
+        },
+        "countOutdatedThreads": {
+          "type": "boolean",
+          "default": true,
+          "description": "Outdated but unresolved threads still block"
+        },
+        "approvalOnHead": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require an approval whose commit is the current head"
+        },
+        "minApprovals": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1
+        },
+        "noConflict": {
+          "type": "boolean",
+          "default": true
+        },
+        "requiredChecksPass": {
+          "type": "boolean",
+          "default": true
+        },
+        "allowDraft": {
+          "type": "boolean",
+          "default": false
+        },
+        "baseFreshness": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "type": "string",
+              "enum": [
+                "off",
+                "contains-tip",
+                "max-behind",
+                "paths"
+              ],
+              "default": "off",
+              "description": "contains-tip: head must contain the base tip; max-behind: base may be ahead by at most maxBehind commits; paths: base changes since the merge base must not touch `paths`"
+            },
+            "maxBehind": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "default": [],
+              "description": "Globs used by the paths policy"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "notify": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "command"
+            ]
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Shell command; transition fields arrive as PR_AUTOPILOT_* env vars and JSON on stdin"
+          },
+          "on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "head_moved",
+                "conflicted",
+                "conflict_resolved",
+                "mergeability_unknown",
+                "stale_base",
+                "checks_failed",
+                "checks_passed",
+                "review_scored",
+                "threads_open",
+                "approved_on_head",
+                "approval_stale",
+                "awaiting_human",
+                "ready",
+                "not_ready",
+                "merged",
+                "closed",
+                "merge_attempted"
+              ]
+            },
+            "default": [
+              "ready",
+              "conflicted",
+              "checks_failed",
+              "merged"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "autoMerge": {
+      "type": "object",
+      "properties": {
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-merge every tracked PR once mergeable"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "PRs with any of these labels auto-merge"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "merge",
+            "squash",
+            "rebase"
+          ],
+          "default": "squash"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom merge command; overrides the built-in merge"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reviewRequest": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Command run by `pr-autopilot request-review`"
+        },
+        "instruction": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text handed to Claude to request review with its own tools; {repo} {number} {url} {title} {head} are substituted"
+        }
+      },
+      "additionalProperties": false
+    },
+    "standards": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [
+            "CLAUDE.md",
+            "AGENTS.md"
+          ],
+          "description": "Files /ship reads before implementing"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [],
+          "description": "Skills /ship loads before implementing"
+        },
+        "prBodyTemplate": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to a PR body template"
+        }
+      },
+      "additionalProperties": false
+    },
+    "delivery": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "boolean",
+          "default": true
+        },
+        "monitor": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "sessionStart": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "stop": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "session",
+                "repo",
+                "all"
+              ],
+              "default": "session"
+            },
+            "maxBlocks": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "default": 3
+            },
+            "blockOnConflict": {
+              "type": "boolean",
+              "default": true
+            },
+            "blockOnStaleBase": {
+              "type": "boolean",
+              "default": true
+            },
+            "blockOnFailedChecks": {
+              "type": "boolean",
+              "default": true
+            },
+            "blockOnReviewFindings": {
+              "type": "boolean",
+              "default": true
+            },
+            "blockOnHeadMovedWithoutReview": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "daemon": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1,
+              "default": "gh-webhook-forward",
+              "description": "Event-source adapter id"
+            },
+            "options": {
+              "type": "object",
+              "default": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 8787,
+          "description": "Local webhook receiver port"
+        },
+        "secretEnv": {
+          "type": "string",
+          "default": "PR_AUTOPILOT_WEBHOOK_SECRET",
+          "description": "Env var holding the webhook secret; an ephemeral one is generated if unset"
+        },
+        "debounceMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 500
+        },
+        "backoffMs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1,
+          "default": [
+            1000,
+            2000,
+            4000,
+            8000,
+            16000,
+            30000
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "repos"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,7 @@
+{
+  "name": "pr-autopilot",
+  "version": "0.1.0",
+  "description": "Drive pull requests to ready through live GitHub events instead of polling.",
+  "license": "MIT",
+  "keywords": ["github", "pull-requests", "ci", "webhooks", "channels"]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "pr-autopilot",
+  "owner": { "name": "pr-autopilot maintainers" },
+  "plugins": [
+    {
+      "name": "pr-autopilot",
+      "source": "./",
+      "description": "Drive pull requests to ready through live GitHub events instead of polling."
+    }
+  ]
+}
