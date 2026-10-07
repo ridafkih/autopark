@@ -35,7 +35,7 @@ class LineQueue {
   }
 }
 
-async function pump(stream: ReadableStream<Uint8Array>, queue: LineQueue) {
+async function pumpLines(stream: ReadableStream<Uint8Array>, queue: LineQueue) {
   const splitter = new LineSplitter();
   for await (const chunk of stream) queue.push(splitter.feed(chunk));
   queue.push(splitter.flush());
@@ -44,6 +44,6 @@ async function pump(stream: ReadableStream<Uint8Array>, queue: LineQueue) {
 
 export function linesOf(...streams: Array<ReadableStream<Uint8Array>>) {
   const queue = new LineQueue(streams.length);
-  for (const stream of streams) void pump(stream, queue);
+  for (const stream of streams) void pumpLines(stream, queue);
   return queue.drain();
 }

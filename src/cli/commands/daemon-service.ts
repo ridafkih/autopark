@@ -25,10 +25,10 @@ export function configArgs(args: string[]): string[] {
   return configArgs(rest);
 }
 
-function serviceSpec(paths: Paths, extra: string[]) {
+function serviceSpec(paths: Paths, extraArgs: string[]) {
   return {
     label: SERVICE_LABEL,
-    program: [process.execPath, DAEMON_ENTRY, ...extra],
+    program: [process.execPath, DAEMON_ENTRY, ...extraArgs],
     env: {
       PATH: process.env.PATH ?? "/usr/bin:/bin",
       HOME: process.env.HOME ?? "",

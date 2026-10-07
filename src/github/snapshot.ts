@@ -108,7 +108,7 @@ const refsOf = (node: GraphQLPullRequest, commit: GraphQLCommit | undefined) => 
   baseSha: node.baseRef?.target?.oid?.toLowerCase() ?? null,
 });
 
-const describedBy = (repo: string, node: GraphQLPullRequest) => ({
+const descriptionOf = (repo: string, node: GraphQLPullRequest) => ({
   title: node.title ?? "",
   url: node.url ?? pullRequestUrl({ repo, number: node.number }),
   state: stateOf(node),
@@ -129,7 +129,7 @@ export function normalizePullRequest(repo: string, node: GraphQLPullRequest): Sn
   return {
     repo,
     number: node.number,
-    ...describedBy(repo, node),
+    ...descriptionOf(repo, node),
     ...refsOf(node, commit),
     baseComparison: null,
     labels: labelsOf(node),

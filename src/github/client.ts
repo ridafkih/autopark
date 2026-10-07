@@ -65,16 +65,16 @@ export class GitHubHttp implements GitHub {
   constructor(private readonly options: GitHubHttpOptions = {}) {}
 
   async graphql<Data>(query: string, variables: Record<string, unknown>): Promise<Data> {
-    const json = await this.request<GraphQLResponse<Data>>("/graphql", {
+    const response = await this.request<GraphQLResponse<Data>>("/graphql", {
       method: "POST",
       body: JSON.stringify({ query, variables }),
     });
-    if (json.errors?.length) {
-      const messages = json.errors.map((error) => error.message).join("; ");
+    if (response.errors?.length) {
+      const messages = response.errors.map((error) => error.message).join("; ");
       throw new Error(`GraphQL: ${messages}`);
     }
-    if (json.data.rateLimit) this.lastCost = json.data.rateLimit.cost;
-    return json.data;
+    if (response.data.rateLimit) this.lastCost = response.data.rateLimit.cost;
+    return response.data;
   }
 
   async viewer() {
@@ -92,10 +92,10 @@ export class GitHubHttp implements GitHub {
 
   async compare(repo: string, headSha: string, baseSha: string): Promise<BaseComparison> {
     const path = `/repos/${repo}/compare/${headSha}...${baseSha}?per_page=1`;
-    const json = await this.request<CompareResponse>(path);
-    const files = (json.files ?? []).map((file) => file.filename);
+    const comparison = await this.request<CompareResponse>(path);
+    const files = (comparison.files ?? []).map((file) => file.filename);
     return {
-      behindBy: json.ahead_by ?? 0,
+      behindBy: comparison.ahead_by ?? 0,
       files,
       truncated: files.length >= COMPARE_FILE_LIMIT,
     };

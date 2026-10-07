@@ -31,18 +31,18 @@ const identityOf = (snapshot: Snapshot) => ({
 const isAwaitingHuman = (reasons: Reason[]) =>
   reasons.length > 0 && reasons.every((reason) => HUMAN_ONLY.has(reason.code));
 
-function assess(snapshot: Snapshot, config: Config, parsers: Map<string, ReviewerParser>) {
+function assessReadiness(snapshot: Snapshot, config: Config, parsers: Map<string, ReviewerParser>) {
   const { readiness } = config;
   const { base, isUnknown } = evaluateBase(snapshot, readiness.baseFreshness);
-  const parts = {
+  const assessment = {
     base,
     checks: evaluateChecks(snapshot.checks, config.checks),
     reviewers: evaluateReviewers(snapshot, config.reviewers, parsers),
     threadsOpen: countOpenThreads(snapshot.threads, readiness),
     approvals: evaluateApprovals(snapshot),
   };
-  const reasons = collectReasons({ snapshot, readiness, isBaseUnknown: isUnknown, ...parts });
-  return { ...parts, reasons };
+  const reasons = collectReasons({ snapshot, readiness, isBaseUnknown: isUnknown, ...assessment });
+  return { ...assessment, reasons };
 }
 
 export function evaluate(
@@ -51,7 +51,7 @@ export function evaluate(
   parsers: Map<string, ReviewerParser>,
   previous: Evaluation | null,
 ): Evaluation {
-  const { base, checks, reviewers, threadsOpen, approvals, reasons } = assess(
+  const { base, checks, reviewers, threadsOpen, approvals, reasons } = assessReadiness(
     snapshot,
     config,
     parsers,

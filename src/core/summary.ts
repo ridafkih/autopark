@@ -77,6 +77,6 @@ function summaryLines(summary: PullRequestSummary) {
 
 export function formatSummaries(summaries: PullRequestSummary[], daemonLine = "") {
   const header = daemonLine ? [daemonLine] : [];
-  const empty = summaries.length === 0 ? ["No tracked PRs."] : [];
-  return [...header, ...empty, ...summaries.flatMap(summaryLines)].join("\n");
+  const emptyNotice = summaries.length === 0 ? ["No tracked PRs."] : [];
+  return [...header, ...emptyNotice, ...summaries.flatMap(summaryLines)].join("\n");
 }

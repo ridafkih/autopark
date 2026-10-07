@@ -4,7 +4,7 @@ import type { CommandHandler } from "./commands/types.ts";
 import { CliError, print } from "./output.ts";
 import { USAGE } from "./usage.ts";
 
-const lazy =
+const lazyCommand =
   <Module>(load: () => Promise<Module>, pick: (module: Module) => CommandHandler): CommandHandler =>
   async (invocation) => {
     const handler = pick(await load());
@@ -16,105 +16,105 @@ const printUsage: CommandHandler = () => print(USAGE);
 const COMMANDS = new Map<string | undefined, CommandHandler>([
   [
     "status",
-    lazy(
+    lazyCommand(
       () => import("./commands/status.ts"),
       (module) => module.showStatus,
     ),
   ],
   [
     "track",
-    lazy(
+    lazyCommand(
       () => import("./commands/track.ts"),
       (module) => module.trackPullRequest,
     ),
   ],
   [
     "untrack",
-    lazy(
+    lazyCommand(
       () => import("./commands/untrack.ts"),
       (module) => module.untrackPullRequest,
     ),
   ],
   [
     "auto-merge",
-    lazy(
+    lazyCommand(
       () => import("./commands/auto-merge.ts"),
       (module) => module.setAutoMerge,
     ),
   ],
   [
     "request-review",
-    lazy(
+    lazyCommand(
       () => import("./commands/request-review.ts"),
       (module) => module.requestReview,
     ),
   ],
   [
     "check",
-    lazy(
+    lazyCommand(
       () => import("./commands/check.ts"),
       (module) => module.checkPullRequest,
     ),
   ],
   [
     "init",
-    lazy(
+    lazyCommand(
       () => import("./commands/init.ts"),
       (module) => module.initProject,
     ),
   ],
   [
     "validate",
-    lazy(
+    lazyCommand(
       () => import("./commands/validate.ts"),
       (module) => module.validateConfig,
     ),
   ],
   [
     "register",
-    lazy(
+    lazyCommand(
       () => import("./commands/register.ts"),
       (module) => module.registerConfig,
     ),
   ],
   [
     "schema",
-    lazy(
+    lazyCommand(
       () => import("./commands/schema.ts"),
       (module) => module.printSchema,
     ),
   ],
   [
     "doctor",
-    lazy(
+    lazyCommand(
       () => import("./commands/doctor.ts"),
       (module) => module.runDoctor,
     ),
   ],
   [
     "daemon",
-    lazy(
+    lazyCommand(
       () => import("./commands/daemon.ts"),
       (module) => module.manageDaemon,
     ),
   ],
   [
     "hook",
-    lazy(
+    lazyCommand(
       () => import("./commands/hook.ts"),
       (module) => module.runHookCommand,
     ),
   ],
   [
     "watch",
-    lazy(
+    lazyCommand(
       () => import("./commands/watch.ts"),
       (module) => module.watchTransitions,
     ),
   ],
   [
     "ship-context",
-    lazy(
+    lazyCommand(
       () => import("./commands/ship-context.ts"),
       (module) => module.printShipContext,
     ),

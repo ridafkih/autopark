@@ -54,8 +54,8 @@ const simpleTemplateExpressions = defineRule({
     return {
       TemplateLiteral(node) {
         for (const expression of node.expressions) {
-          const complex = findComplexity(expression);
-          if (complex) context.report({ node: complex, messageId: "complex" });
+          const complexNode = findComplexity(expression);
+          if (complexNode) context.report({ node: complexNode, messageId: "complex" });
         }
       },
     };

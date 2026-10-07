@@ -33,9 +33,9 @@ function trackedLines(views: TrackedView[]) {
 
 function scopedViews(state: HookState) {
   const scope = { sessionId: state.sessionId, repos: state.config?.repos ?? [] };
-  const mine = new Set(viewsInScope(state.views, "session", scope));
+  const inSession = new Set(viewsInScope(state.views, "session", scope));
   const inRepo = new Set(viewsInScope(state.views, "repo", scope));
-  return state.views.filter((view) => mine.has(view) || inRepo.has(view));
+  return state.views.filter((view) => inSession.has(view) || inRepo.has(view));
 }
 
 export function sessionStartContext(state: HookState): string | null {
