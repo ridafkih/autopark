@@ -2,121 +2,86 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { pullRequestKey, type Evaluation, type Transition } from "../core/types.ts";
+import {
+  SCHEMA,
+  toRecord,
+  toSqlBoolean,
+  type PullRequestRecord,
+  type PullRequestRow,
+  type TransitionRow,
+} from "./store-rows.ts";
 
-export interface PullRequestRecord {
-  key: string;
-  repo: string;
-  number: number;
-  tracked: boolean;
-  source: "explicit" | "filter";
-  sessionId: string | null;
-  autoMerge: boolean | null;
-  reviewRequestedHead: string | null;
-  mergeAttemptHead: string | null;
-  evaluation: Evaluation | null;
-  updatedAt: number;
-}
+export type { PullRequestRecord } from "./store-rows.ts";
 
 export interface StoredTransition extends Transition {
   id: number;
   at: number;
 }
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS deliveries (id TEXT PRIMARY KEY, event TEXT NOT NULL, received_at INTEGER NOT NULL);
-CREATE INDEX IF NOT EXISTS deliveries_received ON deliveries(received_at);
-CREATE TABLE IF NOT EXISTS prs (
-  key TEXT PRIMARY KEY, repo TEXT NOT NULL, number INTEGER NOT NULL, tracked INTEGER NOT NULL,
-  source TEXT NOT NULL, session_id TEXT, auto_merge INTEGER, review_requested_head TEXT,
-  merge_attempt_head TEXT, evaluation TEXT, updated_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS transitions (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, key TEXT NOT NULL, kind TEXT NOT NULL, json TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-`;
+export interface TrackRequest {
+  repo: string;
+  number: number;
+  source: "explicit" | "filter";
+  sessionId: string | null;
+  now: number;
+}
 
-function toRecord(r: any): PullRequestRecord {
-  return {
-    key: r.key,
-    repo: r.repo,
-    number: r.number,
-    tracked: !!r.tracked,
-    source: r.source,
-    sessionId: r.session_id,
-    autoMerge: r.auto_merge === null ? null : !!r.auto_merge,
-    reviewRequestedHead: r.review_requested_head,
-    mergeAttemptHead: r.merge_attempt_head,
-    evaluation: r.evaluation ? JSON.parse(r.evaluation) : null,
-    updatedAt: r.updated_at,
-  };
+const TRACK_SQL = `INSERT INTO prs (key, repo, number, tracked, source, session_id, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET tracked = 1,
+           source = CASE WHEN prs.source = 'explicit' THEN 'explicit' ELSE excluded.source END,
+           session_id = COALESCE(excluded.session_id, prs.session_id),
+           updated_at = excluded.updated_at`;
+
+function openDatabase(path: string, isReadonly: boolean) {
+  if (isReadonly) return new Database(path, { readonly: true });
+  if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
+  const database = new Database(path, { create: true });
+  database.run("PRAGMA journal_mode = WAL");
+  database.run("PRAGMA busy_timeout = 2000");
+  database.exec(SCHEMA);
+  return database;
 }
 
 export class Store {
   readonly db: Database;
 
-  constructor(path: string, opts: { readonly?: boolean } = {}) {
-    if (path !== ":memory:" && !opts.readonly) mkdirSync(dirname(path), { recursive: true });
-    this.db = opts.readonly
-      ? new Database(path, { readonly: true })
-      : new Database(path, { create: true });
-    if (!opts.readonly) {
-      this.db.run("PRAGMA journal_mode = WAL");
-      this.db.run("PRAGMA busy_timeout = 2000");
-      this.db.exec(SCHEMA);
-    }
+  constructor(path: string, options: { readonly?: boolean } = {}) {
+    this.db = openDatabase(path, options.readonly === true);
   }
 
   markDelivery(id: string, event: string, now: number) {
-    return (
-      this.db
-        .query("INSERT OR IGNORE INTO deliveries (id, event, received_at) VALUES (?, ?, ?)")
-        .run(id, event, now).changes > 0
-    );
+    const insert = "INSERT OR IGNORE INTO deliveries (id, event, received_at) VALUES (?, ?, ?)";
+    return this.db.query(insert).run(id, event, now).changes > 0;
   }
 
   pruneDeliveries(olderThan: number) {
     this.db.query("DELETE FROM deliveries WHERE received_at < ?").run(olderThan);
   }
 
-  track(p: {
-    repo: string;
-    number: number;
-    source: "explicit" | "filter";
-    sessionId: string | null;
-    now: number;
-  }) {
-    const key = pullRequestKey(p.repo, p.number);
-    this.db
-      .query(
-        `INSERT INTO prs (key, repo, number, tracked, source, session_id, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET tracked = 1,
-           source = CASE WHEN prs.source = 'explicit' THEN 'explicit' ELSE excluded.source END,
-           session_id = COALESCE(excluded.session_id, prs.session_id),
-           updated_at = excluded.updated_at`,
-      )
-      .run(key, p.repo, p.number, p.source, p.sessionId, p.now);
+  track({ repo, number, source, sessionId, now }: TrackRequest) {
+    const key = pullRequestKey(repo, number);
+    this.db.query(TRACK_SQL).run(key, repo, number, source, sessionId, now);
     return key;
   }
 
   getPullRequest(key: string): PullRequestRecord | null {
-    const r = this.db.query("SELECT * FROM prs WHERE key = ?").get(key);
-    return r ? toRecord(r) : null;
+    const row = this.db.query<PullRequestRow, [string]>("SELECT * FROM prs WHERE key = ?").get(key);
+    return row ? toRecord(row) : null;
   }
 
-  listPullRequests(opts: { trackedOnly: boolean }): PullRequestRecord[] {
-    const sql = opts.trackedOnly
+  listPullRequests({ trackedOnly }: { trackedOnly: boolean }): PullRequestRecord[] {
+    const sql = trackedOnly
       ? "SELECT * FROM prs WHERE tracked = 1 ORDER BY key"
       : "SELECT * FROM prs ORDER BY key";
-    return this.db.query(sql).all().map(toRecord);
+    return this.db.query<PullRequestRow, []>(sql).all().map(toRecord);
   }
 
-  setTracked(key: string, tracked: boolean) {
-    this.db.query("UPDATE prs SET tracked = ? WHERE key = ?").run(tracked ? 1 : 0, key);
+  setTracked(key: string, isTracked: boolean) {
+    this.db.query("UPDATE prs SET tracked = ? WHERE key = ?").run(toSqlBoolean(isTracked), key);
   }
 
   setAutoMerge(key: string, enabled: boolean | null) {
-    this.db
-      .query("UPDATE prs SET auto_merge = ? WHERE key = ?")
-      .run(enabled === null ? null : enabled ? 1 : 0, key);
+    this.db.query("UPDATE prs SET auto_merge = ? WHERE key = ?").run(toSqlBoolean(enabled), key);
   }
 
   setReviewRequested(key: string, head: string | null) {
@@ -133,29 +98,33 @@ export class Store {
       .run(JSON.stringify(evaluation), now, key);
   }
 
-  appendTransition(t: Transition, now: number): number {
-    const r = this.db
-      .query("INSERT INTO transitions (at, key, kind, json) VALUES (?, ?, ?, ?) RETURNING id")
-      .get(now, pullRequestKey(t.repo, t.number), t.kind, JSON.stringify(t)) as { id: number };
-    return r.id;
+  appendTransition(transition: Transition, now: number): number {
+    const insert = "INSERT INTO transitions (at, key, kind, json) VALUES (?, ?, ?, ?) RETURNING id";
+    const key = pullRequestKey(transition.repo, transition.number);
+    const row = this.db
+      .query<{ id: number }, [number, string, string, string]>(insert)
+      .get(now, key, transition.kind, JSON.stringify(transition));
+    if (!row) throw new Error("transition insert returned no id");
+    return row.id;
   }
 
   transitionsSince(id: number, limit = 500): StoredTransition[] {
+    const select = "SELECT id, at, json FROM transitions WHERE id > ? ORDER BY id LIMIT ?";
     return this.db
-      .query("SELECT id, at, json FROM transitions WHERE id > ? ORDER BY id LIMIT ?")
+      .query<TransitionRow, [number, number]>(select)
       .all(id, limit)
-      .map((r: any) => ({ ...JSON.parse(r.json), id: r.id, at: r.at }));
+      .map((row) => Object.assign(JSON.parse(row.json) as Transition, { id: row.id, at: row.at }));
   }
 
-  getMeta(k: string): string | null {
-    const r = this.db.query("SELECT v FROM meta WHERE k = ?").get(k) as { v: string } | null;
-    return r?.v ?? null;
+  getMeta(key: string): string | null {
+    const row = this.db.query<{ v: string }, [string]>("SELECT v FROM meta WHERE k = ?").get(key);
+    return row?.v ?? null;
   }
 
-  setMeta(k: string, v: string) {
+  setMeta(key: string, value: string) {
     this.db
       .query("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
-      .run(k, v);
+      .run(key, value);
   }
 
   close() {

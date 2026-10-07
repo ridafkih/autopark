@@ -2,8 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { cwdConfig } from "../channel/context.ts";
 import { playbookRef } from "../channel/playbook.ts";
 import type { TrackedView } from "../core/stop.ts";
-import { daemonHealth } from "../daemon/daemon.ts";
-import { paths, type Paths } from "../daemon/paths.ts";
+import { daemonHealth } from "../daemon/client.ts";
+import { resolvePaths, type Paths } from "../daemon/paths.ts";
 import { Store } from "../daemon/store.ts";
 import { sessionStartContext, stopHook, type HookState } from "./logic.ts";
 
@@ -55,7 +55,7 @@ export async function hookState(input: any, p: Paths): Promise<HookState> {
 
 export async function runHook(kind: string, stdin: string): Promise<string | null> {
   const input = stdin.trim() ? JSON.parse(stdin) : {};
-  const p = paths();
+  const p = resolvePaths();
   const s = await hookState(input, p);
   if (kind === "session-start") {
     const ctx = sessionStartContext(s);

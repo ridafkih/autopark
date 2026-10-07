@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { findConfig, loadConfigFile } from "../config/load.ts";
-import { daemonHealth } from "../daemon/daemon.ts";
+import { daemonHealth } from "../daemon/client.ts";
 import type { Paths } from "../daemon/paths.ts";
 import { readProjects } from "../daemon/projects.ts";
 import { ROOT } from "./main.ts";

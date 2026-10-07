@@ -5,31 +5,38 @@ export interface WakeDetector {
   stop(): void;
 }
 
+interface WakeOptions {
+  intervalMs: number;
+  toleranceMs: number;
+}
+
+const DEFAULT_WAKE_OPTIONS: WakeOptions = { intervalMs: 15_000, toleranceMs: 45_000 };
+
 export class ClockGapWakeDetector implements WakeDetector {
-  private running = false;
+  private isRunning = false;
 
   constructor(
-    private clock: Clock,
-    private opts: { intervalMs: number; toleranceMs: number } = {
-      intervalMs: 15_000,
-      toleranceMs: 45_000,
-    },
+    private readonly clock: Clock,
+    private readonly options: WakeOptions = DEFAULT_WAKE_OPTIONS,
   ) {}
 
   start(onWake: (gapMs: number) => void) {
-    this.running = true;
-    void (async () => {
-      while (this.running) {
-        const before = this.clock.now();
-        await this.clock.sleep(this.opts.intervalMs);
-        if (!this.running) break;
-        const gap = this.clock.now() - before - this.opts.intervalMs;
-        if (gap > this.opts.toleranceMs) onWake(gap);
-      }
-    })();
+    this.isRunning = true;
+    void this.watch(onWake);
   }
 
   stop() {
-    this.running = false;
+    this.isRunning = false;
+  }
+
+  private async watch(onWake: (gapMs: number) => void) {
+    const { intervalMs, toleranceMs } = this.options;
+    while (this.isRunning) {
+      const before = this.clock.now();
+      await this.clock.sleep(intervalMs);
+      if (!this.isRunning) return;
+      const gapMs = this.clock.now() - before - intervalMs;
+      if (gapMs > toleranceMs) onWake(gapMs);
+    }
   }
 }

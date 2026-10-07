@@ -10,16 +10,16 @@ export interface CommandRunner {
 
 export const shellRunner: CommandRunner = {
   async run(command, env, stdin) {
-    const proc = Bun.spawn(["sh", "-c", command], {
+    const subprocess = Bun.spawn(["sh", "-c", command], {
       env: { ...process.env, ...env },
       stdin: stdin === undefined ? "ignore" : new TextEncoder().encode(stdin),
       stdout: "pipe",
       stderr: "pipe",
     });
     const [stdout, stderr, code] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
+      new Response(subprocess.stdout).text(),
+      new Response(subprocess.stderr).text(),
+      subprocess.exited,
     ]);
     return { code, stdout, stderr };
   },

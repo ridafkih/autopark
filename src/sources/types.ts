@@ -1,5 +1,10 @@
 import type { Clock } from "../daemon/clock.ts";
-import type { Delivery } from "../daemon/engine.ts";
+
+export interface Delivery {
+  id: string;
+  event: string;
+  payload: unknown;
+}
 
 export type SourceState =
   | "idle"

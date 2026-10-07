@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
-import type { Config } from "../config/schema.ts";
 import { loadConfigFile } from "../config/load.ts";
+import type { Config } from "../config/schema.ts";
 import { loadParsers } from "../reviewers/index.ts";
 import type { ReviewerParser } from "../reviewers/types.ts";
 
@@ -10,22 +10,64 @@ export interface RepoEntry {
   source: string;
 }
 
+interface LoadedConfig {
+  config: Config;
+  source: string;
+}
+
+function indexByRepo(entries: RepoEntry[]) {
+  const byRepo = new Map<string, RepoEntry>();
+  for (const entry of entries) {
+    for (const repo of entry.config.repos) {
+      const existing = byRepo.get(repo.toLowerCase());
+      if (existing) {
+        throw new Error(`${repo} is configured twice (${existing.source} and ${entry.source})`);
+      }
+      byRepo.set(repo.toLowerCase(), entry);
+    }
+  }
+  return byRepo;
+}
+
+async function loadConfig(path: string): Promise<LoadedConfig> {
+  const result = await loadConfigFile(path);
+  if (!result.ok) {
+    const issues = result.issues.map((issue) => `${issue.path} ${issue.message}`).join("; ");
+    throw new Error(`${path}: ${issues}`);
+  }
+  return { config: result.config, source: path };
+}
+
 export class ConfigSet {
-  private byRepo = new Map<string, RepoEntry>();
   readonly entries: RepoEntry[];
+  readonly primary: RepoEntry;
+  private readonly byRepo: Map<string, RepoEntry>;
 
   constructor(entries: RepoEntry[]) {
-    if (!entries.length) throw new Error("no pr-autopilot config loaded");
+    const [primary] = entries;
+    if (!primary) throw new Error("no pr-autopilot config loaded");
     this.entries = entries;
-    for (const e of entries) {
-      for (const repo of e.config.repos) {
-        const k = repo.toLowerCase();
-        const existing = this.byRepo.get(k);
-        if (existing)
-          throw new Error(`${repo} is configured twice (${existing.source} and ${e.source})`);
-        this.byRepo.set(k, e);
-      }
+    this.primary = primary;
+    this.byRepo = indexByRepo(entries);
+  }
+
+  get daemon() {
+    return this.primary.config.daemon;
+  }
+
+  static async fromConfigs(configs: LoadedConfig[]) {
+    const entries: RepoEntry[] = [];
+    for (const { config, source } of configs) {
+      const parsers = await loadParsers(config.reviewers, dirname(source));
+      entries.push({ config, source, parsers });
     }
+    return new ConfigSet(entries);
+  }
+
+  static async load(paths: string[]) {
+    const configs: LoadedConfig[] = [];
+    for (const path of paths) configs.push(await loadConfig(path));
+    return ConfigSet.fromConfigs(configs);
   }
 
   get(repo: string) {
@@ -33,28 +75,6 @@ export class ConfigSet {
   }
 
   repos() {
-    return this.entries.flatMap((e) => e.config.repos);
-  }
-
-  get daemon() {
-    return this.entries[0]!.config.daemon;
-  }
-
-  static async fromConfigs(configs: Array<{ config: Config; source: string }>) {
-    const entries: RepoEntry[] = [];
-    for (const c of configs)
-      entries.push({ ...c, parsers: await loadParsers(c.config.reviewers, dirname(c.source)) });
-    return new ConfigSet(entries);
-  }
-
-  static async load(paths: string[]) {
-    const configs: Array<{ config: Config; source: string }> = [];
-    for (const p of paths) {
-      const r = await loadConfigFile(p);
-      if (!r.ok)
-        throw new Error(`${p}: ${r.issues.map((i) => `${i.path} ${i.message}`).join("; ")}`);
-      configs.push({ config: r.config, source: p });
-    }
-    return ConfigSet.fromConfigs(configs);
+    return this.entries.flatMap((entry) => entry.config.repos);
   }
 }

@@ -1,6 +1,6 @@
 import { ConfigSet } from "../../src/daemon/config-set.ts";
 import { Engine } from "../../src/daemon/engine.ts";
-import { MemorySink } from "../../src/daemon/log.ts";
+import { MemorySink } from "../../src/daemon/memory-sink.ts";
 import type { CommandRunner } from "../../src/daemon/runner.ts";
 import { Store } from "../../src/daemon/store.ts";
 import type { Clock } from "../../src/daemon/clock.ts";

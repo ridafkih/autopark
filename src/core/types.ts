@@ -183,4 +183,9 @@ export interface LoggedTransition extends Transition {
   url: string;
 }
 
+export interface PullRequestLocator {
+  repo: string;
+  number: number;
+}
+
 export const pullRequestKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;

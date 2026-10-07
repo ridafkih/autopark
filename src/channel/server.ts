@@ -1,5 +1,5 @@
-import { paths } from "../daemon/paths.ts";
-import { VERSION } from "../daemon/daemon.ts";
+import { resolvePaths } from "../daemon/paths.ts";
+import { VERSION } from "../daemon/client.ts";
 import type { LoggedTransition } from "../core/types.ts";
 import { cwdConfig } from "./context.ts";
 import { channelContent, channelMeta } from "./meta.ts";
@@ -19,7 +19,7 @@ export function channelInstructions(playbook: string) {
 }
 
 async function main() {
-  const p = paths();
+  const p = resolvePaths();
   const { config, path } = await cwdConfig(process.cwd());
   const enabled = config?.delivery.channel ?? true;
   const scope = { repos: config?.repos ?? null };

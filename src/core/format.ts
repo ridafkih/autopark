@@ -1,13 +1,10 @@
+import type { PullRequestLocator } from "./types.ts";
+
 const SHORT_SHA_LENGTH = 7;
 
 interface Score {
   score: number | null;
   maxScore: number | null;
-}
-
-interface PullRequestLocator {
-  repo: string;
-  number: number;
 }
 
 export const shortSha = (sha: string, length = SHORT_SHA_LENGTH) => sha.slice(0, length);

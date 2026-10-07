@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import type { LoggedTransition } from "../core/types.ts";
 
 export interface TransitionSink {
-  append(t: LoggedTransition): void;
+  append(transition: LoggedTransition): void;
 }
 
 export class FileSink implements TransitionSink {
@@ -11,14 +11,8 @@ export class FileSink implements TransitionSink {
     mkdirSync(dirname(path), { recursive: true });
     closeSync(openSync(path, "a"));
   }
-  append(t: LoggedTransition) {
-    appendFileSync(this.path, JSON.stringify(t) + "\n");
-  }
-}
 
-export class MemorySink implements TransitionSink {
-  lines: LoggedTransition[] = [];
-  append(t: LoggedTransition) {
-    this.lines.push(t);
+  append(transition: LoggedTransition) {
+    appendFileSync(this.path, `${JSON.stringify(transition)}\n`);
   }
 }

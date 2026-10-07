@@ -11,7 +11,7 @@ import {
 } from "../src/sources/gh-webhook-forward.ts";
 import { createSource } from "../src/sources/index.ts";
 import type { ChildHandle, SourceContext } from "../src/sources/types.ts";
-import type { Delivery } from "../src/daemon/engine.ts";
+import type { Delivery } from "../src/sources/types.ts";
 import { FakeClock, flush } from "./fixtures/clock.ts";
 
 const SECRET = "s3cret";

@@ -6,10 +6,10 @@ import { findConfig, loadConfigFile } from "../config/load.ts";
 import { evaluate } from "../core/evaluate.ts";
 import { formatSummaries, summarize, type PullRequestSummary } from "../core/summary.ts";
 import { pullRequestKey } from "../core/types.ts";
-import { controlFetch, daemonHealth } from "../daemon/daemon.ts";
-import { fetchSettled } from "../daemon/engine.ts";
+import { controlFetch, daemonHealth } from "../daemon/client.ts";
+import { fetchSettled } from "../daemon/settle.ts";
 import { systemClock } from "../daemon/clock.ts";
-import { paths, type Paths } from "../daemon/paths.ts";
+import { resolvePaths, type Paths } from "../daemon/paths.ts";
 import { addProject, readProjects } from "../daemon/projects.ts";
 import { shellRunner } from "../daemon/runner.ts";
 import { transitionEnv } from "../daemon/notify.ts";
@@ -202,13 +202,13 @@ async function fetchEvaluation(ref: PullRequestRef, p: Paths) {
   const { config, source } = await configFor(ref.repo, p);
   const parsers = await loadParsers(config.reviewers, source ? dirname(source) : process.cwd());
   const gh = new GitHubHttp();
-  let { snap, reads } = await fetchSettled(
-    gh,
-    systemClock,
-    ref.repo,
-    ref.number,
+  const settled = await fetchSettled(
+    { github: gh, clock: systemClock },
+    ref,
     config.daemon.backoffMs,
   );
+  let snap = settled.snapshot;
+  const reads = settled.reads;
   if (config.readiness.baseFreshness.policy !== "off" && snap.baseSha && snap.state === "OPEN") {
     snap = { ...snap, baseComparison: await gh.compare(ref.repo, snap.headSha, snap.baseSha) };
   }
@@ -418,7 +418,7 @@ async function cmdDaemon(argv: string[], p: Paths) {
 
 export async function main(argv: string[]) {
   const [cmd, ...rest] = argv;
-  const p = paths();
+  const p = resolvePaths();
   switch (cmd) {
     case "status":
       return cmdStatus(rest, p);

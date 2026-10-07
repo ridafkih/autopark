@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import type { Delivery } from "../daemon/engine.ts";
+import type { Delivery } from "./types.ts";
 
 export function signature(secret: string, body: string) {
   const h = new Bun.CryptoHasher("sha256", secret);

@@ -1,33 +1,35 @@
 import type { Config } from "../config/schema.ts";
+import { errorMessage } from "../core/errors.ts";
 import type { LoggedTransition } from "../core/types.ts";
 import type { CommandRunner } from "./runner.ts";
 
-export function transitionEnv(t: LoggedTransition): Record<string, string> {
+export function transitionEnv(transition: LoggedTransition): Record<string, string> {
   return {
-    PR_AUTOPILOT_KIND: t.kind,
-    PR_AUTOPILOT_REPO: t.repo,
-    PR_AUTOPILOT_NUMBER: String(t.number),
-    PR_AUTOPILOT_URL: t.url,
-    PR_AUTOPILOT_TITLE: t.title,
-    PR_AUTOPILOT_REASON: t.reason,
-    PR_AUTOPILOT_HEAD: t.head ?? "",
-    PR_AUTOPILOT_JSON: JSON.stringify(t),
+    PR_AUTOPILOT_KIND: transition.kind,
+    PR_AUTOPILOT_REPO: transition.repo,
+    PR_AUTOPILOT_NUMBER: String(transition.number),
+    PR_AUTOPILOT_URL: transition.url,
+    PR_AUTOPILOT_TITLE: transition.title,
+    PR_AUTOPILOT_REASON: transition.reason,
+    PR_AUTOPILOT_HEAD: transition.head ?? "",
+    PR_AUTOPILOT_JSON: JSON.stringify(transition),
   };
 }
 
 export async function notify(
-  t: LoggedTransition,
-  cfg: Config,
+  transition: LoggedTransition,
+  config: Config,
   runner: CommandRunner,
-  log: (m: string) => void,
+  log: (message: string) => void,
 ) {
-  for (const target of cfg.notify) {
-    if (!target.on.includes(t.kind)) continue;
+  const targets = config.notify.filter((target) => target.on.includes(transition.kind));
+  for (const target of targets) {
     try {
-      const r = await runner.run(target.command, transitionEnv(t), JSON.stringify(t));
-      if (r.code !== 0) log(`notify command exited ${r.code}: ${r.stderr.trim()}`);
-    } catch (e) {
-      log(`notify command failed: ${(e as Error).message}`);
+      const json = JSON.stringify(transition);
+      const result = await runner.run(target.command, transitionEnv(transition), json);
+      if (result.code !== 0) log(`notify command exited ${result.code}: ${result.stderr.trim()}`);
+    } catch (error) {
+      log(`notify command failed: ${errorMessage(error)}`);
     }
   }
 }

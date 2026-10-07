@@ -1,36 +1,36 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
+const writeProjects = (file: string, projects: string[]) =>
+  writeFileSync(file, `${JSON.stringify(projects, null, 2)}\n`);
+
 export function readProjects(file: string): string[] {
   if (!existsSync(file)) return [];
   try {
-    const list = JSON.parse(readFileSync(file, "utf8"));
-    return Array.isArray(list) ? list.filter((p) => typeof p === "string") : [];
+    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((project): project is string => typeof project === "string");
   } catch {
     return [];
   }
 }
 
 export function addProject(file: string, configPath: string) {
-  const abs = resolve(configPath);
-  const list = readProjects(file);
-  if (list.includes(abs)) return false;
+  const absolutePath = resolve(configPath);
+  const projects = readProjects(file);
+  if (projects.includes(absolutePath)) return false;
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify([...list, abs], null, 2) + "\n");
+  writeProjects(file, [...projects, absolutePath]);
   return true;
 }
 
 export function removeProject(file: string, configPath: string) {
-  const abs = resolve(configPath);
-  const list = readProjects(file);
-  if (!list.includes(abs)) return false;
-  writeFileSync(
+  const absolutePath = resolve(configPath);
+  const projects = readProjects(file);
+  if (!projects.includes(absolutePath)) return false;
+  writeProjects(
     file,
-    JSON.stringify(
-      list.filter((p) => p !== abs),
-      null,
-      2,
-    ) + "\n",
+    projects.filter((project) => project !== absolutePath),
   );
   return true;
 }

@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Store } from "../src/daemon/store.ts";
-import { FileSink, MemorySink } from "../src/daemon/log.ts";
+import { FileSink } from "../src/daemon/log.ts";
+import { MemorySink } from "../src/daemon/memory-sink.ts";
 
 describe("delivery dedupe", () => {
   test.each([

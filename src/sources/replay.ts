@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import type { Delivery } from "../daemon/engine.ts";
+import type { Delivery } from "./types.ts";
 import type { EventSource, SourceContext, SourceDependencies, SourceState } from "./types.ts";
 
 export async function readDeliveries(path: string): Promise<Delivery[]> {

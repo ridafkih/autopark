@@ -5,7 +5,7 @@ export function homeDir() {
   return process.env.PR_AUTOPILOT_HOME || join(homedir(), ".pr-autopilot");
 }
 
-export function paths(home = homeDir()) {
+export function resolvePaths(home = homeDir()) {
   return {
     home,
     db: join(home, "state.db"),
@@ -18,4 +18,4 @@ export function paths(home = homeDir()) {
   };
 }
 
-export type Paths = ReturnType<typeof paths>;
+export type Paths = ReturnType<typeof resolvePaths>;

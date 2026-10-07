@@ -1,21 +1,17 @@
-import { randomBytes } from "node:crypto";
-import { existsSync, rmSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { rmSync, writeFileSync } from "node:fs";
 import type { GitHub } from "../github/types.ts";
-import { createSource } from "../sources/index.ts";
-import { bunSpawner } from "../sources/gh-webhook-forward.ts";
 import type { EventSource, Spawner } from "../sources/types.ts";
+import { daemonHealth, VERSION } from "./client.ts";
 import { systemClock, type Clock } from "./clock.ts";
 import type { ConfigSet } from "./config-set.ts";
+import { createConfiguredSource } from "./event-source.ts";
 import { controlHandler, type Health } from "./control.ts";
 import { Engine } from "./engine.ts";
 import { FileSink } from "./log.ts";
-import { paths } from "./paths.ts";
+import { resolvePaths, type Paths } from "./paths.ts";
 import { shellRunner, type CommandRunner } from "./runner.ts";
 import { Store } from "./store.ts";
 import { ClockGapWakeDetector, type WakeDetector } from "./wake.ts";
-
-export const VERSION = "0.1.0";
 
 export interface DaemonOptions {
   configs: ConfigSet;
@@ -26,94 +22,85 @@ export interface DaemonOptions {
   runner?: CommandRunner;
   source?: EventSource;
   wake?: WakeDetector | null;
-  log?: (msg: string) => void;
+  log?: (message: string) => void;
 }
 
-export async function controlFetch(socket: string, path: string, init: RequestInit = {}) {
-  return fetch(`http://localhost${path}`, {
-    ...init,
-    unix: socket,
-    signal: AbortSignal.timeout(2000),
-  } as RequestInit);
-}
+const MS_PER_SECOND = 1000;
 
-export async function daemonHealth(socket: string): Promise<Health | null> {
-  if (!existsSync(socket)) return null;
-  try {
-    const res = await controlFetch(socket, "/health");
-    return res.ok ? ((await res.json()) as Health) : null;
-  } catch {
-    return null;
-  }
-}
+export const logToStderr = (message: string) => {
+  process.stderr.write(`[pr-autopilotd] ${message}\n`);
+};
 
-export async function startDaemon(o: DaemonOptions) {
-  const p = paths(o.home);
-  const log = o.log ?? ((m: string) => console.error(`[pr-autopilotd] ${m}`));
-  if (await daemonHealth(p.socket)) {
-    throw new Error(`a daemon is already running (socket ${p.socket})`);
-  }
-  const clock = o.clock ?? systemClock;
-  const store = new Store(p.db);
-  const sink = new FileSink(p.log);
-  const engine = new Engine({
-    store,
-    sink,
-    github: o.github,
-    clock,
-    configs: o.configs,
-    runner: o.runner ?? shellRunner,
-    log,
-  });
-  const d = o.configs.daemon;
-  const secret = process.env[d.secretEnv] || randomBytes(32).toString("hex");
-  const source =
-    o.source ??
-    (await createSource(d.source.type, d.source.options, {
-      clock,
-      port: d.port,
-      secret,
-      spawn: o.spawn ?? bunSpawner,
-      baseDir: dirname(o.configs.entries[0]!.source),
-    }));
+function healthReporter(configs: ConfigSet, source: EventSource, clock: Clock) {
   const startedAt = new Date(clock.now()).toISOString();
-  const health = (): Health => ({
+  return (): Health => ({
     ok: true,
     pid: process.pid,
     startedAt,
     version: VERSION,
-    repos: o.configs.repos(),
+    repos: configs.repos(),
     source: source.status(),
   });
+}
 
-  rmSync(p.socket, { force: true });
-  const control = Bun.serve({ unix: p.socket, fetch: controlHandler(engine, health) });
-  writeFileSync(p.pid, String(process.pid));
+function serveControl(paths: Paths, engine: Engine, health: () => Health) {
+  rmSync(paths.socket, { force: true });
+  const server = Bun.serve({ unix: paths.socket, fetch: controlHandler(engine, health) });
+  writeFileSync(paths.pid, String(process.pid));
+  return server;
+}
 
+function startWake(options: DaemonOptions, clock: Clock, engine: Engine) {
+  const wake = options.wake === undefined ? new ClockGapWakeDetector(clock) : options.wake;
+  wake?.start((gapMs) => {
+    const seconds = Math.round(gapMs / MS_PER_SECOND);
+    void engine.resync(`wake after ${seconds}s gap`);
+  });
+  return wake;
+}
+
+function createEngine(options: DaemonOptions, paths: Paths, log: (message: string) => void) {
+  const clock = options.clock ?? systemClock;
+  const store = new Store(paths.db);
+  const engine = new Engine({
+    store,
+    sink: new FileSink(paths.log),
+    github: options.github,
+    clock,
+    configs: options.configs,
+    runner: options.runner ?? shellRunner,
+    log,
+  });
+  return { clock, store, engine };
+}
+
+export async function startDaemon(options: DaemonOptions) {
+  const paths = resolvePaths(options.home);
+  const log = options.log ?? logToStderr;
+  if (await daemonHealth(paths.socket)) {
+    throw new Error(`a daemon is already running (socket ${paths.socket})`);
+  }
+  const { configs } = options;
+  const { clock, store, engine } = createEngine(options, paths, log);
+  const source = options.source ?? (await createConfiguredSource(configs, clock, options.spawn));
+  const health = healthReporter(configs, source, clock);
+  const control = serveControl(paths, engine, health);
   await source.start({
-    repos: o.configs.repos(),
-    deliver: (dl) => engine.handleDelivery(dl),
+    repos: configs.repos(),
+    deliver: (delivery) => engine.handleDelivery(delivery),
     reconnected: (reason) => void engine.resync(reason),
     log,
   });
   await engine.resync("start");
-  const wake = o.wake === undefined ? new ClockGapWakeDetector(clock) : o.wake;
-  wake?.start((gap) => void engine.resync(`wake after ${Math.round(gap / 1000)}s gap`));
-
-  return {
-    engine,
-    store,
-    source,
-    paths: p,
-    health,
-    async stop() {
-      wake?.stop();
-      await source.stop();
-      control.stop(true);
-      await engine.idle();
-      store.close();
-      rmSync(p.socket, { force: true });
-      rmSync(p.pid, { force: true });
-    },
+  const wake = startWake(options, clock, engine);
+  const stop = async () => {
+    wake?.stop();
+    await source.stop();
+    await control.stop(true);
+    await engine.idle();
+    store.close();
+    rmSync(paths.socket, { force: true });
+    rmSync(paths.pid, { force: true });
   };
+  return { engine, store, source, paths, health, stop };
 }
