@@ -40,7 +40,8 @@ export const formatIssue = (issue: Issue) => `${issue.path}: ${issue.message}`;
 export function parseConfig(input: unknown): ParseResult {
   const issues: Issue[] = [];
   const config = configSchema.parse(input, "", issues);
-  return issues.length > 0 ? { ok: false, issues } : { ok: true, config };
+  if (config === undefined || issues.length > 0) return { ok: false, issues };
+  return { ok: true, config };
 }
 
 export function configJsonSchema() {

@@ -40,7 +40,10 @@ export function arraySchema<Value>(
       if (minItems !== undefined && value.length < minItems) {
         return fail(issues, path, `must have at least ${minItems} item(s)`);
       }
-      return value.map((entry, index) => item.parse(entry, `${path}[${index}]`, issues));
+      return value.flatMap((entry, index) => {
+        const parsed = item.parse(entry, `${path}[${index}]`, issues);
+        return parsed === undefined ? [] : [parsed];
+      });
     },
     json: () => ({ type: "array", items: item.json(), ...definedEntries({ minItems }) }),
   };
@@ -78,6 +81,11 @@ function parseFields(shape: Shape, input: Record<string, unknown>, path: string,
   return Object.fromEntries(fields);
 }
 
+const isParsed = <Fields extends Shape>(
+  fields: Record<string, unknown>,
+  shape: Fields,
+): fields is Parsed<Fields> => Object.keys(shape).every((key) => fields[key] !== undefined);
+
 export function objectSchema<Fields extends Shape>(
   shape: Fields,
   meta: Meta = {},
@@ -94,7 +102,8 @@ export function objectSchema<Fields extends Shape>(
         return fail(issues, path || "(root)", `expected object, got ${typeName(input)}`);
       }
       issues.push(...reportUnknownKeys(input, shape, path));
-      return parseFields(shape, input, path, issues) as Parsed<Fields>;
+      const fields = parseFields(shape, input, path, issues);
+      return isParsed(fields, shape) ? fields : undefined;
     },
     json: () => ({
       type: "object",

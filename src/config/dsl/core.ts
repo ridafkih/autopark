@@ -4,7 +4,7 @@ export interface Issue {
 }
 
 export interface Schema<Value> {
-  parse(value: unknown, path: string, issues: Issue[]): Value;
+  parse(value: unknown, path: string, issues: Issue[]): Value | undefined;
   json(): Record<string, unknown>;
   hasDefault: boolean;
 }
@@ -32,9 +32,9 @@ export function typeName(value: unknown) {
   return typeof value;
 }
 
-export function fail<Value>(issues: Issue[], path: string, message: string): Value {
+export function fail(issues: Issue[], path: string, message: string): undefined {
   issues.push({ path, message });
-  return undefined as Value;
+  return undefined;
 }
 
 export function withDefault<Value>(
