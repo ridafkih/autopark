@@ -41,7 +41,7 @@ export class FakeClock implements Clock {
       const next = this.timers[0];
       if (!next || next.due > target) break;
       this.timers.shift();
-      this.t = next.due;
+      this.t = Math.max(this.t, next.due);
       next.resolve();
     }
     this.t = target;
