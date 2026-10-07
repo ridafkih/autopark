@@ -1,5 +1,7 @@
 import type { Config } from "../config/schema.ts";
 
+type TrackFilter = Config["track"];
+
 export interface Candidate {
   repo: string;
   number: number;
@@ -10,13 +12,34 @@ export interface Candidate {
   open: boolean;
 }
 
-export function matchesTrackFilter(c: Candidate, f: Config["track"], viewer: string | null) {
-  if (!c.open) return false;
-  if (!f.authors.length && !f.branchPrefixes.length && !f.labels.length) return false;
-  const authors = f.authors.map((a) => (a === "@me" ? (viewer ?? "") : a).toLowerCase());
-  if (authors.length && !authors.includes((c.author ?? "").toLowerCase())) return false;
-  if (f.branchPrefixes.length && !f.branchPrefixes.some((p) => c.headRef.startsWith(p)))
-    return false;
-  if (f.labels.length && !f.labels.some((l) => c.labels.includes(l))) return false;
-  return true;
+export const hasTrackFilter = (filter: TrackFilter) =>
+  filter.authors.length > 0 || filter.branchPrefixes.length > 0 || filter.labels.length > 0;
+
+function matchesAuthor(candidate: Candidate, filter: TrackFilter, viewer: string | null) {
+  if (filter.authors.length === 0) return true;
+  const authors = filter.authors.map((author) =>
+    (author === "@me" ? (viewer ?? "") : author).toLowerCase(),
+  );
+  return authors.includes((candidate.author ?? "").toLowerCase());
+}
+
+const matchesBranch = (candidate: Candidate, filter: TrackFilter) =>
+  filter.branchPrefixes.length === 0 ||
+  filter.branchPrefixes.some((prefix) => candidate.headRef.startsWith(prefix));
+
+const matchesLabel = (candidate: Candidate, filter: TrackFilter) =>
+  filter.labels.length === 0 || filter.labels.some((label) => candidate.labels.includes(label));
+
+export function matchesTrackFilter(
+  candidate: Candidate,
+  filter: TrackFilter,
+  viewer: string | null,
+) {
+  return (
+    candidate.open &&
+    hasTrackFilter(filter) &&
+    matchesAuthor(candidate, filter, viewer) &&
+    matchesBranch(candidate, filter) &&
+    matchesLabel(candidate, filter)
+  );
 }

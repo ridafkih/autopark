@@ -147,7 +147,7 @@ describe("route", () => {
   ])("%s", (...row: Row) => {
     const [, event, payload, prs, hasCandidate] = row;
     const r = route(event, payload, index);
-    expect(r.prs).toEqual(prs);
+    expect(r.pullRequests).toEqual(prs);
     expect(r.candidates.length > 0).toBe(hasCandidate);
     if (prs.length) expect(r.repo).toBe("acme/widgets");
   });
@@ -166,7 +166,7 @@ describe("route", () => {
   });
 
   test("payload without repository routes nowhere", () => {
-    expect(route("push", { ref: "refs/heads/main" }, index).prs).toEqual([]);
+    expect(route("push", { ref: "refs/heads/main" }, index).pullRequests).toEqual([]);
   });
 });
 

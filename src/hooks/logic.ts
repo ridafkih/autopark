@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 import { defaultConfig, type Config } from "../config/schema.ts";
-import { decideStop, itemsFor, viewsInScope, type TrackedView } from "../core/stop.ts";
+import { decideStop, actionItemsFor, viewsInScope, type TrackedView } from "../core/stop.ts";
 import type { Health } from "../daemon/control.ts";
 
 export interface HookState {
@@ -51,7 +51,7 @@ export function sessionStartContext(s: HookState): string | null {
   } else {
     lines.push("No PRs are tracked for this project yet; /pr-autopilot:ship opens and tracks one.");
   }
-  const items = scoped.flatMap((v) => itemsFor(v, cfg.hooks.stop));
+  const items = scoped.flatMap((v) => actionItemsFor(v, cfg.hooks.stop));
   if (items.length) {
     lines.push("Actionable now:");
     for (const i of items) lines.push(`- ${i.pr} ${i.kind}: ${i.detail}. Next: ${i.next}`);
@@ -80,7 +80,7 @@ export function stopHook(s: HookState & { stopHookActive: boolean; priorBlocks: 
       blocks: 0,
     };
   }
-  const items = scoped.flatMap((v) => itemsFor(v, cfg));
+  const items = scoped.flatMap((v) => actionItemsFor(v, cfg));
   const d = decideStop({
     items,
     stopHookActive: s.stopHookActive,

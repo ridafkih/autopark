@@ -84,7 +84,7 @@ export class Engine {
     if (!entry) return { accepted: true, scheduled: [] };
     for (const c of r.candidates) await this.maybeAutoTrack(c, entry);
     const scheduled: string[] = [];
-    for (const n of r.prs) {
+    for (const n of r.pullRequests) {
       const key = pullRequestKey(r.repo, n);
       if (store.getPullRequest(key)?.tracked) {
         this.schedule(key);

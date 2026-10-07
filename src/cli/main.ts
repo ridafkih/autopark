@@ -138,7 +138,7 @@ async function cmdStatus(argv: string[], p: Paths) {
   out(
     values.json
       ? JSON.stringify({ daemon: s.daemon, prs }, null, 2)
-      : formatSummaries(prs, { daemon: s.daemon }),
+      : formatSummaries(prs, s.daemon),
   );
 }
 
