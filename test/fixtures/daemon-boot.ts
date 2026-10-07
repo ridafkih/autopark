@@ -40,7 +40,7 @@ export async function bootDaemon(options: BootOptions = {}) {
   const home = mkdtempSync(join(tmpdir(), "apl-int-"));
   const github = new FakeGitHub();
   options.prepare?.(github);
-  const source = join(options.configDir ?? home, ".pr-autopilot.yaml");
+  const source = join(options.configDir ?? home, ".autopark.yaml");
   const configs = await ConfigSet.fromConfigs([{ config: config(options.config), source }]);
   const daemon = await startDaemon({
     configs,

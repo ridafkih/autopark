@@ -44,7 +44,7 @@ describe("cli commands", () => {
     Bun.spawnSync(["git", "init", "-q", repo]);
     const location = { cwd: repo, home };
     expect(await cliExitCode(["init", "--repo", "acme/gadgets"], location)).toBe(0);
-    const file = join(repo, ".pr-autopilot.yaml");
+    const file = join(repo, ".autopark.yaml");
     expect(existsSync(file)).toBe(true);
     expect(readProjects(home)).toEqual([realPath(file)]);
     expect(await cliExitCode(["validate"], location)).toBe(0);
@@ -83,7 +83,7 @@ describe("cli commands", () => {
     const { home, project } = createProject();
     const result = await runCli(["daemon", "install", "--print"], { cwd: project, home });
     const unitMarker =
-      process.platform === "darwin" ? "<string>dev.pr-autopilot.daemon</string>" : "Restart=always";
+      process.platform === "darwin" ? "<string>dev.autopark.daemon</string>" : "Restart=always";
     expect(result.code).toBe(0);
     expect(result.stdout).toContain(unitMarker);
     expect(result.stdout).toContain(join(ROOT, "src/daemon/main.ts"));
@@ -91,12 +91,12 @@ describe("cli commands", () => {
 
   test("daemon install --print passes --config through as an absolute path", async () => {
     const { home, project } = createProject();
-    const args = ["daemon", "install", "--print", "--config", ".pr-autopilot.yaml"];
+    const args = ["daemon", "install", "--print", "--config", ".autopark.yaml"];
     const result = await runCli(args, { cwd: project, home });
-    const absolutePath = join(realPath(project), ".pr-autopilot.yaml");
+    const absolutePath = join(realPath(project), ".autopark.yaml");
     const hasAbsolutePath =
       result.stdout.includes(absolutePath) ||
-      result.stdout.includes(join(project, ".pr-autopilot.yaml"));
+      result.stdout.includes(join(project, ".autopark.yaml"));
     expect(hasAbsolutePath).toBe(true);
     expect(result.stdout).toContain("--config");
   });

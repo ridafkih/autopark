@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { errorMessage } from "../core/errors.ts";
 import { parseConfig, type ParseResult } from "./schema.ts";
 
-export const CONFIG_NAMES = [".pr-autopilot.yaml", ".pr-autopilot.yml", ".pr-autopilot.json"];
+export const CONFIG_NAMES = [".autopark.yaml", ".autopark.yml", ".autopark.json"];
 
 type RawConfig = { ok: true; raw: unknown } | { ok: false; message: string };
 

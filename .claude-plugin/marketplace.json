@@ -1,16 +1,16 @@
 {
-  "name": "pr-autopilot",
+  "name": "autopark",
   "owner": {
-    "name": "pr-autopilot contributors"
+    "name": "autopark contributors"
   },
   "plugins": [
     {
-      "name": "pr-autopilot",
+      "name": "autopark",
       "source": "./",
       "description": "Drive pull requests to ready through live GitHub events instead of polling."
     }
   ],
   "metadata": {
-    "description": "pr-autopilot: event-driven pull request autopilot for Claude Code"
+    "description": "autopark: event-driven pull request automation for Claude Code"
   }
 }

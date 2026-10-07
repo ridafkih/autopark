@@ -31,18 +31,18 @@ const firstHookCommands = (entries: unknown) =>
 describe("plugin packaging", () => {
   test("manifest wires the channel server with legacy protocol negotiation", () => {
     const manifest = readJson(".claude-plugin/plugin.json");
-    const server = valueAt(manifest, "mcpServers", "pr-autopilot");
+    const server = valueAt(manifest, "mcpServers", "autopark");
     expect(stringAt(server, "env", "MCP_PROTOCOL_NEGOTIATION")).toBe("legacy");
     const [entry] = arrayAt(server, "args");
     expect(entryExists(String(entry))).toBe(true);
     expect(valueAt(manifest, "channels")).toEqual([
-      { server: "pr-autopilot", displayName: "PR autopilot transitions" },
+      { server: "autopark", displayName: "Autopark transitions" },
     ]);
   });
 
   test("marketplace lists the plugin at the repo root", () => {
     const [plugin] = arrayAt(readJson(".claude-plugin/marketplace.json"), "plugins");
-    expect(plugin).toMatchObject({ name: "pr-autopilot", source: "./" });
+    expect(plugin).toMatchObject({ name: "autopark", source: "./" });
   });
 
   test("hooks call existing entry points", () => {
@@ -59,7 +59,7 @@ describe("plugin packaging", () => {
     const monitors = readJson("monitors/monitors.json");
     const [monitor] = Array.isArray(monitors) ? monitors : [];
     expect(stringAt(monitor, "when")).toBe("always");
-    expect(stringAt(monitor, "command")).toEndWith("bin/pr-autopilot watch");
+    expect(stringAt(monitor, "command")).toEndWith("bin/autopark watch");
   });
 
   test("/ship is user-invoked only and injects project context", () => {
@@ -68,12 +68,12 @@ describe("plugin packaging", () => {
       name: "ship",
       "disable-model-invocation": true,
     });
-    expect(markdown).toContain('!`"${CLAUDE_PLUGIN_ROOT}/bin/pr-autopilot" ship-context`');
+    expect(markdown).toContain('!`"${CLAUDE_PLUGIN_ROOT}/bin/autopark" ship-context`');
   });
 
   test("the playbook covers every transition kind", () => {
-    const markdown = read("skills/pr-autopilot/SKILL.md");
-    expect(frontmatter(markdown).name).toBe("pr-autopilot");
+    const markdown = read("skills/autopark/SKILL.md");
+    expect(frontmatter(markdown).name).toBe("autopark");
     const missing = TRANSITION_KINDS.filter((kind) => !markdown.includes(`\`${kind}\``));
     expect(missing).toEqual([]);
   });

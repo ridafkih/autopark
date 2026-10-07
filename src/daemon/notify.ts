@@ -5,14 +5,14 @@ import type { CommandRunner } from "./runner.ts";
 
 export function transitionEnv(transition: LoggedTransition): Record<string, string> {
   return {
-    PR_AUTOPILOT_KIND: transition.kind,
-    PR_AUTOPILOT_REPO: transition.repo,
-    PR_AUTOPILOT_NUMBER: String(transition.number),
-    PR_AUTOPILOT_URL: transition.url,
-    PR_AUTOPILOT_TITLE: transition.title,
-    PR_AUTOPILOT_REASON: transition.reason,
-    PR_AUTOPILOT_HEAD: transition.head ?? "",
-    PR_AUTOPILOT_JSON: JSON.stringify(transition),
+    AUTOPARK_KIND: transition.kind,
+    AUTOPARK_REPO: transition.repo,
+    AUTOPARK_NUMBER: String(transition.number),
+    AUTOPARK_URL: transition.url,
+    AUTOPARK_TITLE: transition.title,
+    AUTOPARK_REASON: transition.reason,
+    AUTOPARK_HEAD: transition.head ?? "",
+    AUTOPARK_JSON: JSON.stringify(transition),
   };
 }
 

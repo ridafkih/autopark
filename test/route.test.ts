@@ -19,7 +19,7 @@ const pullRequest = {
   user: { login: "octo" },
   head: { ref: "bot/tidy", sha: "abc" },
   base: { ref: "main" },
-  labels: [{ name: "autopilot" }],
+  labels: [{ name: "autopark" }],
 };
 
 interface Expected {
@@ -141,7 +141,7 @@ describe("route", () => {
       author: "octo",
       headRef: "bot/tidy",
       baseRef: "main",
-      labels: ["autopilot"],
+      labels: ["autopark"],
       open: true,
     });
   });

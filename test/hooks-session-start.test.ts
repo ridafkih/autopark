@@ -8,10 +8,10 @@ describe("SessionStart context", () => {
   test("ready PR with a healthy daemon", () => {
     expect(sessionStartContext(hookState())).toBe(
       [
-        "pr-autopilot daemon is running (pid 99, gh-webhook-forward connected).",
+        "autopark daemon is running (pid 99, gh-webhook-forward connected).",
         "Tracked PRs:",
         "- acme/widgets#7 [ready] Tidy the widget loader",
-        `React to pr-autopilot events using ${PLAYBOOK}.`,
+        `React to autopark events using ${PLAYBOOK}.`,
       ].join("\n"),
     );
   });
@@ -29,7 +29,7 @@ describe("SessionStart context", () => {
   test("a stopped daemon is called out with how to start it", () => {
     const [firstLine] = (sessionStartContext(hookState({ health: null })) ?? "").split("\n");
     expect(firstLine).toBe(
-      "pr-autopilot daemon is not running, so PR events are not being watched. Start it with `pr-autopilot daemon start`.",
+      "autopark daemon is not running, so PR events are not being watched. Start it with `autopark daemon start`.",
     );
   });
 

@@ -7,7 +7,7 @@ const candidate = {
   author: "octo",
   headRef: "bot/tidy",
   baseRef: "main",
-  labels: ["autopilot"],
+  labels: ["autopark"],
   open: true,
 };
 
@@ -20,7 +20,7 @@ describe("track filter", () => {
     ["author mismatch", { authors: ["someone"] }, false],
     ["branch prefix match", { branchPrefixes: ["bot/"] }, true],
     ["branch prefix mismatch", { branchPrefixes: ["feature/"] }, false],
-    ["label match", { labels: ["autopilot"] }, true],
+    ["label match", { labels: ["autopark"] }, true],
     ["label mismatch", { labels: ["other"] }, false],
     ["all dimensions must match", { authors: ["octo"], branchPrefixes: ["feature/"] }, false],
     [

@@ -117,7 +117,7 @@ const valid: Array<[string, unknown]> = [
   ["minimal", minimal],
   [
     "track filters",
-    { ...minimal, track: { authors: ["@me"], branchPrefixes: ["bot/"], labels: ["autopilot"] } },
+    { ...minimal, track: { authors: ["@me"], branchPrefixes: ["bot/"], labels: ["autopark"] } },
   ],
   [
     "explicit required checks",
@@ -153,7 +153,7 @@ const valid: Array<[string, unknown]> = [
   ["auto merge by label", { ...minimal, autoMerge: { labels: ["automerge"], method: "rebase" } }],
   [
     "review request command",
-    { ...minimal, reviewRequest: { command: "notify-reviewers $PR_AUTOPILOT_URL" } },
+    { ...minimal, reviewRequest: { command: "notify-reviewers $AUTOPARK_URL" } },
   ],
   [
     "replay source",

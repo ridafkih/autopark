@@ -38,7 +38,7 @@ function prepareProject(configYaml: string) {
   const project = join(directory, "proj");
   mkdirSync(home, { recursive: true });
   mkdirSync(project, { recursive: true });
-  writeFileSync(join(project, ".pr-autopilot.yaml"), configYaml);
+  writeFileSync(join(project, ".autopark.yaml"), configYaml);
   writeFileSync(join(home, "transitions.jsonl"), OLD_TRANSITION);
   return { home, project };
 }
@@ -47,7 +47,7 @@ function spawnServer(configYaml: string) {
   const { home, project } = prepareProject(configYaml);
   const subprocess = Bun.spawn([process.execPath, join(ROOT, "src/channel/server.ts")], {
     cwd: project,
-    env: { ...process.env, PR_AUTOPILOT_HOME: home, MCP_PROTOCOL_NEGOTIATION: "legacy" },
+    env: { ...process.env, AUTOPARK_HOME: home, MCP_PROTOCOL_NEGOTIATION: "legacy" },
     stdin: "pipe",
     stdout: "pipe",
     stderr: "pipe",
@@ -104,7 +104,7 @@ test("speaks MCP over stdio and pushes new in-scope transitions as channel notif
     const initialization = await server.nextMessage();
     expect(initialization.result.protocolVersion).toBe("2025-06-18");
     expect(initialization.result.capabilities).toEqual({ experimental: { "claude/channel": {} } });
-    expect(initialization.result.instructions).toContain("pr-autopilot:pr-autopilot skill");
+    expect(initialization.result.instructions).toContain("autopark:autopark skill");
     server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
     server.send({ jsonrpc: "2.0", id: 2, method: "ping" });
     expect(await server.nextMessage()).toEqual({ jsonrpc: "2.0", id: 2, result: {} });
@@ -136,7 +136,7 @@ test("delivery.channel false keeps the server connected but silent", async () =>
     await server.nextMessage();
     server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
     expect(await server.nextErrorLine()).toBe(
-      "[pr-autopilot channel] delivery.channel is false; staying silent",
+      "[autopark channel] delivery.channel is false; staying silent",
     );
     appendFileSync(server.log, transition(2, "acme/widgets"));
     server.send({ jsonrpc: "2.0", id: 9, method: "ping" });

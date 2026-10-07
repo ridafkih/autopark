@@ -12,7 +12,7 @@ const RAW = {
   headRefOid: "ABCDEF1234567890ABCDEF1234567890ABCDEF12",
   baseRef: { target: { oid: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" } },
   author: { login: "octo" },
-  labels: { nodes: [{ name: "autopilot" }] },
+  labels: { nodes: [{ name: "autopark" }] },
   mergeable: "CONFLICTING",
   mergeStateStatus: "DIRTY",
   latestOpinionatedReviews: {
@@ -116,7 +116,7 @@ describe("normalizePullRequest", () => {
 
   test("keeps mergeability, labels and threads", () => {
     expect(snapshot.mergeable).toBe("CONFLICTING");
-    expect(snapshot.labels).toEqual(["autopilot"]);
+    expect(snapshot.labels).toEqual(["autopark"]);
     expect(snapshot.threads).toEqual([
       {
         id: "T1",

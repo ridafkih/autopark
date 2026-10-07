@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export function homeDir() {
-  return process.env.PR_AUTOPILOT_HOME || join(homedir(), ".pr-autopilot");
+  return process.env.AUTOPARK_HOME || join(homedir(), ".autopark");
 }
 
 export function resolvePaths(home = homeDir()) {

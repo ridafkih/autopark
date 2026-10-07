@@ -104,7 +104,7 @@ export class Engine {
 
   track(repo: string, number: number, options: TrackOptions = {}) {
     const { store, clock, configs } = this.dependencies;
-    if (!configs.get(repo)) throw new Error(`${repo} is not in any loaded pr-autopilot config`);
+    if (!configs.get(repo)) throw new Error(`${repo} is not in any loaded autopark config`);
     const sessionId = options.sessionId ?? null;
     const key = store.track({ repo, number, source: "explicit", sessionId, now: clock.now() });
     if (options.autoMerge !== undefined) store.setAutoMerge(key, options.autoMerge);

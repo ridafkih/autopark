@@ -15,12 +15,12 @@ describe("delivery scope", () => {
   test.each([
     [
       "dev channel flag naming the plugin",
-      ["claude --dangerously-load-development-channels plugin:pr-autopilot@pr-autopilot"],
+      ["claude --dangerously-load-development-channels plugin:autopark@autopark"],
       true,
     ],
     [
       "approved channels flag naming the plugin",
-      ["/usr/local/bin/claude --channels plugin:pr-autopilot@team"],
+      ["/usr/local/bin/claude --channels plugin:autopark@team"],
       true,
     ],
     [
@@ -32,8 +32,8 @@ describe("delivery scope", () => {
     [
       "flag on an ancestor further up",
       [
-        "sh -c pr-autopilot watch",
-        "node claude --dangerously-load-development-channels server:pr-autopilot",
+        "sh -c autopark watch",
+        "node claude --dangerously-load-development-channels server:autopark",
       ],
       true,
     ],

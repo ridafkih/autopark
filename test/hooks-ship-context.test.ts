@@ -18,19 +18,17 @@ describe("/ship context", () => {
     });
     const text = shipContext({
       config: projectConfig,
-      configPath: "/repo/.pr-autopilot.yaml",
+      configPath: "/repo/.autopark.yaml",
       root: "/repo",
       health,
       exists,
     });
-    expect(text).toContain("- Config: /repo/.pr-autopilot.yaml (acme/widgets)");
+    expect(text).toContain("- Config: /repo/.autopark.yaml (acme/widgets)");
     expect(text).toContain("- Read before implementing: /repo/CLAUDE.md");
     expect(text).toContain("- Not present: AGENTS.md");
     expect(text).toContain("- Load these skills first: team-standards");
     expect(text).toContain("- PR body template: /repo/.github/pull_request_template.md");
-    expect(text).toContain(
-      "- Review request: instruction (shown by `pr-autopilot request-review`)",
-    );
+    expect(text).toContain("- Review request: instruction (shown by `autopark request-review`)");
     expect(text).toContain(
       "- Auto-merge: off unless the user asks or the PR has a label in [automerge]",
     );
@@ -45,8 +43,8 @@ describe("/ship context", () => {
       health: null,
       exists,
     });
-    expect(text).toContain("- Config: none found; run `pr-autopilot init` to create one");
-    expect(text).toContain("- Daemon: not running; start it with `pr-autopilot daemon start`");
+    expect(text).toContain("- Config: none found; run `autopark init` to create one");
+    expect(text).toContain("- Daemon: not running; start it with `autopark daemon start`");
     expect(text).toContain(
       "- PR body template: none; match the conventions of recently merged PRs",
     );

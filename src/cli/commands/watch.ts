@@ -32,11 +32,11 @@ export async function watchTransitions({ paths }: Invocation) {
   const { mode, isEmitting } = shouldEmit(config);
   if (!isEmitting) {
     const reason = mode === "auto" ? ", channel loaded" : "";
-    process.stderr.write(`pr-autopilot watch: silent (monitor=${mode}${reason})\n`);
+    process.stderr.write(`autopark watch: silent (monitor=${mode}${reason})\n`);
     await waitForever();
   }
   const scope = { repos: config?.repos ?? null };
   new LogTailer(paths.log, (line) => printInScope(line, scope)).start();
-  process.stderr.write(`pr-autopilot watch: tailing ${paths.log}\n`);
+  process.stderr.write(`autopark watch: tailing ${paths.log}\n`);
   await waitForever();
 }

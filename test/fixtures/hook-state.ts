@@ -8,7 +8,7 @@ import { config, snapshot } from "./build.ts";
 const parsers = new Map([["greptile", greptile]]);
 const defaultConfig = config();
 
-export const PLAYBOOK = "the pr-autopilot:pr-autopilot skill";
+export const PLAYBOOK = "the autopark:autopark skill";
 
 export const health = {
   ok: true as const,

@@ -1,13 +1,13 @@
 # Security
 
-- **Webhook authenticity.** Every delivery is HMAC-verified. If you don't set `PR_AUTOPILOT_WEBHOOK_SECRET`, the daemon generates a random secret per run and hands it to the forwarder, so unsigned or forged requests to the local port are rejected. The receiver binds to 127.0.0.1 only.
+- **Webhook authenticity.** Every delivery is HMAC-verified. If you don't set `AUTOPARK_WEBHOOK_SECRET`, the daemon generates a random secret per run and hands it to the forwarder, so unsigned or forged requests to the local port are rejected. The receiver binds to 127.0.0.1 only.
 - **What `gh webhook forward` does.**
   - It creates a temporary repository webhook named `cli` that is active only while it is connected, and relays deliveries over a websocket.
   - That requires admin on the repo and a token with `admin:repo_hook` (`repo` also covers it). `doctor` checks both.
   - The secret is passed as `--secret`, which other local users can see in `ps`.
 - **Token use.** The daemon reads GitHub through `GH_TOKEN` / `GITHUB_TOKEN`, or `gh auth token`. It only reads, except for `PUT /pulls/{n}/merge` on PRs you opted into auto-merge.
 - **Prompt injection.** Channel content is derived from GitHub state, but it includes PR titles and reasons that quote check names, both of which are text other people control. Treat events as data. The playbook tells Claude to act only on PRs its session drives.
-- **Notify and merge commands** get transition data as environment variables, never interpolated into the command string. Quote them (`"$PR_AUTOPILOT_REASON"`) in your command.
+- **Notify and merge commands** get transition data as environment variables, never interpolated into the command string. Quote them (`"$AUTOPARK_REASON"`) in your command.
 
 
 ## Known limits

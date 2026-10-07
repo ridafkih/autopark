@@ -62,5 +62,5 @@ export function monitorLine(transition: LoggedTransition) {
   const head = shortSha(transition.head ?? "");
   const reason = oneLine(transition.reason);
   const label = formatPullRequest(transition);
-  return `pr-autopilot ${label} ${transition.kind} head=${head}: ${reason} ${transition.url}`;
+  return `autopark ${label} ${transition.kind} head=${head}: ${reason} ${transition.url}`;
 }

@@ -28,7 +28,7 @@ export interface DaemonOptions {
 const MS_PER_SECOND = 1000;
 
 export const logToStderr = (message: string) => {
-  process.stderr.write(`[pr-autopilotd] ${message}\n`);
+  process.stderr.write(`[autoparkd] ${message}\n`);
 };
 
 function healthReporter(configs: ConfigSet, source: EventSource, clock: Clock) {

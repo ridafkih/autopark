@@ -1,6 +1,6 @@
 # Configuration
 
-`.pr-autopilot.yaml` (or `.yml` / `.json`) at the repo root. `pr-autopilot schema` prints the JSON Schema (also in `schema/`). Unknown keys are errors, and `pr-autopilot validate` reports each problem with its path.
+`.autopark.yaml` (or `.yml` / `.json`) at the repo root. `autopark schema` prints the JSON Schema (also in `schema/`). Unknown keys are errors, and `autopark validate` reports each problem with its path.
 
 | key | default | |
 |---|---|---|
@@ -21,19 +21,19 @@
 | `readiness.requiredChecksPass` | `true` | if nothing is required, every non-gate check is |
 | `readiness.allowDraft` | `false` | |
 | `readiness.baseFreshness.policy` | `off` | `contains-tip`: head must contain the base tip. `max-behind`: at most `maxBehind` base commits missing. `paths`: base changes since the merge base must not touch `paths` globs |
-| `notify[]` | `[]` | `{type: command, command, on: [kinds]}`; transition fields arrive as `PR_AUTOPILOT_*` env vars and JSON on stdin. `on` defaults to `ready, conflicted, checks_failed, merged` |
+| `notify[]` | `[]` | `{type: command, command, on: [kinds]}`; transition fields arrive as `AUTOPARK_*` env vars and JSON on stdin. `on` defaults to `ready, conflicted, checks_failed, merged` |
 | `autoMerge.default` | `false` | auto-merge every tracked PR |
-| `autoMerge.labels` | `[]` | PRs with these labels auto-merge; `pr-autopilot auto-merge <pr> on/off` overrides per PR |
+| `autoMerge.labels` | `[]` | PRs with these labels auto-merge; `autopark auto-merge <pr> on/off` overrides per PR |
 | `autoMerge.method` | `squash` | `merge`, `squash` or `rebase`; the merge pins the head SHA |
 | `autoMerge.command` | `null` | custom merge command instead of the REST merge (e.g. for merge queues or stacked PRs) |
-| `reviewRequest.command` | `null` | run by `pr-autopilot request-review` |
+| `reviewRequest.command` | `null` | run by `autopark request-review` |
 | `reviewRequest.instruction` | `null` | text handed to Claude to request review with its own tools (`{url}`, `{number}`, `{repo}`, `{title}`, `{head}`) |
 | `standards.files` | `[CLAUDE.md, AGENTS.md]` | what `/ship` reads first |
 | `standards.skills` | `[]` | skills `/ship` loads first |
 | `standards.prBodyTemplate` | `null` | |
 | `delivery.channel` | `true` | |
 | `delivery.monitor` | `auto` | `auto`, `always`, `off` |
-| `delivery.playbook` | `null` | path to a playbook that replaces the bundled `pr-autopilot` skill |
+| `delivery.playbook` | `null` | path to a playbook that replaces the bundled `autopark` skill |
 | `hooks.sessionStart.enabled` | `true` | |
 | `hooks.stop.enabled` | `true` | |
 | `hooks.stop.scope` | `session` | `session` (PRs tracked with this session id), `repo` (PRs in this config's repos), `all` |
@@ -42,11 +42,11 @@
 | `daemon.source.type` | `gh-webhook-forward` | event source adapter id, or a path to your own module |
 | `daemon.source.options` | `{}` | adapter options (below) |
 | `daemon.port` | `8787` | local webhook receiver, bound to 127.0.0.1 |
-| `daemon.secretEnv` | `PR_AUTOPILOT_WEBHOOK_SECRET` | if unset, a random secret is generated per daemon run |
+| `daemon.secretEnv` | `AUTOPARK_WEBHOOK_SECRET` | if unset, a random secret is generated per daemon run |
 | `daemon.debounceMs` | `500` | bursts for one PR collapse into one read |
 | `daemon.backoffMs` | `[1000,2000,4000,8000,16000,30000]` | `UNKNOWN` mergeability re-reads |
 
-One daemon serves every registered project (`~/.pr-autopilot/projects.json`). The first config's `daemon` section configures it.
+One daemon serves every registered project (`~/.autopark/projects.json`). The first config's `daemon` section configures it.
 
 Built-in source options:
 - `gh-webhook-forward`: `events` (defaults to every event the router uses), `gh`, `hostname`, `path`, `restartBackoffMs`.

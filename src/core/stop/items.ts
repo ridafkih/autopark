@@ -103,7 +103,7 @@ const reviewNotRequestedItem: ItemBuilder = ({ evaluation, view, config, label }
   return {
     kind: "review_not_requested",
     detail: `head ${shortSha(evaluation.headSha)} has no review request`,
-    next: `request review (pr-autopilot request-review ${label}).`,
+    next: `request review (autopark request-review ${label}).`,
   };
 };
 

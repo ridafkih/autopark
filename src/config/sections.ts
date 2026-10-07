@@ -40,8 +40,7 @@ export const notifyTargetSchema = objectSchema({
   type: enumSchema(["command"] as const),
   command: stringSchema({
     minLength: 1,
-    description:
-      "Shell command; transition fields arrive as PR_AUTOPILOT_* env vars and JSON on stdin",
+    description: "Shell command; transition fields arrive as AUTOPARK_* env vars and JSON on stdin",
   }),
   on: arraySchema(enumSchema(TRANSITION_KINDS), {
     default: ["ready", "conflicted", "checks_failed", "merged"],
@@ -105,7 +104,7 @@ export const autoMergeSection = objectSchema({
 export const reviewRequestSection = objectSchema({
   command: nullableSchema(stringSchema({ minLength: 1 }), {
     default: null,
-    description: "Command run by `pr-autopilot request-review`",
+    description: "Command run by `autopark request-review`",
   }),
   instruction: nullableSchema(stringSchema({ minLength: 1 }), {
     default: null,
@@ -131,12 +130,12 @@ export const deliverySection = objectSchema({
   monitor: enumSchema(["auto", "always", "off"] as const, {
     default: "auto",
     description:
-      "Plugin monitor fallback; auto stays silent when the session loaded the pr-autopilot channel",
+      "Plugin monitor fallback; auto stays silent when the session loaded the autopark channel",
   }),
   playbook: nullableSchema(stringSchema({ minLength: 1 }), {
     default: null,
     description:
-      "Path (relative to this file) to a playbook that replaces the bundled pr-autopilot skill",
+      "Path (relative to this file) to a playbook that replaces the bundled autopark skill",
   }),
 });
 
@@ -171,7 +170,7 @@ export const daemonSection = objectSchema({
     description: "Local webhook receiver port",
   }),
   secretEnv: stringSchema({
-    default: "PR_AUTOPILOT_WEBHOOK_SECRET",
+    default: "AUTOPARK_WEBHOOK_SECRET",
     description: "Env var holding the webhook secret; an ephemeral one is generated if unset",
   }),
   debounceMs: numberSchema({ default: 500, min: 0, int: true }),

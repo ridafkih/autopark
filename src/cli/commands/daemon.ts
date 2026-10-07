@@ -13,7 +13,7 @@ import type { CommandHandler, Invocation } from "./types.ts";
 
 const START_ATTEMPTS = 50;
 const START_POLL_MS = 100;
-const DAEMON_USAGE = "usage: pr-autopilot daemon run|start|stop|status|install [--print]|uninstall";
+const DAEMON_USAGE = "usage: autopark daemon run|start|stop|status|install [--print]|uninstall";
 
 async function hasDaemonStarted(socket: string, attemptsLeft: number): Promise<boolean> {
   if (attemptsLeft <= 0) return false;
@@ -34,7 +34,7 @@ function spawnDetached(args: string[], paths: Paths) {
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",
-    env: { ...process.env, PR_AUTOPILOT_HOME: paths.home },
+    env: { ...process.env, AUTOPARK_HOME: paths.home },
   });
   subprocess.unref();
 }
@@ -67,7 +67,7 @@ async function stopDaemon({ paths }: Invocation) {
   const serviceKind = installedServiceKind();
   if (serviceKind) {
     print(
-      `note: the ${serviceKind} service will restart it; use \`pr-autopilot daemon uninstall\` to stop it for good`,
+      `note: the ${serviceKind} service will restart it; use \`autopark daemon uninstall\` to stop it for good`,
     );
   }
   print(`sent SIGTERM to ${health.pid}`);

@@ -30,7 +30,7 @@ function setup(configYaml = "repos:\n  - acme/widgets\n") {
   const home = join(directory, "home");
   const project = join(directory, "proj");
   mkdirSync(project, { recursive: true });
-  writeFileSync(join(project, ".pr-autopilot.yaml"), configYaml);
+  writeFileSync(join(project, ".autopark.yaml"), configYaml);
   return { home, project };
 }
 
@@ -57,7 +57,7 @@ async function bootWithConflict(home: string) {
 async function run(args: string[], options: RunOptions) {
   const subprocess = Bun.spawn([process.execPath, CLI, ...args], {
     cwd: options.cwd,
-    env: { ...process.env, PR_AUTOPILOT_HOME: options.home },
+    env: { ...process.env, AUTOPARK_HOME: options.home },
     stdin: options.stdin === undefined ? "ignore" : new TextEncoder().encode(options.stdin),
     stdout: "pipe",
     stderr: "pipe",
@@ -126,7 +126,7 @@ test("session start injects daemon state, tracked PRs and actionable items", asy
   const additionalContext = stringAt(hookSpecificOutput, "additionalContext");
   expect(stringAt(hookSpecificOutput, "hookEventName")).toBe("SessionStart");
   expect(additionalContext).toContain(
-    `pr-autopilot daemon is running (pid ${process.pid}, replay connected).`,
+    `autopark daemon is running (pid ${process.pid}, replay connected).`,
   );
   expect(additionalContext).toContain("Actionable now:\n- acme/widgets#7 conflict");
 });
@@ -146,7 +146,7 @@ test("watch prints one line per in-scope transition", async () => {
   writeFileSync(log, "");
   const subprocess = Bun.spawn([process.execPath, CLI, "watch"], {
     cwd: project,
-    env: { ...process.env, PR_AUTOPILOT_HOME: home },
+    env: { ...process.env, AUTOPARK_HOME: home },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -160,7 +160,7 @@ test("watch prints one line per in-scope transition", async () => {
   const reader = subprocess.stdout.getReader();
   const { value } = await reader.read();
   expect(new TextDecoder().decode(value).trim()).toBe(
-    "pr-autopilot acme/widgets#7 checks_failed head=1111111: required failed: build (FAILURE) https://github.com/acme/widgets/pull/7",
+    "autopark acme/widgets#7 checks_failed head=1111111: required failed: build (FAILURE) https://github.com/acme/widgets/pull/7",
   );
 });
 

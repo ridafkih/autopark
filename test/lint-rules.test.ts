@@ -6,7 +6,7 @@ import { arrayAt, numberAt, parseJson, stringAt } from "../src/core/json.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const OXLINT = join(ROOT, "node_modules/.bin/oxlint");
-const workspace = mkdtempSync(join(tmpdir(), "autopilot-lint-"));
+const workspace = mkdtempSync(join(tmpdir(), "autopark-lint-"));
 
 interface Diagnostic {
   code: string;
@@ -44,9 +44,9 @@ const SAMPLES: Record<string, string[]> = {
 };
 
 const config = {
-  jsPlugins: [join(ROOT, "lint/autopilot.ts")],
+  jsPlugins: [join(ROOT, "lint/autopark.ts")],
   categories: { correctness: "off" },
-  rules: { "autopilot/no-let": "error", "autopilot/simple-template-expressions": "error" },
+  rules: { "autopark/no-let": "error", "autopark/simple-template-expressions": "error" },
 };
 
 const diagnostics: Diagnostic[] = [];
@@ -54,7 +54,7 @@ const diagnostics: Diagnostic[] = [];
 function flaggedLines(sample: string, rule: string) {
   return diagnostics
     .filter((diagnostic) => basename(diagnostic.filename) === `${sample}.ts`)
-    .filter((diagnostic) => diagnostic.code === `autopilot(${rule})`)
+    .filter((diagnostic) => diagnostic.code === `autopark(${rule})`)
     .map((diagnostic) => diagnostic.line)
     .toSorted();
 }
@@ -75,7 +75,7 @@ beforeAll(async () => {
 
 afterAll(() => rmSync(workspace, { recursive: true, force: true }));
 
-describe("autopilot lint plugin", () => {
+describe("autopark lint plugin", () => {
   test("no-let flags every let binding and leaves const alone", () => {
     expect(flaggedLines("let-bindings", "no-let")).toEqual([2, 3]);
   });

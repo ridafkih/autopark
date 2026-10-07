@@ -47,7 +47,7 @@ export function parseConfig(input: unknown): ParseResult {
 export function configJsonSchema() {
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    title: "pr-autopilot config",
+    title: "autopark config",
     ...configSchema.json(),
   };
 }

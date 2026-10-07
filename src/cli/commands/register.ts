@@ -7,7 +7,7 @@ import type { Invocation } from "./types.ts";
 
 export async function registerConfig({ argv, paths }: Invocation) {
   const [path] = argv;
-  if (!path) throw new CliError("usage: pr-autopilot register <config path>");
+  if (!path) throw new CliError("usage: autopark register <config path>");
   const loaded = await loadConfigFile(resolve(path));
   if (!loaded.ok) throw new CliError(describeIssues(path, loaded.issues));
   const verb = addProject(paths.projects, path) ? "registered" : "already registered";

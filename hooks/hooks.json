@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/pr-autopilot hook session-start",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/autopark hook session-start",
             "timeout": 30
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/pr-autopilot hook stop",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/autopark hook stop",
             "timeout": 30
           }
         ]

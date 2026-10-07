@@ -12,7 +12,7 @@ export interface StopHookResult {
 }
 
 const DAEMON_DOWN =
-  "pr-autopilot: the daemon is not running, so tracked PR state may be stale; start it with `pr-autopilot daemon start`.";
+  "autopark: the daemon is not running, so tracked PR state may be stale; start it with `autopark daemon start`.";
 
 export function stopHook(state: StopHookState): StopHookResult {
   const config = configOrDefaults(state.config).hooks.stop;

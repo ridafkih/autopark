@@ -1,5 +1,5 @@
-# yaml-language-server: $schema=../schema/pr-autopilot.schema.json
-# Example: Ando's monorepo. Copy to .pr-autopilot.yaml at the repo root and adjust.
+# yaml-language-server: $schema=../schema/autopark.schema.json
+# Example: Ando's monorepo. Copy to .autopark.yaml at the repo root and adjust.
 repos:
   - Ando-Corporation/ando
 
@@ -28,11 +28,11 @@ readiness:
 
 notify:
   - type: command
-    command: osascript -e "display notification \"$PR_AUTOPILOT_REASON\" with title \"#$PR_AUTOPILOT_NUMBER $PR_AUTOPILOT_KIND\""
+    command: osascript -e "display notification \"$AUTOPARK_REASON\" with title \"#$AUTOPARK_NUMBER $AUTOPARK_KIND\""
     on: [ready, conflicted, checks_failed, merged]
 
 autoMerge:
-  labels: ["autopilot:automerge"]
+  labels: ["autopark:automerge"]
   method: squash
 
 reviewRequest:

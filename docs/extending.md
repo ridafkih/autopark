@@ -6,8 +6,8 @@ An adapter turns *some* transport into deliveries. The core never knows which on
 
 ```ts
 // my-funnel-source.ts
-import type { EventSource, SourceFactory } from "pr-autopilot/src/sources/types.ts";
-import { startReceiver } from "pr-autopilot/src/sources/receiver.ts";
+import type { EventSource, SourceFactory } from "autopark/src/sources/types.ts";
+import { startReceiver } from "autopark/src/sources/receiver.ts";
 
 const factory: SourceFactory = (options, dependencies) => {
   let server: ReturnType<typeof startReceiver> | null = null;
@@ -51,7 +51,7 @@ reviewers:
 For anything else, export a `ReviewerParser` and set `parser: ./path/to/parser.ts`:
 
 ```ts
-import type { ReviewerParser } from "pr-autopilot/src/reviewers/types.ts";
+import type { ReviewerParser } from "autopark/src/reviewers/types.ts";
 const parser: ReviewerParser = {
   id: "mybot",
   defaultLogins: ["mybot"],
@@ -71,5 +71,5 @@ The built-in `greptile` parser:
 
 ## The playbook
 
-How Claude reacts to each transition lives in one file, `skills/pr-autopilot/SKILL.md`. To change it for a project, write your own and set `delivery.playbook: ./docs/pr-playbook.md`. The channel instructions and both hooks then point at your file instead.
+How Claude reacts to each transition lives in one file, `skills/autopark/SKILL.md`. To change it for a project, write your own and set `delivery.playbook: ./docs/pr-playbook.md`. The channel instructions and both hooks then point at your file instead.
 

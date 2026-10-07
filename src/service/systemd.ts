@@ -26,7 +26,7 @@ const environmentLines = (spec: ServiceSpec) =>
 export function renderUnit(spec: ServiceSpec) {
   const execStart = spec.program.map(quoteArgument).join(" ");
   return `[Unit]
-Description=pr-autopilot daemon
+Description=autopark daemon
 After=network-online.target
 
 [Service]

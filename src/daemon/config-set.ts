@@ -45,7 +45,7 @@ export class ConfigSet {
 
   constructor(entries: RepoEntry[]) {
     const [primary] = entries;
-    if (!primary) throw new Error("no pr-autopilot config loaded");
+    if (!primary) throw new Error("no autopark config loaded");
     this.entries = entries;
     this.primary = primary;
     this.byRepo = indexByRepo(entries);

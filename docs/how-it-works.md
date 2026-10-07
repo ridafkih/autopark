@@ -1,7 +1,7 @@
 # How it works
 
 ```
-GitHub ──webhook──▶ event source adapter ──delivery──▶ pr-autopilotd ──▶ transitions.jsonl ──▶ channel server ──▶ Claude
+GitHub ──webhook──▶ event source adapter ──delivery──▶ autoparkd ──▶ transitions.jsonl ──▶ channel server ──▶ Claude
         (gh webhook forward, replay, yours)            │                                    └─▶ plugin monitor (fallback)
                                                        ├─ dedupe on X-GitHub-Delivery (sqlite)
                                                        ├─ route to the affected PRs (a base push → every PR on that base)

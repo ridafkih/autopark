@@ -13,7 +13,7 @@ export async function initProject({ argv, paths }: Invocation) {
     args: argv,
     options: { repo: { type: "string" }, force: { type: "boolean" } },
   });
-  const file = join(await gitRoot(), ".pr-autopilot.yaml");
+  const file = join(await gitRoot(), ".autopark.yaml");
   if (existsSync(file) && !values.force) {
     throw new CliError(`${file} exists; pass --force to overwrite`);
   }

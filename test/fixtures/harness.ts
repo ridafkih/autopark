@@ -36,7 +36,7 @@ export async function createHarness(options: HarnessOptions = {}) {
   const clock = options.clock ?? new ImmediateClock();
   const runner = new RecordingRunner();
   const configs = await ConfigSet.fromConfigs([
-    { config: config(options.config), source: "/virtual/.pr-autopilot.yaml" },
+    { config: config(options.config), source: "/virtual/.autopark.yaml" },
   ]);
   const engine = new Engine({ store, sink, github, clock, configs, runner });
   const kinds = () => sink.lines.map((line) => line.kind);

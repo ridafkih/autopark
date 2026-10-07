@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "pr-autopilot config",
+  "title": "autopark config",
   "type": "object",
   "properties": {
     "repos": {
@@ -226,7 +226,7 @@
           "command": {
             "type": "string",
             "minLength": 1,
-            "description": "Shell command; transition fields arrive as PR_AUTOPILOT_* env vars and JSON on stdin"
+            "description": "Shell command; transition fields arrive as AUTOPARK_* env vars and JSON on stdin"
           },
           "on": {
             "type": "array",
@@ -324,7 +324,7 @@
             }
           ],
           "default": null,
-          "description": "Command run by `pr-autopilot request-review`"
+          "description": "Command run by `autopark request-review`"
         },
         "instruction": {
           "anyOf": [
@@ -398,7 +398,7 @@
             "off"
           ],
           "default": "auto",
-          "description": "Plugin monitor fallback; auto stays silent when the session loaded the pr-autopilot channel"
+          "description": "Plugin monitor fallback; auto stays silent when the session loaded the autopark channel"
         },
         "playbook": {
           "anyOf": [
@@ -411,7 +411,7 @@
             }
           ],
           "default": null,
-          "description": "Path (relative to this file) to a playbook that replaces the bundled pr-autopilot skill"
+          "description": "Path (relative to this file) to a playbook that replaces the bundled autopark skill"
         }
       },
       "additionalProperties": false
@@ -505,7 +505,7 @@
         },
         "secretEnv": {
           "type": "string",
-          "default": "PR_AUTOPILOT_WEBHOOK_SECRET",
+          "default": "AUTOPARK_WEBHOOK_SECRET",
           "description": "Env var holding the webhook secret; an ephemeral one is generated if unset"
         },
         "debounceMs": {

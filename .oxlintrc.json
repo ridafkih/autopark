@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
   "jsPlugins": [
-    "./lint/autopilot.ts",
+    "./lint/autopark.ts",
     {
       "name": "unicorn-js",
       "specifier": "eslint-plugin-unicorn"
@@ -92,8 +92,8 @@
       }
     ],
     "unicorn-js/consistent-boolean-name": "error",
-    "autopilot/no-let": "error",
-    "autopilot/simple-template-expressions": "error",
+    "autopark/no-let": "error",
+    "autopark/simple-template-expressions": "error",
     "no-param-reassign": [
       "error",
       {
@@ -230,7 +230,7 @@
       }
     },
     {
-      "files": ["lint/autopilot.ts", "test/fixtures/custom-parser.ts"],
+      "files": ["lint/autopark.ts", "test/fixtures/custom-parser.ts"],
       "rules": {
         "import/no-default-export": "off"
       }

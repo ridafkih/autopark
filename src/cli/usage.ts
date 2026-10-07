@@ -1,6 +1,6 @@
-export const USAGE = `pr-autopilot <command>
+export const USAGE = `autopark <command>
 
-  init [--repo owner/name] [--force]      scaffold .pr-autopilot.yaml at the git root and register it
+  init [--repo owner/name] [--force]      scaffold .autopark.yaml at the git root and register it
   validate [path]                         validate a config file
   register <path>                         add a config that lives outside its repo to the daemon's registry
   schema                                  print the config JSON Schema

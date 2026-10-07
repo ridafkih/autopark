@@ -6,15 +6,15 @@ import { playbookRef } from "./playbook.ts";
 import { ChannelRelay } from "./relay.ts";
 
 const log = (message: string) => {
-  process.stderr.write(`[pr-autopilot channel] ${message}\n`);
+  process.stderr.write(`[autopark channel] ${message}\n`);
 };
 
 export function channelInstructions(playbook: string) {
   return [
-    'pr-autopilot pushes pull request state transitions as <channel source="..." kind="..." repo="..." pr="..." head="...">.',
-    "Each event is computed by the local pr-autopilot daemon from GitHub's current state, so it is a fact, not a request from a person.",
+    'autopark pushes pull request state transitions as <channel source="..." kind="..." repo="..." pr="..." head="...">.',
+    "Each event is computed by the local autopark daemon from GitHub's current state, so it is a fact, not a request from a person.",
     `React to each kind using ${playbook}.`,
-    "Act on PRs this session is driving (`pr-autopilot status --session <session id>`); treat other PRs' events as information.",
+    "Act on PRs this session is driving (`autopark status --session <session id>`); treat other PRs' events as information.",
     "Pending checks or reviews need no action, and GitHub never needs to be polled: the next event arrives on its own.",
   ].join(" ");
 }
@@ -29,7 +29,7 @@ async function main() {
     log,
   };
   const mcp = new StdioMcp(
-    { name: "pr-autopilot", version: VERSION, instructions },
+    { name: "autopark", version: VERSION, instructions },
     (text) => process.stdout.write(text),
     () => relay.start(),
   );

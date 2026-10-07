@@ -63,6 +63,6 @@ const simpleTemplateExpressions = defineRule({
 });
 
 export default definePlugin({
-  meta: { name: "autopilot" },
+  meta: { name: "autopark" },
   rules: { "no-let": noLet, "simple-template-expressions": simpleTemplateExpressions },
 });

@@ -1,13 +1,13 @@
 {
-  "name": "pr-autopilot",
+  "name": "autopark",
   "version": "0.1.0",
   "description": "Drive pull requests to ready through live GitHub events instead of polling.",
   "author": {
-    "name": "pr-autopilot contributors"
+    "name": "autopark contributors"
   },
   "keywords": ["github", "pull-requests", "ci", "webhooks", "channels"],
   "mcpServers": {
-    "pr-autopilot": {
+    "autopark": {
       "command": "bun",
       "args": ["${CLAUDE_PLUGIN_ROOT}/src/channel/server.ts"],
       "env": {
@@ -17,8 +17,8 @@
   },
   "channels": [
     {
-      "server": "pr-autopilot",
-      "displayName": "PR autopilot transitions"
+      "server": "autopark",
+      "displayName": "Autopark transitions"
     }
   ]
 }

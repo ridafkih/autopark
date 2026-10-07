@@ -8,10 +8,10 @@ const MAX_BLOCKING_REASONS = 4;
 
 function daemonLine(health: Health | null) {
   if (!health) {
-    return "pr-autopilot daemon is not running, so PR events are not being watched. Start it with `pr-autopilot daemon start`.";
+    return "autopark daemon is not running, so PR events are not being watched. Start it with `autopark daemon start`.";
   }
   const source = `${health.source.name} ${health.source.state}`;
-  return `pr-autopilot daemon is running (pid ${health.pid}, ${source}).`;
+  return `autopark daemon is running (pid ${health.pid}, ${source}).`;
 }
 
 function viewLines({ evaluation }: TrackedView) {
@@ -26,7 +26,7 @@ function viewLines({ evaluation }: TrackedView) {
 
 function trackedLines(views: TrackedView[]) {
   if (views.length === 0) {
-    return ["No PRs are tracked for this project yet; /pr-autopilot:ship opens and tracks one."];
+    return ["No PRs are tracked for this project yet; /autopark:ship opens and tracks one."];
   }
   return ["Tracked PRs:", ...views.flatMap(viewLines)];
 }
@@ -51,6 +51,6 @@ export function sessionStartContext(state: HookState): string | null {
     daemonLine(state.health),
     ...trackedLines(scoped),
     ...(actionable.length > 0 ? ["Actionable now:", ...actionable] : []),
-    `React to pr-autopilot events using ${state.playbook}.`,
+    `React to autopark events using ${state.playbook}.`,
   ].join("\n");
 }

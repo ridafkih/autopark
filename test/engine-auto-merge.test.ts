@@ -58,8 +58,8 @@ describe("auto-merge", () => {
     await harness.engine.idle();
     const calls = harness.runner.calls.map((call) => [
       call.command,
-      call.env.PR_AUTOPILOT_NUMBER,
-      call.env.PR_AUTOPILOT_MERGE_METHOD,
+      call.env.AUTOPARK_NUMBER,
+      call.env.AUTOPARK_MERGE_METHOD,
     ]);
     expect(calls).toEqual([["my-merge", "7", "squash"]]);
     expect(harness.github.merges).toEqual([]);
@@ -77,9 +77,9 @@ describe("notifications and bookkeeping", () => {
     expect(harness.runner.calls).toHaveLength(1);
     const [call] = harness.runner.calls;
     expect(call?.env).toMatchObject({
-      PR_AUTOPILOT_KIND: "ready",
-      PR_AUTOPILOT_REPO: REPO,
-      PR_AUTOPILOT_NUMBER: "7",
+      AUTOPARK_KIND: "ready",
+      AUTOPARK_REPO: REPO,
+      AUTOPARK_NUMBER: "7",
     });
     expect(stringAt(parseJson(call?.stdin ?? ""), "kind")).toBe("ready");
   });

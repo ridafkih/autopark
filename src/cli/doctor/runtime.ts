@@ -47,7 +47,7 @@ export async function daemonCheck(paths: Paths): Promise<Check> {
       level: "warn",
       name: "daemon",
       detail: "not running",
-      hint: "pr-autopilot daemon start (or daemon install)",
+      hint: "autopark daemon start (or daemon install)",
     };
   }
   const { source } = health;
@@ -65,6 +65,6 @@ export function channelCheck(): Check {
     level: "info",
     name: "channel",
     detail: existsSync(manifest) ? "plugin manifest present" : "plugin manifest missing",
-    hint: "load with: claude --dangerously-load-development-channels plugin:pr-autopilot@<marketplace>",
+    hint: "load with: claude --dangerously-load-development-channels plugin:autopark@<marketplace>",
   };
 }

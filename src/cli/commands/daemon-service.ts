@@ -32,7 +32,7 @@ function serviceSpec(paths: Paths, extraArgs: string[]) {
     env: {
       PATH: process.env.PATH ?? "/usr/bin:/bin",
       HOME: process.env.HOME ?? "",
-      PR_AUTOPILOT_HOME: paths.home,
+      AUTOPARK_HOME: paths.home,
     },
     logPath: paths.daemonLog,
   };
@@ -44,7 +44,7 @@ export async function installService({ argv, paths }: Invocation) {
   const service = platformService();
   if (!service) {
     throw new CliError(
-      `no service manager for ${process.platform}; run \`pr-autopilot daemon run\` under your supervisor`,
+      `no service manager for ${process.platform}; run \`autopark daemon run\` under your supervisor`,
     );
   }
   const spec = serviceSpec(paths, configArgs(argv));

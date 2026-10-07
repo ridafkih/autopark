@@ -1,5 +1,5 @@
 export function initTemplate(repo: string) {
-  return `# pr-autopilot config. See the "Config reference" section of the pr-autopilot README; "pr-autopilot schema" prints the JSON Schema.
+  return `# autopark config. See the "Config reference" section of the autopark README; "autopark schema" prints the JSON Schema.
 repos:
   - ${repo}
 
@@ -31,7 +31,7 @@ readiness:
 
 notify: []
 #  - type: command
-#    command: 'osascript -e "display notification \\"$PR_AUTOPILOT_REASON\\" with title \\"#$PR_AUTOPILOT_NUMBER $PR_AUTOPILOT_KIND\\""'
+#    command: 'osascript -e "display notification \\"$AUTOPARK_REASON\\" with title \\"#$AUTOPARK_NUMBER $AUTOPARK_KIND\\""'
 #    on: [ready, conflicted, checks_failed]
 
 autoMerge:

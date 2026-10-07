@@ -1,11 +1,11 @@
 {
-  "name": "pr-autopilot",
+  "name": "autopark",
   "version": "0.1.0",
   "private": true,
   "description": "Drive pull requests to ready through live GitHub events instead of polling.",
   "bin": {
-    "pr-autopilot": "bin/pr-autopilot",
-    "pr-autopilotd": "bin/pr-autopilotd"
+    "autopark": "bin/autopark",
+    "autoparkd": "bin/autoparkd"
   },
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "lint": "bun --bun oxlint --deny-warnings",
     "format": "bun --bun oxfmt",
     "format:check": "bun --bun oxfmt --check",
-    "schema": "bun src/cli/main.ts schema > schema/pr-autopilot.schema.json"
+    "schema": "bun src/cli/main.ts schema > schema/autopark.schema.json"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.87.0",

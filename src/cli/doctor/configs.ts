@@ -20,7 +20,7 @@ const NO_CONFIG: Check = {
   level: "fail",
   name: "config",
   detail: "none found",
-  hint: "pr-autopilot init",
+  hint: "autopark init",
 };
 
 function configPaths(paths: Paths) {
@@ -47,7 +47,7 @@ async function surveyConfig(path: string, registered: string[]): Promise<ConfigR
     level: "warn",
     name: "registry",
     detail: `${path} is not registered`,
-    hint: "pr-autopilot init --force, or pass --config to the daemon",
+    hint: "autopark init --force, or pass --config to the daemon",
   };
   const checks = registered.includes(path) ? [loadedCheck] : [loadedCheck, registryCheck];
   return { checks, source: config.daemon.source.type, repos: config.repos };

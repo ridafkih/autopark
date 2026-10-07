@@ -136,7 +136,7 @@ if (import.meta.main) {
   try {
     await main(process.argv.slice(2));
   } catch (error) {
-    process.stderr.write(`pr-autopilot: ${errorMessage(error)}\n`);
+    process.stderr.write(`autopark: ${errorMessage(error)}\n`);
     process.exit(1);
   }
 }

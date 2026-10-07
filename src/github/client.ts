@@ -144,7 +144,7 @@ export class GitHubHttp implements GitHub {
         authorization: `Bearer ${await this.authorization()}`,
         accept: "application/vnd.github+json",
         "x-github-api-version": "2022-11-28",
-        "user-agent": "pr-autopilot",
+        "user-agent": "autopark",
         ...(init.body ? { "content-type": "application/json" } : {}),
       },
     });

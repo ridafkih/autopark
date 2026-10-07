@@ -12,7 +12,7 @@ export interface ShipContextInput {
 }
 
 function configLine({ config, configPath }: ShipContextInput) {
-  if (!config) return "- Config: none found; run `pr-autopilot init` to create one";
+  if (!config) return "- Config: none found; run `autopark init` to create one";
   return `- Config: ${configPath} (${config.repos.join(", ")})`;
 }
 
@@ -49,7 +49,7 @@ function reviewLine({ reviewRequest }: Config) {
   const kind = reviewKind(reviewRequest);
   if (!kind) return "- Review request: none configured; ask the user who reviews";
   const verb = reviewRequest.instruction ? "shown" : "run";
-  return `- Review request: ${kind} (${verb} by \`pr-autopilot request-review\`)`;
+  return `- Review request: ${kind} (${verb} by \`autopark request-review\`)`;
 }
 
 function autoMergeLine({ autoMerge }: Config) {
@@ -60,7 +60,7 @@ function autoMergeLine({ autoMerge }: Config) {
 }
 
 function daemonLine(health: Health | null) {
-  if (!health) return "- Daemon: not running; start it with `pr-autopilot daemon start`";
+  if (!health) return "- Daemon: not running; start it with `autopark daemon start`";
   return `- Daemon: running (${health.source.name} ${health.source.state})`;
 }
 

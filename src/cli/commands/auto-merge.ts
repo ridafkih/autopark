@@ -17,7 +17,7 @@ export async function setAutoMerge({ argv, paths }: Invocation) {
   const [, mode] = argv;
   const enabled = MODES.get(mode);
   if (enabled === undefined) {
-    throw new CliError("usage: pr-autopilot auto-merge <pr> on|off|default");
+    throw new CliError("usage: autopark auto-merge <pr> on|off|default");
   }
   const label = formatPullRequest(ref);
   if (!(await callDaemon(paths, "POST", "/auto-merge", { ...ref, enabled }))) {

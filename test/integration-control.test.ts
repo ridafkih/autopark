@@ -41,7 +41,7 @@ describe("daemon end to end through the replay adapter", () => {
     await source.push(deliveries.opened);
     await daemon.engine.idle();
     const subprocess = Bun.spawn([process.execPath, join(ROOT, "src/cli/main.ts"), "status"], {
-      env: { ...process.env, PR_AUTOPILOT_HOME: home },
+      env: { ...process.env, AUTOPARK_HOME: home },
       stdout: "pipe",
       stderr: "pipe",
     });

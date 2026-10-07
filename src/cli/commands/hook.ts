@@ -9,6 +9,6 @@ export async function runHookCommand({ argv }: Invocation) {
     const output = await runHook(kind ?? "", await Bun.stdin.text());
     if (output) print(output);
   } catch (error) {
-    process.stderr.write(`pr-autopilot hook ${kind}: ${errorMessage(error)}\n`);
+    process.stderr.write(`autopark hook ${kind}: ${errorMessage(error)}\n`);
   }
 }

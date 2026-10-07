@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "pr-autopilot",
+      "name": "autopark",
       "devDependencies": {
         "@oxlint/plugins": "1.87.0",
         "@types/bun": "latest",

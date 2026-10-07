@@ -83,7 +83,7 @@ describe("channel meta", () => {
   test("monitor line carries kind, pr, short head and reason on one line", () => {
     const reason = "required failed: build (FAILURE)\nsecond line";
     expect(monitorLine(transitionOf("checks_failed", {}, reason))).toBe(
-      "pr-autopilot acme/widgets#7 checks_failed head=1111111: required failed: build (FAILURE) second line https://github.com/acme/widgets/pull/7",
+      "autopark acme/widgets#7 checks_failed head=1111111: required failed: build (FAILURE) second line https://github.com/acme/widgets/pull/7",
     );
   });
 });

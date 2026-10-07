@@ -57,7 +57,7 @@ export function decideStop({
     return {
       decision: "allow",
       blocks: 0,
-      systemMessage: `pr-autopilot: stopped blocking after ${priorBlocks} consecutive continuations; ${remaining}.`,
+      systemMessage: `autopark: stopped blocking after ${priorBlocks} consecutive continuations; ${remaining}.`,
     };
   }
   const lines = items.map(describeItem).join("\n");

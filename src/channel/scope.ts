@@ -5,7 +5,7 @@ export interface DeliveryScope {
 }
 
 const CHANNEL_FLAG =
-  /--(?:dangerously-load-development-)?channels\b.*\b(?:plugin|server):pr-autopilot\b/u;
+  /--(?:dangerously-load-development-)?channels\b.*\b(?:plugin|server):autopark\b/u;
 const PS_LINE = /^(\d+)\s+(.*)$/u;
 const ANCESTOR_DEPTH = 8;
 

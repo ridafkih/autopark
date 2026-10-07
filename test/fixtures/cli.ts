@@ -21,14 +21,14 @@ export function createProject() {
   const home = join(dir, "home");
   const project = join(dir, "proj");
   Bun.spawnSync(["mkdir", "-p", project]);
-  writeFileSync(join(project, ".pr-autopilot.yaml"), "repos:\n  - acme/widgets\n");
+  writeFileSync(join(project, ".autopark.yaml"), "repos:\n  - acme/widgets\n");
   return { dir, home, project };
 }
 
 export async function runCli(args: string[], { cwd, home }: CliLocation): Promise<CliResult> {
   const subprocess = Bun.spawn([process.execPath, join(ROOT, "src/cli/main.ts"), ...args], {
     cwd,
-    env: { ...process.env, PR_AUTOPILOT_HOME: home, CLAUDE_SESSION_ID: "" },
+    env: { ...process.env, AUTOPARK_HOME: home, CLAUDE_SESSION_ID: "" },
     stdout: "pipe",
     stderr: "pipe",
   });

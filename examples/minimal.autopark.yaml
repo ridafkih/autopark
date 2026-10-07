@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../schema/pr-autopilot.schema.json
+# yaml-language-server: $schema=../schema/autopark.schema.json
 repos:
   - your-org/your-repo
 

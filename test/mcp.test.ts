@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { handleRpc, negotiate, SUPPORTED_PROTOCOLS } from "../src/channel/mcp.ts";
 
 const [NEWEST_PROTOCOL = ""] = SUPPORTED_PROTOCOLS;
-const INFO = { name: "pr-autopilot", version: "0.1.0", instructions: "react with the playbook" };
+const INFO = { name: "autopark", version: "0.1.0", instructions: "react with the playbook" };
 
 describe("mcp protocol negotiation", () => {
   test.each([
@@ -40,7 +40,7 @@ describe("mcp message handling", () => {
       result: {
         protocolVersion: "2025-06-18",
         capabilities: { experimental: { "claude/channel": {} } },
-        serverInfo: { name: "pr-autopilot", version: "0.1.0" },
+        serverInfo: { name: "autopark", version: "0.1.0" },
         instructions: "react with the playbook",
       },
     });

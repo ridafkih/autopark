@@ -17,7 +17,7 @@ describe("config files", () => {
   });
 
   test("shipped example configs are valid", async () => {
-    for (const name of ["examples/minimal.pr-autopilot.yaml", "examples/ando.pr-autopilot.yaml"]) {
+    for (const name of ["examples/minimal.autopark.yaml", "examples/ando.autopark.yaml"]) {
       const result = await loadConfigFile(`${import.meta.dir}/../${name}`);
       if (!result.ok) throw new Error(`${name}: ${JSON.stringify(result.issues)}`);
     }

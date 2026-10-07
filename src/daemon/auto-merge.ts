@@ -58,7 +58,7 @@ export async function runMerge(
     return;
   }
   const logged = { ...attempt, id: 0, ts: "", title: evaluation.title, url: evaluation.url };
-  const env = { ...transitionEnv(logged), PR_AUTOPILOT_MERGE_METHOD: config.method };
+  const env = { ...transitionEnv(logged), AUTOPARK_MERGE_METHOD: config.method };
   const result = await runner.run(config.command, env);
   if (result.code !== 0) {
     throw new Error(result.stderr.trim() || `merge command exited ${result.code}`);
