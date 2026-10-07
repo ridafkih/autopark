@@ -48,8 +48,9 @@ function readStopState(paths: Paths): StopState {
 }
 
 function nextStopState(state: StopState, sessionId: string, blocks: number): StopState {
-  if (!blocks)
-    {return Object.fromEntries(Object.entries(state).filter(([key]) => key !== sessionId));}
+  if (!blocks) {
+    return Object.fromEntries(Object.entries(state).filter(([key]) => key !== sessionId));
+  }
   return { ...state, [sessionId]: blocks };
 }
 
