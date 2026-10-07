@@ -1,10 +1,12 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { pullRequestKey, type Evaluation, type Transition } from "../core/types.ts";
+import type { Hold } from "../core/hold.ts";
 import { numberAt, parseJson, stringAt } from "../core/json.ts";
+import type { NudgeState } from "../core/nudge.ts";
 import { toTransition } from "../core/transition-codec.ts";
-import { SCHEMA, toRecord, toSqlBoolean, type PullRequestRecord } from "./store-rows.ts";
+import { pullRequestKey, type Evaluation, type Transition } from "../core/types.ts";
+import { SCHEMA, toHold, toRecord, toSqlBoolean, type PullRequestRecord } from "./store-rows.ts";
 
 export type { PullRequestRecord } from "./store-rows.ts";
 
@@ -37,6 +39,18 @@ function toStoredTransition(row: unknown): StoredTransition {
   return Object.assign(transition, { id, at: storedAt });
 }
 
+const UPSERT_HOLD = `INSERT INTO holds (target, until, reason, created_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(target) DO UPDATE SET until = excluded.until, reason = excluded.reason,
+           created_at = excluded.created_at`;
+
+function addMissingColumns(database: Database) {
+  const columns = database
+    .query("PRAGMA table_info(prs)")
+    .all()
+    .map((row) => stringAt(row, "name"));
+  if (!columns.includes("nudge")) database.run("ALTER TABLE prs ADD COLUMN nudge TEXT");
+}
+
 function openDatabase(path: string, isReadonly: boolean) {
   if (isReadonly) return new Database(path, { readonly: true });
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
@@ -44,6 +58,7 @@ function openDatabase(path: string, isReadonly: boolean) {
   database.run("PRAGMA journal_mode = WAL");
   database.run("PRAGMA busy_timeout = 2000");
   database.exec(SCHEMA);
+  addMissingColumns(database);
   return database;
 }
 
@@ -101,6 +116,29 @@ export class Store {
     this.db
       .query("UPDATE prs SET evaluation = ?, updated_at = ? WHERE key = ?")
       .run(JSON.stringify(evaluation), now, key);
+  }
+
+  saveNudge(key: string, state: NudgeState | null) {
+    const json = state === null ? null : JSON.stringify(state);
+    this.db.query("UPDATE prs SET nudge = ? WHERE key = ?").run(json, key);
+  }
+
+  setHold({ target, until, reason, createdAt }: Hold) {
+    this.db.query(UPSERT_HOLD).run(target, until, reason, createdAt);
+  }
+
+  clearHold(target: string) {
+    this.db.query("DELETE FROM holds WHERE target = ?").run(target);
+  }
+
+  clearAllHolds() {
+    this.db.run("DELETE FROM holds");
+  }
+
+  listHolds(): Hold[] {
+    const table = "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'holds'";
+    if (!this.db.query(table).get()) return [];
+    return this.db.query("SELECT * FROM holds ORDER BY target").all().map(toHold);
   }
 
   appendTransition(transition: Transition, now: number): number {
