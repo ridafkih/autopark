@@ -22,7 +22,7 @@ describe("config defaults", () => {
     expect(c.readiness.noUnresolvedThreads).toBe(true);
     expect(c.autoMerge.method).toBe("squash");
     expect(c.autoMerge.default).toBe(false);
-    expect(c.delivery).toEqual({ channel: true, monitor: true });
+    expect(c.delivery).toEqual({ channel: true, monitor: "auto", playbook: null });
     expect(c.hooks.stop.enabled).toBe(true);
     expect(c.hooks.stop.maxBlocks).toBe(3);
     expect(c.daemon.backoffMs).toEqual([1000, 2000, 4000, 8000, 16000, 30000]);
@@ -71,6 +71,7 @@ const invalid: Array<[string, unknown, string]> = [
   ["empty backoff", { ...minimal, daemon: { backoffMs: [] } }, "daemon.backoffMs"],
   ["port out of range", { ...minimal, daemon: { port: 70000 } }, "daemon.port"],
   ["boolean as string", { ...minimal, delivery: { channel: "yes" } }, "delivery.channel"],
+  ["monitor mode invalid", { ...minimal, delivery: { monitor: true } }, "delivery.monitor"],
   ["source with empty type", { ...minimal, daemon: { source: { type: "" } } }, "daemon.source.type"],
 ];
 

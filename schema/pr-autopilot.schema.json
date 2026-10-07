@@ -387,11 +387,31 @@
       "properties": {
         "channel": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "Push transitions into the session through the plugin's channel server"
         },
         "monitor": {
-          "type": "boolean",
-          "default": true
+          "type": "string",
+          "enum": [
+            "auto",
+            "always",
+            "off"
+          ],
+          "default": "auto",
+          "description": "Plugin monitor fallback; auto stays silent when the session loaded the pr-autopilot channel"
+        },
+        "playbook": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path (relative to this file) to a playbook that replaces the bundled pr-autopilot skill"
         }
       },
       "additionalProperties": false

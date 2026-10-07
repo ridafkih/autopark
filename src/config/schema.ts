@@ -71,8 +71,15 @@ export const configSchema = obj({
     prBodyTemplate: nullable(str({ minLength: 1 }), { default: null, description: "Path to a PR body template" }),
   }),
   delivery: obj({
-    channel: bool({ default: true }),
-    monitor: bool({ default: true }),
+    channel: bool({ default: true, description: "Push transitions into the session through the plugin's channel server" }),
+    monitor: oneOf(["auto", "always", "off"] as const, {
+      default: "auto",
+      description: "Plugin monitor fallback; auto stays silent when the session loaded the pr-autopilot channel",
+    }),
+    playbook: nullable(str({ minLength: 1 }), {
+      default: null,
+      description: "Path (relative to this file) to a playbook that replaces the bundled pr-autopilot skill",
+    }),
   }),
   hooks: obj({
     sessionStart: obj({ enabled: bool({ default: true }) }),
