@@ -1,3 +1,4 @@
+import { isNumber, isString } from "../core/json.ts";
 import type { ReviewerParser } from "./types.ts";
 
 interface RegexOptions {
@@ -8,13 +9,22 @@ interface RegexOptions {
   reviewsCount?: string;
 }
 
+const optionalString = (value: unknown) => (isString(value) ? value : undefined);
+
 function readOptions(options: Record<string, unknown>): RegexOptions {
-  if (typeof options.score !== "string") {
+  const { score, marker, maxScore, reviewedCommit, reviewsCount } = options;
+  if (!isString(score)) {
     throw new TypeError(
       "regex parser needs options.score (a pattern whose first group is the score)",
     );
   }
-  return options as unknown as RegexOptions;
+  return {
+    score,
+    marker: optionalString(marker),
+    maxScore: isNumber(maxScore) ? maxScore : undefined,
+    reviewedCommit: optionalString(reviewedCommit),
+    reviewsCount: optionalString(reviewsCount),
+  };
 }
 
 const compilePattern = (pattern: string) => new RegExp(pattern);

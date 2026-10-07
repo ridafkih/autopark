@@ -1,5 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
 import type { ReviewerConfig } from "../config/schema.ts";
+import { isRecord, isString, isStringArray } from "../core/json.ts";
 import { greptile } from "./greptile.ts";
 import { regexParser } from "./regex.ts";
 import type { ReviewerParser } from "./types.ts";
@@ -10,6 +11,13 @@ export const BUILTIN_PARSERS: Record<string, ReviewerParser> = {
 };
 
 const normalizeLogin = (login: string) => login.toLowerCase().replace(/\[bot\]$/u, "");
+
+const isReviewerParser = (value: unknown): value is ReviewerParser =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isStringArray(value.defaultLogins) &&
+  typeof value.parse === "function" &&
+  (value.validate === undefined || typeof value.validate === "function");
 
 const isModulePath = (specifier: string) => specifier.startsWith(".") || isAbsolute(specifier);
 
@@ -24,8 +32,8 @@ async function importParser(reviewer: ReviewerConfig, baseDir: string) {
     throw new Error(`unknown reviewer parser "${reviewer.parser}" for ${reviewer.name}`);
   }
   const imported: Record<string, unknown> = await import(resolve(baseDir, reviewer.parser));
-  const parser = (imported.default ?? imported.parser) as ReviewerParser | undefined;
-  if (!parser || typeof parser.parse !== "function") {
+  const parser = imported.default ?? imported.parser;
+  if (!isReviewerParser(parser)) {
     throw new Error(`${reviewer.parser} does not export a reviewer parser`);
   }
   return parser;

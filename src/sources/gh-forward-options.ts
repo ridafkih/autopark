@@ -1,3 +1,5 @@
+import { isArrayOf, isNumber, isString } from "../core/json.ts";
+
 export const DEFAULT_EVENTS = [
   "push",
   "pull_request",
@@ -25,17 +27,24 @@ const stringOption = (options: Record<string, unknown>, key: string, fallback: s
   return typeof value === "string" ? value : fallback;
 };
 
-function arrayOption<Item>(options: Record<string, unknown>, key: string, fallback: Item[]) {
+function arrayOption<Item>(
+  options: Record<string, unknown>,
+  key: string,
+  { fallback, isItem }: { fallback: Item[]; isItem: (entry: unknown) => entry is Item },
+) {
   const value = options[key];
-  return Array.isArray(value) ? (value as Item[]) : fallback;
+  return isArrayOf(value, isItem) ? value : fallback;
 }
 
 export const readForwardOptions = (options: Record<string, unknown>): GhForwardOptions => ({
   gh: stringOption(options, "gh", "gh"),
-  events: arrayOption(options, "events", DEFAULT_EVENTS),
+  events: arrayOption(options, "events", { fallback: DEFAULT_EVENTS, isItem: isString }),
   hostname: stringOption(options, "hostname", "127.0.0.1"),
   path: stringOption(options, "path", "/github"),
-  restartBackoffMs: arrayOption(options, "restartBackoffMs", DEFAULT_RESTART_BACKOFF_MS),
+  restartBackoffMs: arrayOption(options, "restartBackoffMs", {
+    fallback: DEFAULT_RESTART_BACKOFF_MS,
+    isItem: isNumber,
+  }),
 });
 
 export function forwardArgs(options: GhForwardOptions, repo: string, port: number, secret: string) {
