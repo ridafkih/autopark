@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { GraphQLPullRequest } from "../src/github/graphql-types.ts";
 import { checkRunOutcome, normalizePullRequest, statusOutcome } from "../src/github/snapshot.ts";
 
-const raw: GraphQLPullRequest = {
+const RAW: GraphQLPullRequest = {
   number: 7,
   title: "Tidy",
   url: "https://github.com/acme/widgets/pull/7",
@@ -89,16 +89,22 @@ const raw: GraphQLPullRequest = {
 };
 
 describe("normalizePullRequest", () => {
-  const s = normalizePullRequest("acme/widgets", raw);
+  const snapshot = normalizePullRequest("acme/widgets", RAW);
 
   test("lowercases shas and reads the base tip", () => {
-    expect(s.headSha).toBe("abcdef1234567890abcdef1234567890abcdef12");
-    expect(s.baseSha).toBe("b".repeat(40));
-    expect(s.approvals[0]!.sha).toBe(s.headSha);
+    expect(snapshot.headSha).toBe("abcdef1234567890abcdef1234567890abcdef12");
+    expect(snapshot.baseSha).toBe("b".repeat(40));
+    expect(snapshot.approvals[0]?.sha).toBe(snapshot.headSha);
   });
 
   test("maps check runs and status contexts", () => {
-    expect(s.checks.map((c) => [c.name, c.kind, c.outcome, c.isRequired])).toEqual([
+    const checks = snapshot.checks.map((check) => [
+      check.name,
+      check.kind,
+      check.outcome,
+      check.isRequired,
+    ]);
+    expect(checks).toEqual([
       ["build", "check", "fail", true],
       ["lint", "check", "pending", false],
       ["legacy/ci", "status", "pending", false],
@@ -106,13 +112,13 @@ describe("normalizePullRequest", () => {
   });
 
   test("dedupes comments across the first and last windows", () => {
-    expect(s.comments.map((c) => c.id)).toEqual(["C1", "C2"]);
+    expect(snapshot.comments.map((comment) => comment.id)).toEqual(["C1", "C2"]);
   });
 
   test("keeps mergeability, labels and threads", () => {
-    expect(s.mergeable).toBe("CONFLICTING");
-    expect(s.labels).toEqual(["autopilot"]);
-    expect(s.threads).toEqual([
+    expect(snapshot.mergeable).toBe("CONFLICTING");
+    expect(snapshot.labels).toEqual(["autopilot"]);
+    expect(snapshot.threads).toEqual([
       {
         id: "T1",
         resolved: false,
@@ -125,13 +131,13 @@ describe("normalizePullRequest", () => {
   });
 
   test("merged PRs normalise to MERGED and missing rollups to no checks", () => {
-    const m = normalizePullRequest("acme/widgets", {
-      ...raw,
+    const merged = normalizePullRequest("acme/widgets", {
+      ...RAW,
       state: "MERGED",
       commits: { nodes: [{ commit: { oid: "x", statusCheckRollup: null } }] },
     });
-    expect(m.state).toBe("MERGED");
-    expect(m.checks).toEqual([]);
+    expect(merged.state).toBe("MERGED");
+    expect(merged.checks).toEqual([]);
   });
 });
 

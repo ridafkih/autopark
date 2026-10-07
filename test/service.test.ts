@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LaunchdService, renderPlist } from "../src/service/launchd.ts";
@@ -40,14 +40,14 @@ describe("launchd", () => {
   });
 
   test("install writes the plist and bootstraps it; uninstall boots it out", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "apl-"));
+    const directory = mkdtempSync(join(tmpdir(), "apl-"));
     const runner = new RecordingRunner();
-    const svc = new LaunchdService({ agentsDir: dir, uid: 501, runner });
-    const file = await svc.install(spec);
-    expect(file).toBe(join(dir, "dev.pr-autopilot.daemon.plist"));
+    const service = new LaunchdService({ agentsDir: directory, uid: 501, runner });
+    const file = await service.install(spec);
+    expect(file).toBe(join(directory, "dev.pr-autopilot.daemon.plist"));
     expect(readFileSync(file, "utf8")).toBe(plist);
-    await svc.uninstall(spec.label);
-    expect(runner.calls.map((c) => c.command)).toEqual([
+    await service.uninstall(spec.label);
+    expect(runner.calls.map((call) => call.command)).toEqual([
       `launchctl bootout gui/501/dev.pr-autopilot.daemon 2>/dev/null; launchctl bootstrap gui/501 '${file}'`,
       "launchctl bootout gui/501/dev.pr-autopilot.daemon",
     ]);
@@ -68,12 +68,12 @@ describe("systemd", () => {
   });
 
   test("install enables the user unit", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "apl-"));
+    const directory = mkdtempSync(join(tmpdir(), "apl-"));
     const runner = new RecordingRunner();
-    const svc = new SystemdService({ unitDir: dir, runner });
-    const file = await svc.install(spec);
-    expect(file).toBe(join(dir, "dev.pr-autopilot.daemon.service"));
-    expect(runner.calls.map((c) => c.command)).toEqual([
+    const service = new SystemdService({ unitDir: directory, runner });
+    const file = await service.install(spec);
+    expect(file).toBe(join(directory, "dev.pr-autopilot.daemon.service"));
+    expect(runner.calls.map((call) => call.command)).toEqual([
       "systemctl --user daemon-reload && systemctl --user enable --now 'dev.pr-autopilot.daemon.service'",
     ]);
   });

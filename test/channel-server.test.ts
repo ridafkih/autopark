@@ -2,65 +2,80 @@ import { expect, test } from "bun:test";
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { LineSplitter } from "../src/sources/line-splitter.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 
-async function* stdoutLines(stream: ReadableStream<Uint8Array>) {
-  const decoder = new TextDecoder();
-  let buf = "";
-  for await (const chunk of stream) {
-    buf += decoder.decode(chunk, { stream: true });
-    let i: number;
-    while ((i = buf.indexOf("\n")) >= 0) {
-      yield buf.slice(0, i);
-      buf = buf.slice(i + 1);
-    }
-  }
+const jsonLine = (value: unknown) => `${JSON.stringify(value)}\n`;
+
+const OLD_TRANSITION = jsonLine({
+  id: 1,
+  kind: "ready",
+  repo: "acme/widgets",
+  number: 1,
+  head: "a",
+  reason: "old",
+  data: {},
+  title: "",
+  url: "u",
+  ts: "",
+});
+
+async function* streamLines(stream: ReadableStream<Uint8Array>) {
+  const splitter = new LineSplitter();
+  for await (const chunk of stream) yield* splitter.feed(chunk);
 }
 
-function spawnServer(configYaml: string | null) {
-  const dir = mkdtempSync(join(tmpdir(), "apl-chan-"));
-  const home = join(dir, "home");
-  const proj = join(dir, "proj");
+async function nextValue(lines: AsyncGenerator<string>) {
+  const { value } = await lines.next();
+  return value as string;
+}
+
+function prepareProject(configYaml: string) {
+  const directory = mkdtempSync(join(tmpdir(), "apl-chan-"));
+  const home = join(directory, "home");
+  const project = join(directory, "proj");
   mkdirSync(home, { recursive: true });
-  mkdirSync(proj, { recursive: true });
-  if (configYaml) writeFileSync(join(proj, ".pr-autopilot.yaml"), configYaml);
-  writeFileSync(
-    join(home, "transitions.jsonl"),
-    JSON.stringify({
-      id: 1,
-      kind: "ready",
-      repo: "acme/widgets",
-      number: 1,
-      head: "a",
-      reason: "old",
-      data: {},
-      title: "",
-      url: "u",
-      ts: "",
-    }) + "\n",
-  );
-  const proc = Bun.spawn([process.execPath, join(ROOT, "src/channel/server.ts")], {
-    cwd: proj,
+  mkdirSync(project, { recursive: true });
+  writeFileSync(join(project, ".pr-autopilot.yaml"), configYaml);
+  writeFileSync(join(home, "transitions.jsonl"), OLD_TRANSITION);
+  return { home, project };
+}
+
+function spawnServer(configYaml: string) {
+  const { home, project } = prepareProject(configYaml);
+  const subprocess = Bun.spawn([process.execPath, join(ROOT, "src/channel/server.ts")], {
+    cwd: project,
     env: { ...process.env, PR_AUTOPILOT_HOME: home, MCP_PROTOCOL_NEGOTIATION: "legacy" },
     stdin: "pipe",
     stdout: "pipe",
     stderr: "pipe",
   });
-  const lines = stdoutLines(proc.stdout);
-  const send = (o: unknown) => {
-    proc.stdin.write(JSON.stringify(o) + "\n");
-    proc.stdin.flush();
+  const outputLines = streamLines(subprocess.stdout);
+  const errorLines = streamLines(subprocess.stderr);
+  const send = (message: unknown) => {
+    subprocess.stdin.write(jsonLine(message));
+    subprocess.stdin.flush();
   };
-  const next = async () => JSON.parse((await lines.next()).value as string);
+  const nextMessage = async () => JSON.parse(await nextValue(outputLines));
+  const nextErrorLine = () => nextValue(errorLines);
   const log = join(home, "transitions.jsonl");
-  const errLines = stdoutLines(proc.stderr);
-  const nextErr = async () => (await errLines.next()).value as string;
-  return { proc, send, next, log, nextErr };
+  return { subprocess, send, nextMessage, log, nextErrorLine };
+}
+
+type ChannelServer = ReturnType<typeof spawnServer>;
+
+async function withServer(configYaml: string, run: (server: ChannelServer) => Promise<void>) {
+  const server = spawnServer(configYaml);
+  try {
+    await run(server);
+  } finally {
+    server.subprocess.kill();
+  }
 }
 
 const transition = (id: number, repo: string, kind = "conflicted") =>
-  JSON.stringify({
+  jsonLine({
     id,
     ts: "2026-10-06T00:00:00.000Z",
     kind,
@@ -71,12 +86,11 @@ const transition = (id: number, repo: string, kind = "conflicted") =>
     data: { base: "main" },
     title: "Tidy",
     url: `https://github.com/${repo}/pull/7`,
-  }) + "\n";
+  });
 
 test("speaks MCP over stdio and pushes new in-scope transitions as channel notifications", async () => {
-  const s = spawnServer("repos:\n  - acme/widgets\n");
-  try {
-    s.send({
+  await withServer("repos:\n  - acme/widgets\n", async (server) => {
+    server.send({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
@@ -86,50 +100,45 @@ test("speaks MCP over stdio and pushes new in-scope transitions as channel notif
         clientInfo: { name: "test", version: "0" },
       },
     });
-    const init = await s.next();
-    expect(init.result.protocolVersion).toBe("2025-06-18");
-    expect(init.result.capabilities).toEqual({ experimental: { "claude/channel": {} } });
-    expect(init.result.instructions).toContain("pr-autopilot:pr-autopilot skill");
-    s.send({ jsonrpc: "2.0", method: "notifications/initialized" });
-    s.send({ jsonrpc: "2.0", id: 2, method: "ping" });
-    expect(await s.next()).toEqual({ jsonrpc: "2.0", id: 2, result: {} });
-    appendFileSync(s.log, transition(2, "acme/other"));
-    appendFileSync(s.log, transition(3, "acme/widgets"));
-    const n = await s.next();
-    expect(n.method).toBe("notifications/claude/channel");
-    expect(n.params.meta).toMatchObject({
+    const initialization = await server.nextMessage();
+    expect(initialization.result.protocolVersion).toBe("2025-06-18");
+    expect(initialization.result.capabilities).toEqual({ experimental: { "claude/channel": {} } });
+    expect(initialization.result.instructions).toContain("pr-autopilot:pr-autopilot skill");
+    server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    server.send({ jsonrpc: "2.0", id: 2, method: "ping" });
+    expect(await server.nextMessage()).toEqual({ jsonrpc: "2.0", id: 2, result: {} });
+    appendFileSync(server.log, transition(2, "acme/other"));
+    appendFileSync(server.log, transition(3, "acme/widgets"));
+    const notification = await server.nextMessage();
+    expect(notification.method).toBe("notifications/claude/channel");
+    expect(notification.params.meta).toMatchObject({
       kind: "conflicted",
       repo: "acme/widgets",
       pr: "7",
       transition_id: "3",
       base: "main",
     });
-    expect(n.params.content).toBe(
+    expect(notification.params.content).toBe(
       "acme/widgets#7 conflicted: conflicts with main (Tidy) https://github.com/acme/widgets/pull/7",
     );
-  } finally {
-    s.proc.kill();
-  }
+  });
 });
 
 test("delivery.channel false keeps the server connected but silent", async () => {
-  const s = spawnServer("repos:\n  - acme/widgets\ndelivery:\n  channel: false\n");
-  try {
-    s.send({
+  await withServer("repos:\n  - acme/widgets\ndelivery:\n  channel: false\n", async (server) => {
+    server.send({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
       params: { protocolVersion: "2025-06-18" },
     });
-    await s.next();
-    s.send({ jsonrpc: "2.0", method: "notifications/initialized" });
-    expect(await s.nextErr()).toBe(
+    await server.nextMessage();
+    server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    expect(await server.nextErrorLine()).toBe(
       "[pr-autopilot channel] delivery.channel is false; staying silent",
     );
-    appendFileSync(s.log, transition(2, "acme/widgets"));
-    s.send({ jsonrpc: "2.0", id: 9, method: "ping" });
-    expect(await s.next()).toEqual({ jsonrpc: "2.0", id: 9, result: {} });
-  } finally {
-    s.proc.kill();
-  }
+    appendFileSync(server.log, transition(2, "acme/widgets"));
+    server.send({ jsonrpc: "2.0", id: 9, method: "ping" });
+    expect(await server.nextMessage()).toEqual({ jsonrpc: "2.0", id: 9, result: {} });
+  });
 });
