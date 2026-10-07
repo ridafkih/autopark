@@ -35,6 +35,9 @@ const USAGE = `pr-autopilot <command>
   auto-merge <pr> on|off|default
   request-review <pr>                     run the configured review request and record the head
   daemon run|start|stop|status|install [--print]|uninstall
+  hook session-start|stop                 Claude Code hook entry points (read hook JSON on stdin)
+  watch                                   print transitions as they happen (plugin monitor)
+  ship-context                            project settings for the /ship skill
 
 <pr> is owner/repo#123, a PR URL, or 123 / #123 inside a configured repo.`;
 
@@ -318,6 +321,30 @@ export async function main(argv: string[]) {
     }
     case "daemon":
       return cmdDaemon(rest, p);
+    case "hook": {
+      const { runHook } = await import("../hooks/run.ts");
+      try {
+        const output = await runHook(rest[0] ?? "", await Bun.stdin.text());
+        if (output) out(output);
+      } catch (e) {
+        process.stderr.write(`pr-autopilot hook ${rest[0]}: ${(e as Error).message}\n`);
+      }
+      return;
+    }
+    case "watch": {
+      const { runWatch } = await import("./watch.ts");
+      return runWatch(p);
+    }
+    case "ship-context": {
+      const { shipContext } = await import("../hooks/logic.ts");
+      try {
+        const { config, configPath } = await projectContext().then((c) => c, () => ({ config: null, configPath: null }));
+        const root = (await git("rev-parse", "--show-toplevel")) ?? process.cwd();
+        return out(shipContext({ config, configPath, root, health: await daemonHealth(p.socket), exists: existsSync }));
+      } catch (e) {
+        return out(`- Context unavailable: ${(e as Error).message}`);
+      }
+    }
     case undefined:
     case "help":
     case "--help":

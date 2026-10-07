@@ -65,13 +65,22 @@ export function itemsFor(v: TrackedView, cfg: StopConfig): ActionItem[] {
   return out;
 }
 
-export function actionableItems(views: TrackedView[], cfg: StopConfig, ctx: { sessionId: string | null; repo: string | null }) {
-  const inScope = views.filter((v) => {
-    if (cfg.scope === "all") return true;
-    if (cfg.scope === "repo") return !!ctx.repo && v.evaluation.repo.toLowerCase() === ctx.repo.toLowerCase();
+export interface ScopeContext {
+  sessionId: string | null;
+  repos: string[];
+}
+
+export function viewsInScope(views: TrackedView[], scope: "session" | "repo" | "all", ctx: ScopeContext) {
+  const repos = ctx.repos.map((r) => r.toLowerCase());
+  return views.filter((v) => {
+    if (scope === "all") return true;
+    if (scope === "repo") return repos.includes(v.evaluation.repo.toLowerCase());
     return !!ctx.sessionId && v.sessionId === ctx.sessionId;
   });
-  return inScope.flatMap((v) => itemsFor(v, cfg));
+}
+
+export function actionableItems(views: TrackedView[], cfg: StopConfig, ctx: ScopeContext) {
+  return viewsInScope(views, cfg.scope, ctx).flatMap((v) => itemsFor(v, cfg));
 }
 
 export interface StopDecision {

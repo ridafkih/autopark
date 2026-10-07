@@ -15,7 +15,7 @@ const view = (o: Partial<Snapshot>, extra: Partial<TrackedView> = {}): TrackedVi
   ...extra,
 });
 
-const kindsFor = (v: TrackedView, stopCfg = cfg.hooks.stop) => actionableItems([v], stopCfg, { sessionId: "s1", repo: null }).map((i) => i.kind);
+const kindsFor = (v: TrackedView, stopCfg = cfg.hooks.stop) => actionableItems([v], stopCfg, { sessionId: "s1", repos: [] }).map((i) => i.kind);
 
 type Row = [string, Partial<Snapshot>, ActionKind[], Partial<TrackedView>?];
 
@@ -68,13 +68,13 @@ describe("scope", () => {
     ["repo", ["acme/widgets#7", "acme/widgets#8"]],
     ["all", ["acme/widgets#7", "acme/widgets#8", "acme/other#9"]],
   ] as const)("scope %s", (scope, expected) => {
-    const items = actionableItems(all, { ...cfg.hooks.stop, scope }, { sessionId: "s1", repo: "Acme/Widgets" });
+    const items = actionableItems(all, { ...cfg.hooks.stop, scope }, { sessionId: "s1", repos: ["Acme/Widgets"] });
     expect(items.map((i) => i.pr)).toEqual([...expected]);
   });
 });
 
 describe("decideStop", () => {
-  const items = actionableItems([view({ mergeable: "CONFLICTING" })], cfg.hooks.stop, { sessionId: "s1", repo: null });
+  const items = actionableItems([view({ mergeable: "CONFLICTING" })], cfg.hooks.stop, { sessionId: "s1", repos: [] });
 
   test.each([
     ["nothing actionable allows and resets", [], false, 2, { decision: "allow", blocks: 0 }],
