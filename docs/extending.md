@@ -9,13 +9,13 @@ An adapter turns *some* transport into deliveries. The core never knows which on
 import type { EventSource, SourceFactory } from "pr-autopilot/src/sources/types.ts";
 import { startReceiver } from "pr-autopilot/src/sources/receiver.ts";
 
-const factory: SourceFactory = (options, deps) => {
+const factory: SourceFactory = (options, dependencies) => {
   let server: ReturnType<typeof startReceiver> | null = null;
   const source: EventSource = {
     name: "funnel",
-    async start(ctx) {
-      server = startReceiver({ hostname: "127.0.0.1", port: deps.port, path: "/github", secret: deps.secret, deliver: ctx.deliver });
-      ctx.reconnected("funnel receiver up");
+    async start(context) {
+      server = startReceiver({ hostname: "127.0.0.1", port: dependencies.port, path: "/github", secret: dependencies.secret, deliver: context.deliver });
+      context.reconnected("funnel receiver up");
     },
     async stop() { server?.stop(true); },
     status: () => ({ name: "funnel", state: server ? "connected" : "stopped", detail: "" }),
@@ -26,8 +26,8 @@ export default factory;
 ```
 
 Point `daemon.source.type` at the file (`./my-funnel-source.ts`, relative to the config). The contract:
-- call `ctx.deliver({id, event, payload})` for each webhook;
-- call `ctx.reconnected(reason)` whenever you may have missed events, which triggers a full resync;
+- call `context.deliver({id, event, payload})` for each webhook;
+- call `context.reconnected(reason)` whenever you may have missed events, which triggers a full resync;
 - report `status()`.
 
 `startReceiver` gives you HMAC verification (`X-Hub-Signature-256`). A Tailscale Funnel or cloudflared adapter is just this receiver plus a real repo webhook. smee is not recommended: anyone holding the URL can read private payloads.
@@ -56,8 +56,9 @@ const parser: ReviewerParser = {
   id: "mybot",
   defaultLogins: ["mybot"],
   parse(comment) {
-    const m = /score (\d+)\/10 for ([0-9a-f]{40})/.exec(comment.body);
-    return m ? { score: +m[1], maxScore: 10, reviewedSha: m[2], reviewsCount: null, commentId: comment.id } : null;
+    const match = /score (\d+)\/10 for ([0-9a-f]{40})/u.exec(comment.body);
+    if (!match) return null;
+    return { score: Number(match[1]), maxScore: 10, reviewedSha: match[2], reviewsCount: null, commentId: comment.id };
   },
 };
 export default parser;

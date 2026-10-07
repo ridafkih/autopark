@@ -138,6 +138,12 @@ Feel free to contribute to the repository. Pull requests and issues with feature
 bun install
 bun test
 bun run typecheck
+bun run lint
+bun run format:check
 ```
 
 Every test is deterministic. Time comes from an injected clock, GitHub from a scripted fake, and webhooks from fixture payloads, so please keep it that way.
+
+### Code style
+
+`bun run lint` and `bun run format:check` need to pass before anything lands. The lint config is strict on purpose (no `let`, no one-letter names, small files and functions), so if it complains, it's usually nudging you toward a smaller helper rather than a disable comment.
