@@ -3,7 +3,8 @@ import { join, resolve } from "node:path";
 import type { Paths } from "../../daemon/paths.ts";
 import { shellRunner } from "../../daemon/runner.ts";
 import { SERVICE_LABEL, serviceFor } from "../../service/index.ts";
-import { CliError, print } from "../output.ts";
+import { migrateDefaultHome } from "../../daemon/legacy-home.ts";
+import { CliError, note, print } from "../output.ts";
 import { ROOT } from "../root.ts";
 import type { Invocation } from "./types.ts";
 
@@ -41,6 +42,7 @@ function serviceSpec(paths: Paths, extraArgs: string[]) {
 const platformService = () => serviceFor(process.platform, shellRunner);
 
 export async function installService({ argv, paths }: Invocation) {
+  migrateDefaultHome(paths, note);
   const service = platformService();
   if (!service) {
     throw new CliError(

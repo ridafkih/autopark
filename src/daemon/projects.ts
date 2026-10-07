@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-const writeProjects = (file: string, projects: string[]) =>
+export const writeProjects = (file: string, projects: string[]) =>
   writeFileSync(file, `${JSON.stringify(projects, null, 2)}\n`);
 
 export function readProjects(file: string): string[] {

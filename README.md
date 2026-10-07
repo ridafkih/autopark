@@ -72,6 +72,8 @@ claude --dangerously-load-development-channels plugin:autopark@autopark
 
 The channel flag lets Autopark push events straight into your session. Without it, everything still works through the plugin's monitor, it's just a little less immediate.
 
+Coming from pr-autopilot? `autopark daemon start` moves `~/.pr-autopilot` to `~/.autopark` on first run, so just rename any `.pr-autopilot.yaml` in your repositories to `.autopark.yaml`.
+
 ## Usage
 
 Ask for a change, and Claude implements it to your project's standards, opens the pull request, and starts following it.

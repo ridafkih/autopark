@@ -3,6 +3,7 @@ import { errorMessage } from "../core/errors.ts";
 import { GitHubHttp } from "../github/client.ts";
 import { ConfigSet } from "./config-set.ts";
 import { logToStderr, startDaemon } from "./daemon.ts";
+import { migrateDefaultHome } from "./legacy-home.ts";
 import { resolvePaths } from "./paths.ts";
 import { readProjects } from "./projects.ts";
 
@@ -13,6 +14,7 @@ export async function runDaemon(argv: string[]) {
     allowPositionals: false,
   });
   const paths = resolvePaths();
+  migrateDefaultHome(paths, logToStderr);
   const configPaths = [...new Set([...(values.config ?? []), ...readProjects(paths.projects)])];
   if (configPaths.length === 0) {
     throw new Error("no configs: run `autopark init` in a repo or pass --config");

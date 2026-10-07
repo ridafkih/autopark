@@ -1,7 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { daemonHealth } from "../../daemon/client.ts";
 import type { Paths } from "../../daemon/paths.ts";
-import { CliError, print } from "../output.ts";
+import { migrateDefaultHome } from "../../daemon/legacy-home.ts";
+import { CliError, note, print } from "../output.ts";
 import {
   configArgs,
   DAEMON_ENTRY,
@@ -45,6 +46,7 @@ async function runInForeground({ argv }: Invocation) {
 }
 
 async function startDaemon({ argv, paths }: Invocation) {
+  migrateDefaultHome(paths, note);
   if (await daemonHealth(paths.socket)) {
     print("daemon already running");
     return;
