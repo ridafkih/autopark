@@ -2,6 +2,31 @@
   "name": "pr-autopilot",
   "version": "0.1.0",
   "description": "Drive pull requests to ready through live GitHub events instead of polling.",
-  "license": "MIT",
-  "keywords": ["github", "pull-requests", "ci", "webhooks", "channels"]
+  "author": {
+    "name": "pr-autopilot contributors"
+  },
+  "keywords": [
+    "github",
+    "pull-requests",
+    "ci",
+    "webhooks",
+    "channels"
+  ],
+  "mcpServers": {
+    "pr-autopilot": {
+      "command": "bun",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/src/channel/server.ts"
+      ],
+      "env": {
+        "MCP_PROTOCOL_NEGOTIATION": "legacy"
+      }
+    }
+  },
+  "channels": [
+    {
+      "server": "pr-autopilot",
+      "displayName": "PR autopilot transitions"
+    }
+  ]
 }

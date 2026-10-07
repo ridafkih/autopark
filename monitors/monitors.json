@@ -1,0 +1,8 @@
+[
+  {
+    "name": "pr-autopilot",
+    "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/pr-autopilot watch",
+    "description": "PR autopilot transitions (fallback when the pr-autopilot channel is not loaded)",
+    "when": "always"
+  }
+]
