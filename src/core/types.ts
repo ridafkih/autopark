@@ -20,9 +20,13 @@ export const TRANSITION_KINDS = [
 
 export type TransitionKind = (typeof TRANSITION_KINDS)[number];
 
-export type Mergeable = "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
-export type PullRequestState = "OPEN" | "CLOSED" | "MERGED";
-export type CheckOutcome = "pass" | "fail" | "pending";
+export const MERGEABLE_STATES = ["MERGEABLE", "CONFLICTING", "UNKNOWN"] as const;
+export const PULL_REQUEST_STATES = ["OPEN", "CLOSED", "MERGED"] as const;
+export const CHECK_OUTCOMES = ["pass", "fail", "pending"] as const;
+
+export type Mergeable = (typeof MERGEABLE_STATES)[number];
+export type PullRequestState = (typeof PULL_REQUEST_STATES)[number];
+export type CheckOutcome = (typeof CHECK_OUTCOMES)[number];
 
 export interface CheckContext {
   name: string;
@@ -108,23 +112,26 @@ export interface FailedCheck {
   url: string | null;
 }
 
-export type ReasonCode =
-  | "closed"
-  | "draft"
-  | "conflict"
-  | "mergeability_unknown"
-  | "stale_base"
-  | "base_unknown"
-  | "checks_failed"
-  | "checks_pending"
-  | "review_missing"
-  | "review_stale"
-  | "review_below_threshold"
-  | "threads_open"
-  | "changes_requested"
-  | "approval_missing"
-  | "approval_stale"
-  | "human_gate_pending";
+export const REASON_CODES = [
+  "closed",
+  "draft",
+  "conflict",
+  "mergeability_unknown",
+  "stale_base",
+  "base_unknown",
+  "checks_failed",
+  "checks_pending",
+  "review_missing",
+  "review_stale",
+  "review_below_threshold",
+  "threads_open",
+  "changes_requested",
+  "approval_missing",
+  "approval_stale",
+  "human_gate_pending",
+] as const;
+
+export type ReasonCode = (typeof REASON_CODES)[number];
 
 export interface Reason {
   code: ReasonCode;

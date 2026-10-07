@@ -1,3 +1,4 @@
+import { isRecord, numberAt, recordsAt, stringAt, valueAt, type JsonRecord } from "./json.ts";
 import type { Candidate } from "./track.ts";
 
 export interface PullRequestIndex {
@@ -12,38 +13,13 @@ export interface RouteResult {
   candidates: Candidate[];
 }
 
-interface WebhookPullRequest {
-  number: number;
-  user?: { login?: string } | null;
-  head?: { ref?: string };
-  base?: { ref?: string };
-  labels?: Array<{ name: string }>;
-  state?: string;
-}
-
-interface WebhookCheck {
-  pull_requests?: Array<{ number: number }>;
-  head_sha?: string;
-}
-
-interface WebhookPayload {
-  repository?: { full_name?: string };
-  pull_request?: WebhookPullRequest;
-  issue?: { number: number; pull_request?: unknown };
-  check_run?: WebhookCheck;
-  check_suite?: WebhookCheck;
-  sha?: string;
-  ref?: string;
-  deleted?: boolean;
-}
-
 interface Routed {
   pullRequests: number[];
   candidates: Candidate[];
 }
 
 interface RouteInput {
-  payload: WebhookPayload;
+  payload: unknown;
   repo: string;
   index: PullRequestIndex;
 }
@@ -57,40 +33,60 @@ const routed = (pullRequests: number[], candidates: Candidate[] = []): Routed =>
   candidates,
 });
 
-const candidateOf = (repo: string, pullRequest: WebhookPullRequest): Candidate => ({
+const labelNames = (pullRequest: JsonRecord) =>
+  recordsAt(pullRequest, "labels").flatMap((label) => {
+    const name = stringAt(label, "name");
+    return name === undefined ? [] : [name];
+  });
+
+const candidateOf = (repo: string, pullRequest: JsonRecord, number: number): Candidate => ({
   repo,
-  number: pullRequest.number,
-  author: pullRequest.user?.login ?? null,
-  headRef: pullRequest.head?.ref ?? "",
-  baseRef: pullRequest.base?.ref ?? "",
-  labels: (pullRequest.labels ?? []).map((label) => label.name),
-  open: (pullRequest.state ?? "open") === "open",
+  number,
+  author: stringAt(pullRequest, "user", "login") ?? null,
+  headRef: stringAt(pullRequest, "head", "ref") ?? "",
+  baseRef: stringAt(pullRequest, "base", "ref") ?? "",
+  labels: labelNames(pullRequest),
+  open: (stringAt(pullRequest, "state") ?? "open") === "open",
 });
 
-const routePullRequest: Router = ({ payload: { pull_request: pullRequest }, repo }) =>
-  pullRequest ? routed([pullRequest.number], [candidateOf(repo, pullRequest)]) : null;
+const routePullRequest: Router = ({ payload, repo }) => {
+  const pullRequest = valueAt(payload, "pull_request");
+  const number = numberAt(pullRequest, "number");
+  if (!isRecord(pullRequest) || number === undefined) return null;
+  return routed([number], [candidateOf(repo, pullRequest, number)]);
+};
 
-const routeIssueComment: Router = ({ payload: { issue } }) =>
-  routed(issue?.pull_request ? [issue.number] : []);
+const routeIssueComment: Router = ({ payload }) => {
+  const number = numberAt(payload, "issue", "number");
+  const isPullRequest = Boolean(valueAt(payload, "issue", "pull_request"));
+  return routed(isPullRequest && number !== undefined ? [number] : []);
+};
 
 const routeCheck =
-  (check: WebhookCheck | undefined): Router =>
-  ({ repo, index }) => {
-    const listed = (check?.pull_requests ?? []).map((pullRequest) => pullRequest.number);
-    const bySha = check?.head_sha ? index.bySha(repo, check.head_sha) : [];
+  (event: string): Router =>
+  ({ payload, repo, index }) => {
+    const listed = recordsAt(payload, event, "pull_requests").flatMap((pullRequest) => {
+      const number = numberAt(pullRequest, "number");
+      return number === undefined ? [] : [number];
+    });
+    const headSha = stringAt(payload, event, "head_sha");
+    const bySha = headSha ? index.bySha(repo, headSha) : [];
     return routed([...listed, ...bySha]);
   };
 
-const routeStatus: Router = ({ payload: { sha }, repo, index }) =>
-  routed(sha ? index.bySha(repo, sha) : []);
+const routeStatus: Router = ({ payload, repo, index }) => {
+  const sha = stringAt(payload, "sha");
+  return routed(sha ? index.bySha(repo, sha) : []);
+};
 
-const routePush: Router = ({ payload: { ref = "", deleted }, repo, index }) => {
-  if (!ref.startsWith(BRANCH_PREFIX) || deleted) return null;
+const routePush: Router = ({ payload, repo, index }) => {
+  const ref = stringAt(payload, "ref") ?? "";
+  if (!ref.startsWith(BRANCH_PREFIX) || valueAt(payload, "deleted")) return null;
   const branch = ref.slice(BRANCH_PREFIX.length);
   return routed([...index.byBaseRef(repo, branch), ...index.byHeadRef(repo, branch)]);
 };
 
-function routerFor(event: string, payload: WebhookPayload): Router | null {
+function routerFor(event: string): Router | null {
   switch (event) {
     case "pull_request":
     case "pull_request_review":
@@ -103,7 +99,7 @@ function routerFor(event: string, payload: WebhookPayload): Router | null {
     }
     case "check_run":
     case "check_suite": {
-      return routeCheck(payload[event]);
+      return routeCheck(event);
     }
     case "status": {
       return routeStatus;
@@ -118,10 +114,9 @@ function routerFor(event: string, payload: WebhookPayload): Router | null {
 }
 
 export function route(event: string, payload: unknown, index: PullRequestIndex): RouteResult {
-  const body = (payload ?? {}) as WebhookPayload;
-  const repo = body.repository?.full_name?.toLowerCase() ?? null;
-  const router = routerFor(event, body);
-  const result = repo && router ? router({ payload: body, repo, index }) : null;
+  const repo = stringAt(payload, "repository", "full_name")?.toLowerCase() ?? null;
+  const router = routerFor(event);
+  const result = repo && router ? router({ payload, repo, index }) : null;
   return {
     repo,
     pullRequests: [...new Set(result?.pullRequests)],
