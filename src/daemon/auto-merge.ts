@@ -1,16 +1,24 @@
 import type { Config } from "../config/schema.ts";
+import { errorMessage } from "../core/errors.ts";
 import { shortSha } from "../core/format.ts";
 import type { Evaluation, Transition } from "../core/types.ts";
 import type { GitHub } from "../github/types.ts";
+import type { RepoEntry } from "./config-set.ts";
+import type { TransitionEmitter } from "./emitter.ts";
 import { transitionEnv } from "./notify.ts";
 import type { CommandRunner } from "./runner.ts";
-import type { PullRequestRecord } from "./store.ts";
+import type { PullRequestRecord, Store } from "./store.ts";
 
 type AutoMergeConfig = Config["autoMerge"];
 
 interface MergeDependencies {
   github: GitHub;
   runner: CommandRunner;
+}
+
+export interface AutoMergeDependencies extends MergeDependencies {
+  store: Store;
+  emitter: TransitionEmitter;
 }
 
 export function isAutoMergeEnabled(
@@ -62,5 +70,27 @@ export async function runMerge(
   const result = await runner.run(config.command, env);
   if (result.code !== 0) {
     throw new Error(result.stderr.trim() || `merge command exited ${result.code}`);
+  }
+}
+
+export async function autoMergeIfReady(
+  key: string,
+  evaluation: Evaluation,
+  entry: RepoEntry,
+  dependencies: AutoMergeDependencies,
+) {
+  const { store, emitter } = dependencies;
+  const config = entry.config.autoMerge;
+  const record = store.getPullRequest(key);
+  if (!record || !evaluation.mergeableNow) return;
+  if (!isAutoMergeEnabled(record, evaluation, config)) return;
+  if (record.mergeAttemptHead === evaluation.headSha) return;
+  store.setMergeAttempt(key, evaluation.headSha);
+  const attempt = mergeAttempt(evaluation, config);
+  try {
+    await runMerge(attempt, evaluation, config, dependencies);
+    await emitter.emit(mergeSucceeded(attempt, config), evaluation, entry);
+  } catch (error) {
+    await emitter.emit(mergeFailed(attempt, config, errorMessage(error)), evaluation, entry);
   }
 }

@@ -16,6 +16,8 @@ export const TRANSITION_KINDS = [
   "merged",
   "closed",
   "merge_attempted",
+  "nudge",
+  "hold_expired",
 ] as const;
 
 export type TransitionKind = (typeof TRANSITION_KINDS)[number];

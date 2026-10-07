@@ -1,28 +1,17 @@
-import { errorMessage } from "../core/errors.ts";
 import { evaluate } from "../core/evaluate.ts";
 import { route } from "../core/route.ts";
 import { diff } from "../core/transitions.ts";
-import {
-  pullRequestKey,
-  type Evaluation,
-  type LoggedTransition,
-  type Transition,
-} from "../core/types.ts";
+import { pullRequestKey } from "../core/types.ts";
 import type { GitHub } from "../github/types.ts";
 import type { Delivery } from "../sources/types.ts";
-import {
-  isAutoMergeEnabled,
-  mergeAttempt,
-  mergeFailed,
-  mergeSucceeded,
-  runMerge,
-} from "./auto-merge.ts";
+import { autoMergeIfReady } from "./auto-merge.ts";
 import { AutoTracker } from "./auto-tracker.ts";
 import type { Clock } from "./clock.ts";
 import { ComparisonCache } from "./comparison-cache.ts";
-import type { ConfigSet, RepoEntry } from "./config-set.ts";
+import type { ConfigSet } from "./config-set.ts";
+import { TransitionEmitter } from "./emitter.ts";
 import type { TransitionSink } from "./log.ts";
-import { notify } from "./notify.ts";
+import { Nudger } from "./nudger.ts";
 import { pullRequestIndex } from "./pull-request-index.ts";
 import type { CommandRunner } from "./runner.ts";
 import { CoalescingScheduler } from "./scheduler.ts";
@@ -53,15 +42,19 @@ const DELIVERY_TTL_MS = 7 * 24 * 3600 * 1000;
 const PRUNE_EVERY_DELIVERIES = 500;
 
 export class Engine {
+  readonly nudges: Nudger;
   private readonly resyncs = new Set<Promise<void>>();
   private readonly log: (message: string) => void;
   private readonly comparisons: ComparisonCache;
   private readonly scheduler: CoalescingScheduler;
   private readonly tracker: AutoTracker;
+  private readonly emitter: TransitionEmitter;
   private deliveriesSincePrune = 0;
 
   constructor(private readonly dependencies: EngineDependencies) {
     this.log = dependencies.log ?? (() => {});
+    this.emitter = new TransitionEmitter({ ...dependencies, log: this.log });
+    this.nudges = new Nudger({ ...dependencies, emitter: this.emitter, log: this.log });
     this.comparisons = new ComparisonCache(dependencies.github, this.log);
     this.scheduler = new CoalescingScheduler({
       debounceMs: () => dependencies.configs.daemon.debounceMs,
@@ -182,40 +175,9 @@ export class Engine {
     const next = evaluate(snapshot, entry.config, entry.parsers, previous);
     const transitions = diff(previous, next, { mergeabilityExhausted: settled.exhausted });
     store.saveEvaluation(key, next, clock.now());
-    for (const transition of transitions) await this.emit(transition, next, entry);
-    await this.maybeAutoMerge(key, next, entry);
+    this.nudges.observe(key, previous, next);
+    for (const transition of transitions) await this.emitter.emit(transition, next, entry);
+    await autoMergeIfReady(key, next, entry, { ...this.dependencies, emitter: this.emitter });
     if (next.state !== "OPEN") store.setTracked(key, false);
-  }
-
-  private async emit(transition: Transition, evaluation: Evaluation, entry: RepoEntry) {
-    const { store, sink, clock, runner } = this.dependencies;
-    const now = clock.now();
-    const id = store.appendTransition(transition, now);
-    const logged: LoggedTransition = {
-      ...transition,
-      id,
-      ts: new Date(now).toISOString(),
-      title: evaluation.title,
-      url: evaluation.url,
-    };
-    sink.append(logged);
-    await notify(logged, entry.config, runner, this.log);
-  }
-
-  private async maybeAutoMerge(key: string, evaluation: Evaluation, entry: RepoEntry) {
-    const { store } = this.dependencies;
-    const config = entry.config.autoMerge;
-    const record = store.getPullRequest(key);
-    if (!record || !evaluation.mergeableNow) return;
-    if (!isAutoMergeEnabled(record, evaluation, config)) return;
-    if (record.mergeAttemptHead === evaluation.headSha) return;
-    store.setMergeAttempt(key, evaluation.headSha);
-    const attempt = mergeAttempt(evaluation, config);
-    try {
-      await runMerge(attempt, evaluation, config, this.dependencies);
-      await this.emit(mergeSucceeded(attempt, config), evaluation, entry);
-    } catch (error) {
-      await this.emit(mergeFailed(attempt, config, errorMessage(error)), evaluation, entry);
-    }
   }
 }

@@ -49,6 +49,7 @@ export async function bootDaemon(options: BootOptions = {}) {
     clock: new ImmediateClock(),
     source: options.source,
     wake: null,
+    nudges: false,
     runner: new RecordingRunner(),
     log: () => {},
   });

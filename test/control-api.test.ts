@@ -72,6 +72,42 @@ describe("control api", () => {
     expect(response.status).toBe(status);
   });
 
+  test("hold and unhold a PR or everything", async () => {
+    const { harness, readJson } = await createControl();
+    await readJson("POST", "/track", { repo: REPO, number: 7 });
+    await harness.engine.idle();
+    const held = await readJson("POST", "/hold", {
+      repo: REPO,
+      number: 7,
+      durationMs: 600_000,
+      reason: "lunch",
+    });
+    expect(held).toEqual({ target: "acme/widgets#7", until: 600_000 });
+    const status = await readJson("GET", "/status");
+    expect(arrayAt(status, "prs")[0]).toMatchObject({
+      hold: { until: 600_000, reason: "lunch", scope: "pr" },
+    });
+    expect(await readJson("POST", "/hold", { all: true })).toEqual({
+      target: "*",
+      until: 1_800_000,
+    });
+    expect(await readJson("POST", "/unhold", { all: true })).toEqual({ ok: true });
+    const released = await readJson("GET", "/status");
+    expect(arrayAt(released, "prs")[0]).toMatchObject({ hold: null });
+  });
+
+  test.each([
+    ["a hold over four hours", { repo: REPO, number: 7, durationMs: 5 * 3_600_000 }],
+    ["a hold with a text duration", { repo: REPO, number: 7, durationMs: "1h" }],
+    ["a hold on nothing", {}],
+  ])("%s is refused", async (label, body) => {
+    const { harness, call } = await createControl();
+    await call("POST", "/track", { repo: REPO, number: 7 });
+    await harness.engine.idle();
+    const response = await call("POST", "/hold", body);
+    expect(response.status).toBe(400);
+  });
+
   test("health is served as given", async () => {
     const { readJson } = await createControl();
     expect(await readJson("GET", "/health")).toMatchObject({

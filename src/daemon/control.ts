@@ -1,6 +1,6 @@
 import { errorMessage } from "../core/errors.ts";
-import { summarize } from "../core/summary.ts";
-import type { PullRequestLocator } from "../core/types.ts";
+import { ALL_PULL_REQUESTS } from "../core/hold.ts";
+import { pullRequestKey, type PullRequestLocator } from "../core/types.ts";
 import type { SourceStatus } from "../sources/types.ts";
 import type { Engine } from "./engine.ts";
 
@@ -48,6 +48,21 @@ function readEnabled(body: ControlBody) {
   return enabled;
 }
 
+function holdTarget(body: ControlBody) {
+  if (body.all === true) return ALL_PULL_REQUESTS;
+  const { repo, number } = pullRequestArgs(body);
+  return pullRequestKey(repo, number);
+}
+
+function readHoldDuration({ durationMs }: ControlBody) {
+  if (durationMs !== undefined && typeof durationMs !== "number") {
+    throw new TypeError("durationMs must be a number of milliseconds");
+  }
+  return durationMs;
+}
+
+const readReason = ({ reason }: ControlBody) => (typeof reason === "string" ? reason : null);
+
 const POST_ROUTES = new Map<string, PostHandler>([
   [
     "/track",
@@ -83,6 +98,20 @@ const POST_ROUTES = new Map<string, PostHandler>([
     },
   ],
   [
+    "/hold",
+    (engine, body) => {
+      const hold = engine.nudges.hold(holdTarget(body), readHoldDuration(body), readReason(body));
+      return { target: hold.target, until: hold.until };
+    },
+  ],
+  [
+    "/unhold",
+    (engine, body) => {
+      engine.nudges.unhold(holdTarget(body));
+      return { ok: true };
+    },
+  ],
+  [
     "/resync",
     (engine) => {
       void engine.resync("control api");
@@ -95,7 +124,7 @@ async function respond(engine: Engine, health: () => Health, request: Request) {
   const path = new URL(request.url).pathname;
   if (request.method === "GET" && path === "/health") return json(health());
   if (request.method === "GET" && path === "/status") {
-    return json({ prs: engine.status().map(summarize) });
+    return json({ prs: engine.nudges.summaries(engine.status()) });
   }
   const handler = request.method === "POST" ? POST_ROUTES.get(path) : undefined;
   if (!handler) return json(NOT_FOUND, 404);

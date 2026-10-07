@@ -26,5 +26,5 @@ export async function showStatus({ argv, paths }: Invocation) {
     print(JSON.stringify({ daemon: report.daemon, prs: pullRequests }, null, 2));
     return;
   }
-  print(formatSummaries(pullRequests, report.daemon));
+  print(formatSummaries(pullRequests, report.daemon, Date.now()));
 }

@@ -50,9 +50,10 @@ function lastKnownStatus(paths: Paths): StatusReport {
   const store = new Store(paths.db, { readonly: true });
   try {
     const records = store.listPullRequests({ trackedOnly: true });
+    const context = { now: Date.now(), holds: store.listHolds() };
     return {
       daemon: "daemon: not running (last known state)",
-      pullRequests: records.map(summarize),
+      pullRequests: records.map((record) => summarize(record, context)),
     };
   } finally {
     store.close();

@@ -249,7 +249,9 @@
                 "not_ready",
                 "merged",
                 "closed",
-                "merge_attempted"
+                "merge_attempted",
+                "nudge",
+                "hold_expired"
               ]
             },
             "default": [

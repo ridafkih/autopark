@@ -22,6 +22,7 @@ export interface DaemonOptions {
   runner?: CommandRunner;
   source?: EventSource;
   wake?: WakeDetector | null;
+  nudges?: boolean;
   log?: (message: string) => void;
 }
 
@@ -59,6 +60,11 @@ function startWake(options: DaemonOptions, clock: Clock, engine: Engine) {
   return wake;
 }
 
+async function startNudgesWhenSettled(engine: Engine) {
+  await engine.idle();
+  engine.nudges.start();
+}
+
 function createEngine(options: DaemonOptions, paths: Paths, log: (message: string) => void) {
   const clock = options.clock ?? systemClock;
   const store = new Store(paths.db);
@@ -92,9 +98,11 @@ export async function startDaemon(options: DaemonOptions) {
     log,
   });
   await engine.resync("start");
+  if (options.nudges !== false) void startNudgesWhenSettled(engine);
   const wake = startWake(options, clock, engine);
   const stop = async () => {
     wake?.stop();
+    engine.nudges.stop();
     await source.stop();
     void control.stop(true);
     await engine.idle();

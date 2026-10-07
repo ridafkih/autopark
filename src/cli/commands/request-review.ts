@@ -1,4 +1,5 @@
 import { formatPullRequest, shortSha } from "../../core/format.ts";
+import { fillTemplate } from "../../core/template.ts";
 import { pullRequestKey } from "../../core/types.ts";
 import { transitionEnv } from "../../daemon/notify.ts";
 import { shellRunner } from "../../daemon/runner.ts";
@@ -15,11 +16,6 @@ interface ReviewTarget {
   title: string;
   url: string;
 }
-
-const PLACEHOLDER = /\{(\w+)\}/gu;
-
-const fillTemplate = (template: string, variables: Record<string, string>) =>
-  template.replaceAll(PLACEHOLDER, (placeholder, key: string) => variables[key] ?? placeholder);
 
 async function reviewTarget(ref: PullRequestRef, paths: Paths): Promise<ReviewTarget> {
   const status = await loadStatus(paths);

@@ -67,6 +67,7 @@ describe("daemon end to end through the replay adapter", () => {
       clock: new ImmediateClock(),
       source: new ReplaySource(),
       wake: null,
+      nudges: false,
       log: () => {},
     });
     await expect(second).rejects.toThrow(/already running/u);

@@ -45,6 +45,7 @@ async function bootWithConflict(home: string) {
     clock: new ImmediateClock(),
     source: new ReplaySource(),
     wake: null,
+    nudges: false,
     runner: new RecordingRunner(),
     log: () => {},
   });
