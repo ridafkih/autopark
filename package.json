@@ -1,0 +1,20 @@
+{
+  "name": "pr-autopilot",
+  "version": "0.1.0",
+  "description": "Drive pull requests to ready through live GitHub events instead of polling.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "pr-autopilot": "bin/pr-autopilot",
+    "pr-autopilotd": "bin/pr-autopilotd"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "schema": "bun src/cli/main.ts schema > schema/pr-autopilot.schema.json"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.9.0"
+  }
+}
