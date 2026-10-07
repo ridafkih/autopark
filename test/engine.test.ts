@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { check, HEAD, HEAD2, REPO, snap } from "./fixtures/build.ts";
-import { FakeClock, ImmediateClock } from "./fixtures/clock.ts";
+import { check, HEAD, HEAD2, REPO, snapshot } from "./fixtures/build.ts";
+import { FakeClock } from "./fixtures/clock.ts";
+import { ImmediateClock } from "./fixtures/immediate-clock.ts";
 import { harness, pullRequestPayload, repository } from "./fixtures/harness.ts";
 import type { Snapshot, TransitionKind } from "../src/core/types.ts";
 
@@ -18,7 +19,7 @@ describe("delivery dedupe", () => {
     ["interleaved redeliveries", ["d1", "d2", "d1", "d2", "d3"], 3],
   ] as const)("%s", async (_l, ids, recomputes) => {
     const h = await harness();
-    h.github.set(snap());
+    h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
     const before = h.github.readsOf(REPO, 7);
@@ -33,7 +34,7 @@ describe("delivery dedupe", () => {
 });
 
 describe("mergeability UNKNOWN backoff", () => {
-  const unknown = () => snap({ mergeable: "UNKNOWN", mergeStateStatus: "UNKNOWN" });
+  const unknown = () => snapshot({ mergeable: "UNKNOWN", mergeStateStatus: "UNKNOWN" });
   test.each([
     ["resolved on first read", 0, [], false],
     ["resolved after one retry", 1, [1000], false],
@@ -45,7 +46,9 @@ describe("mergeability UNKNOWN backoff", () => {
     const h = await harness({ clock });
     const seq: Snapshot[] = [...Array(unknownReads)].map(unknown);
     seq.push(
-      unknownReads > 6 ? unknown() : snap({ mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }),
+      unknownReads > 6
+        ? unknown()
+        : snapshot({ mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }),
     );
     h.github.script(...seq);
     h.engine.track(REPO, 7);
@@ -59,7 +62,7 @@ describe("mergeability UNKNOWN backoff", () => {
   test("closed PRs never back off", async () => {
     const clock = new ImmediateClock();
     const h = await harness({ clock });
-    h.github.set(snap({ state: "MERGED", mergeable: "UNKNOWN" }));
+    h.github.set(snapshot({ state: "MERGED", mergeable: "UNKNOWN" }));
     h.engine.track(REPO, 7);
     await h.engine.idle();
     expect(clock.sleeps).toEqual([]);
@@ -77,7 +80,7 @@ describe("mergeability UNKNOWN backoff", () => {
   test("backoff waits on the injected clock between reads", async () => {
     const clock = new FakeClock();
     const h = await harness({ clock });
-    h.github.script(unknown(), unknown(), snap());
+    h.github.script(unknown(), unknown(), snapshot());
     h.engine.track(REPO, 7);
     await clock.advance(0);
     expect(h.github.readsOf(REPO, 7)).toBe(1);
@@ -120,11 +123,11 @@ describe("resync heals missed events", () => {
   ])("%s", async (...row) => {
     const [, change, expected] = row;
     const h = await harness();
-    h.github.set(snap());
+    h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
     const seen = h.kinds().length;
-    h.github.set(snap(change));
+    h.github.set(snapshot(change));
     await h.engine.idle();
     expect(h.kinds().length).toBe(seen);
     await h.engine.resync("wake");
@@ -134,7 +137,7 @@ describe("resync heals missed events", () => {
 
   test("resync auto-tracks open PRs matching the filter", async () => {
     const h = await harness();
-    h.github.set(snap({ number: 12 }));
+    h.github.set(snapshot({ number: 12 }));
     h.github.searchResults = [
       {
         repo: REPO,
@@ -165,9 +168,9 @@ describe("resync heals missed events", () => {
 describe("routing through the engine", () => {
   test("push to the base branch rechecks every PR on that base", async () => {
     const h = await harness();
-    h.github.set(snap({ number: 7 }));
-    h.github.set(snap({ number: 8, headRef: "bot/other" }));
-    h.github.set(snap({ number: 9, headRef: "bot/rel", baseRef: "release" }));
+    h.github.set(snapshot({ number: 7 }));
+    h.github.set(snapshot({ number: 8, headRef: "bot/other" }));
+    h.github.set(snapshot({ number: 9, headRef: "bot/rel", baseRef: "release" }));
     for (const n of [7, 8, 9]) h.engine.track(REPO, n);
     await h.engine.idle();
     const r = await h.engine.handleDelivery({
@@ -182,7 +185,7 @@ describe("routing through the engine", () => {
 
   test("pull_request opened auto-tracks a matching PR", async () => {
     const h = await harness();
-    h.github.set(snap());
+    h.github.set(snapshot());
     await h.engine.handleDelivery({
       id: "o1",
       event: "pull_request",
@@ -198,7 +201,7 @@ describe("routing through the engine", () => {
 
   test("an untracked PR is not re-tracked by the filter", async () => {
     const h = await harness();
-    h.github.set(snap());
+    h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
     h.engine.untrack(REPO, 7);
@@ -237,8 +240,8 @@ describe("routing through the engine", () => {
 
   test("bursts coalesce into one read after the debounce window", async () => {
     const clock = new FakeClock();
-    const h = await harness({ clock, cfg: { daemon: { debounceMs: 500 } } });
-    h.github.set(snap());
+    const h = await harness({ clock, config: { daemon: { debounceMs: 500 } } });
+    h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await clock.advance(500);
     expect(h.github.readsOf(REPO, 7)).toBe(1);
@@ -253,7 +256,7 @@ describe("routing through the engine", () => {
   test("an event during a recompute triggers exactly one more", async () => {
     const clock = new FakeClock();
     const h = await harness({ clock });
-    h.github.script(snap({ mergeable: "UNKNOWN" }), snap());
+    h.github.script(snapshot({ mergeable: "UNKNOWN" }), snapshot());
     h.engine.track(REPO, 7);
     await clock.advance(0);
     await h.engine.handleDelivery(review("mid1"));
@@ -265,7 +268,7 @@ describe("routing through the engine", () => {
 
   test("merged PRs stop being tracked", async () => {
     const h = await harness();
-    h.github.set(snap({ state: "MERGED" }));
+    h.github.set(snapshot({ state: "MERGED" }));
     h.engine.track(REPO, 7);
     await h.engine.idle();
     expect(h.engine.status()).toEqual([]);
@@ -295,22 +298,23 @@ describe("auto-merge", () => {
     ],
   ])("%s", async (...row) => {
     const [, o, flag, merges] = row;
-    const h = await harness({ cfg });
-    h.github.set(snap(o));
+    const h = await harness({ config: cfg });
+    h.github.set(snapshot(o));
     h.engine.track(REPO, 7, { autoMerge: flag });
     await h.engine.idle();
     await h.engine.handleDelivery(review("again"));
     await h.engine.idle();
     expect(h.github.merges.length).toBe(merges);
-    if (merges)
+    if (merges) {
       expect(h.github.merges[0]).toEqual({ repo: REPO, number: 7, sha: HEAD, method: "rebase" });
+    }
     expect(h.kinds().filter((k) => k === "merge_attempted").length).toBe(merges);
   });
 
   test("failed merge is reported once per head", async () => {
-    const h = await harness({ cfg });
+    const h = await harness({ config: cfg });
     h.github.mergeError = "Base branch was modified";
-    h.github.set(snap({ labels: ["automerge"] }));
+    h.github.set(snapshot({ labels: ["automerge"] }));
     h.engine.track(REPO, 7);
     await h.engine.idle();
     const t = h.sink.lines.find((l) => l.kind === "merge_attempted")!;
@@ -318,8 +322,8 @@ describe("auto-merge", () => {
   });
 
   test("custom merge command runs with PR env", async () => {
-    const h = await harness({ cfg: { autoMerge: { default: true, command: "my-merge" } } });
-    h.github.set(snap());
+    const h = await harness({ config: { autoMerge: { default: true, command: "my-merge" } } });
+    h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
     expect(
@@ -336,9 +340,9 @@ describe("auto-merge", () => {
 describe("notifications and bookkeeping", () => {
   test("notify targets run for their kinds with transition env and JSON stdin", async () => {
     const h = await harness({
-      cfg: { notify: [{ type: "command", command: "notify-me", on: ["ready"] }] },
+      config: { notify: [{ type: "command", command: "notify-me", on: ["ready"] }] },
     });
-    h.github.set(snap());
+    h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
     expect(h.runner.calls).toHaveLength(1);
@@ -352,8 +356,10 @@ describe("notifications and bookkeeping", () => {
   });
 
   test("base comparison is fetched once per head and base pair", async () => {
-    const h = await harness({ cfg: { readiness: { baseFreshness: { policy: "contains-tip" } } } });
-    h.github.set(snap());
+    const h = await harness({
+      config: { readiness: { baseFreshness: { policy: "contains-tip" } } },
+    });
+    h.github.set(snapshot());
     h.github.comparisons.set(`${HEAD}..${"b".repeat(40)}`, {
       behindBy: 2,
       files: [],
@@ -369,7 +375,7 @@ describe("notifications and bookkeeping", () => {
 
   test("review request is recorded against the current head", async () => {
     const h = await harness();
-    h.github.set(snap());
+    h.github.set(snapshot());
     h.engine.track(REPO, 7, { sessionId: "s1" });
     await h.engine.idle();
     expect(h.engine.markReviewRequested(REPO, 7)).toBe(HEAD);
@@ -386,7 +392,7 @@ describe("notifications and bookkeeping", () => {
 
   test("log lines carry id, timestamp, title and url", async () => {
     const h = await harness();
-    h.github.set(snap());
+    h.github.set(snapshot());
     h.engine.track(REPO, 7);
     await h.engine.idle();
     const ids = h.sink.lines.map((l) => l.id);

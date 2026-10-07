@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { evaluate } from "../src/core/evaluate.ts";
 import { BUILTIN_PARSERS } from "../src/reviewers/index.ts";
-import { check, config, greptileComment, HEAD, OLD, snap } from "./fixtures/build.ts";
+import { check, config, greptileComment, HEAD, OLD, snapshot } from "./fixtures/build.ts";
 import type { ReasonCode, Snapshot } from "../src/core/types.ts";
 
 const parsers = new Map([["greptile", BUILTIN_PARSERS.greptile!]]);
@@ -14,13 +14,13 @@ function table(name: string, rows: Row[]) {
   describe(name, () => {
     test.each(rows)("%s", (...row: Row) => {
       const [, overrides, expected, cfg] = row;
-      expect(codes(snap(overrides), cfg ? config(cfg) : config())).toEqual(expected);
+      expect(codes(snapshot(overrides), cfg ? config(cfg) : config())).toEqual(expected);
     });
   });
 }
 
 test("baseline snapshot is ready and mergeable now", () => {
-  const e = evaluate(snap(), config(), parsers, null);
+  const e = evaluate(snapshot(), config(), parsers, null);
   expect(e.reasons).toEqual([]);
   expect(e.ready).toBe(true);
   expect(e.mergeableNow).toBe(true);
@@ -114,7 +114,7 @@ describe("rule: required checks fall back to all checks when none are required",
     ],
     ["any pending blocks", { checks: [check("lint", "pending")] }, ["checks_pending"]],
     ["no checks at all is green", { checks: [] }, []],
-  ])("%s", (_l, o, expected) => expect(codes(snap(o), config(cfg))).toEqual(expected));
+  ])("%s", (_l, o, expected) => expect(codes(snapshot(o), config(cfg))).toEqual(expected));
 });
 
 table("rule: reviewer score on head", [
@@ -213,19 +213,24 @@ table("rule: approval on head", [
 
 describe("derived flags", () => {
   test("awaiting human when only approval is missing", () => {
-    const e = evaluate(snap({ approvals: [] }), config(), parsers, null);
+    const e = evaluate(snapshot({ approvals: [] }), config(), parsers, null);
     expect(e.awaitingHuman).toBe(true);
     expect(e.ready).toBe(false);
   });
 
   test("not awaiting human when something actionable remains", () => {
-    const e = evaluate(snap({ approvals: [], mergeable: "CONFLICTING" }), config(), parsers, null);
+    const e = evaluate(
+      snapshot({ approvals: [], mergeable: "CONFLICTING" }),
+      config(),
+      parsers,
+      null,
+    );
     expect(e.awaitingHuman).toBe(false);
   });
 
   test("ready but not mergeable now while a human gate is pending", () => {
     const e = evaluate(
-      snap({
+      snapshot({
         checks: [check("build", "pass"), check("gate", "fail", { conclusion: "ACTION_REQUIRED" })],
         mergeStateStatus: "BLOCKED",
       }),
@@ -247,20 +252,20 @@ describe("derived flags", () => {
     ["BLOCKED", false],
     ["BEHIND", false],
   ])("mergeStateStatus %s gives mergeableNow=%p", (mss, expected) => {
-    expect(evaluate(snap({ mergeStateStatus: mss }), config(), parsers, null).mergeableNow).toBe(
-      expected,
-    );
+    expect(
+      evaluate(snapshot({ mergeStateStatus: mss }), config(), parsers, null).mergeableNow,
+    ).toBe(expected);
   });
 
   test("last known mergeable carries over an UNKNOWN read", () => {
-    const prev = evaluate(snap({ mergeable: "CONFLICTING" }), config(), parsers, null);
-    const next = evaluate(snap({ mergeable: "UNKNOWN" }), config(), parsers, prev);
+    const prev = evaluate(snapshot({ mergeable: "CONFLICTING" }), config(), parsers, null);
+    const next = evaluate(snapshot({ mergeable: "UNKNOWN" }), config(), parsers, prev);
     expect(next.lastKnownMergeable).toBe("CONFLICTING");
   });
 
   test("failed checks list names, conclusions and requiredness", () => {
     const e = evaluate(
-      snap({
+      snapshot({
         checks: [check("build", "fail", { conclusion: "TIMED_OUT" }), check("lint", "fail")],
       }),
       config(),
@@ -341,7 +346,7 @@ table("rule: base freshness", [
 describe("base freshness detail", () => {
   test("stale evaluation records behind count and touched paths", () => {
     const e = evaluate(
-      snap(behind(2, ["budgets/bundle.json", "docs/x.md"])),
+      snapshot(behind(2, ["budgets/bundle.json", "docs/x.md"])),
       config(fresh("paths", { paths: ["budgets/*.json"] })),
       parsers,
       null,

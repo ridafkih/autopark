@@ -1,13 +1,15 @@
 import type { ReviewerParser } from "../../src/reviewers/types.ts";
 
+const SCORE = /SCORE (\d+)/u;
+
 const parser: ReviewerParser = {
   id: "custom",
   defaultLogins: [],
   parse(comment) {
-    const m = /SCORE (\d+)/.exec(comment.body);
-    if (!m) return null;
+    const [, score] = SCORE.exec(comment.body) ?? [];
+    if (score === undefined) return null;
     return {
-      score: Number(m[1]),
+      score: Number(score),
       maxScore: 10,
       reviewedSha: null,
       reviewsCount: null,

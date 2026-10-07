@@ -9,7 +9,7 @@ export const REPO = "acme/widgets";
 export const BASE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 export function config(overrides: Record<string, unknown> = {}): Config {
-  const r = parseConfig({
+  const result = parseConfig({
     repos: [REPO],
     track: { authors: ["octo"], branchPrefixes: ["bot/"] },
     checks: {
@@ -22,9 +22,15 @@ export function config(overrides: Record<string, unknown> = {}): Config {
     daemon: { debounceMs: 0 },
     ...overrides,
   });
-  if (!r.ok) throw new Error(JSON.stringify(r.issues));
-  return r.config;
+  if (!result.ok) throw new Error(JSON.stringify(result.issues));
+  return result.config;
 }
+
+const CONCLUSIONS: Record<CheckContext["outcome"], string> = {
+  pass: "SUCCESS",
+  fail: "FAILURE",
+  pending: "IN_PROGRESS",
+};
 
 export const check = (
   name: string,
@@ -34,21 +40,23 @@ export const check = (
   name,
   kind: "check",
   outcome,
-  conclusion: outcome === "pass" ? "SUCCESS" : outcome === "fail" ? "FAILURE" : "IN_PROGRESS",
+  conclusion: CONCLUSIONS[outcome],
   isRequired: false,
   app: "github-actions",
   url: `https://ci.invalid/${name}`,
   ...extra,
 });
 
+const SECONDS_DIGITS = 10;
+
 export const greptileComment = (score: number, sha: string, reviews = 1, id = "g1") => ({
   id,
   author: "greptile-apps",
   body: greptileSummary({ score, sha, reviews }),
-  updatedAt: `2026-10-06T00:00:0${reviews % 10}Z`,
+  updatedAt: `2026-10-06T00:00:0${reviews % SECONDS_DIGITS}Z`,
 });
 
-export function snap(overrides: Partial<Snapshot> = {}): Snapshot {
+export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   const headSha = overrides.headSha ?? HEAD;
   return {
     repo: REPO,

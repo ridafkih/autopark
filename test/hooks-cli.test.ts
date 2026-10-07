@@ -5,8 +5,8 @@ import { join, resolve } from "node:path";
 import { ConfigSet } from "../src/daemon/config-set.ts";
 import { startDaemon } from "../src/daemon/daemon.ts";
 import { ReplaySource } from "../src/sources/replay.ts";
-import { config, snap } from "./fixtures/build.ts";
-import { ImmediateClock } from "./fixtures/clock.ts";
+import { config, snapshot } from "./fixtures/build.ts";
+import { ImmediateClock } from "./fixtures/immediate-clock.ts";
 import { FakeGitHub } from "./fixtures/fake-github.ts";
 import { RecordingRunner } from "./fixtures/harness.ts";
 
@@ -28,7 +28,7 @@ async function setup(configYaml = "repos:\n  - acme/widgets\n") {
 
 async function bootWithConflict(home: string) {
   const github = new FakeGitHub();
-  github.set(snap({ mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }));
+  github.set(snapshot({ mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }));
   const configs = await ConfigSet.fromConfigs([{ config: config(), source: join(home, "x.yaml") }]);
   const d = await startDaemon({
     configs,
@@ -73,8 +73,9 @@ test("stop hook blocks on a conflict up to the cap, then lets go", async () => {
       }),
     });
   const outputs = [];
-  for (const active of [false, true, true, true])
+  for (const active of [false, true, true, true]) {
     outputs.push(JSON.parse((await stop(active)).stdout));
+  }
   expect(outputs.slice(0, 3).map((o) => o.decision)).toEqual(["block", "block", "block"]);
   expect(outputs[0].reason).toContain("acme/widgets#7 conflict: conflicts with main");
   expect(outputs[3]).toEqual({

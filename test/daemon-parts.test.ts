@@ -4,7 +4,7 @@ import { GitHubHttp } from "../src/github/client.ts";
 import { controlHandler } from "../src/daemon/control.ts";
 import { FakeClock } from "./fixtures/clock.ts";
 import { harness } from "./fixtures/harness.ts";
-import { REPO, snap } from "./fixtures/build.ts";
+import { REPO, snapshot } from "./fixtures/build.ts";
 
 describe("wake detector", () => {
   test.each([
@@ -135,7 +135,7 @@ describe("GitHub HTTP client", () => {
 describe("control api", () => {
   async function setup() {
     const h = await harness();
-    h.github.set(snap());
+    h.github.set(snapshot());
     const health = () => ({
       ok: true as const,
       pid: 1,
@@ -170,7 +170,7 @@ describe("control api", () => {
     ).toBe(200);
     expect(
       await (await call("POST", "/review-requested", { repo: REPO, number: 7 })).json(),
-    ).toEqual({ head: snap().headSha });
+    ).toEqual({ head: snapshot().headSha });
     expect((await call("POST", "/untrack", { repo: REPO, number: 7 })).status).toBe(200);
     expect(((await (await call("GET", "/status")).json()) as any).prs).toEqual([]);
   });

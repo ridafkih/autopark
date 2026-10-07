@@ -1,31 +1,40 @@
-import type { BaseComparison, Snapshot } from "../../src/core/types.ts";
 import type { Candidate } from "../../src/core/track.ts";
+import { pullRequestKey, type BaseComparison, type Snapshot } from "../../src/core/types.ts";
 import type { GitHub } from "../../src/github/types.ts";
-import { pullRequestKey } from "../../src/core/types.ts";
+
+interface MergeCall {
+  repo: string;
+  number: number;
+  sha: string;
+  method: string;
+}
+
+const NO_COMPARISON: BaseComparison = { behindBy: 0, files: [], truncated: false };
 
 export class FakeGitHub implements GitHub {
-  prs = new Map<string, Snapshot>();
-  scripted = new Map<string, Snapshot[]>();
-  reads = new Map<string, number>();
-  comparisons = new Map<string, BaseComparison>();
+  readonly snapshots = new Map<string, Snapshot>();
+  readonly scripted = new Map<string, Snapshot[]>();
+  readonly reads = new Map<string, number>();
+  readonly comparisons = new Map<string, BaseComparison>();
   compareCalls = 0;
   searchResults: Candidate[] = [];
-  searches: Array<{ repo: string; author: string | null }> = [];
-  merges: Array<{ repo: string; number: number; sha: string; method: string }> = [];
+  readonly searches: Array<{ repo: string; author: string | null }> = [];
+  readonly merges: MergeCall[] = [];
   mergeError: string | null = null;
   login = "octo";
 
-  set(s: Snapshot) {
-    this.prs.set(pullRequestKey(s.repo, s.number), s);
+  set(snapshot: Snapshot) {
+    this.snapshots.set(pullRequestKey(snapshot.repo, snapshot.number), snapshot);
   }
 
-  script(...snaps: Snapshot[]) {
-    const k = pullRequestKey(snaps[0]!.repo, snaps[0]!.number);
-    this.scripted.set(k, snaps);
+  script(...snapshots: Snapshot[]) {
+    const [first] = snapshots;
+    if (!first) throw new Error("script needs at least one snapshot");
+    this.scripted.set(pullRequestKey(first.repo, first.number), snapshots);
   }
 
-  readsOf(repo: string, n: number) {
-    return this.reads.get(pullRequestKey(repo, n)) ?? 0;
+  readsOf(repo: string, number: number) {
+    return this.reads.get(pullRequestKey(repo, number)) ?? 0;
   }
 
   async viewer() {
@@ -33,30 +42,32 @@ export class FakeGitHub implements GitHub {
   }
 
   async fetchPullRequest(repo: string, number: number) {
-    const k = pullRequestKey(repo, number);
-    this.reads.set(k, (this.reads.get(k) ?? 0) + 1);
-    const queue = this.scripted.get(k);
-    if (queue?.length) {
-      const next = queue.length > 1 ? queue.shift()! : queue[0]!;
-      return structuredClone(next);
-    }
-    const s = this.prs.get(k);
-    if (!s) throw new Error(`no fake PR ${k}`);
-    return structuredClone(s);
+    const key = pullRequestKey(repo, number);
+    this.reads.set(key, (this.reads.get(key) ?? 0) + 1);
+    const snapshot = this.nextScripted(key) ?? this.snapshots.get(key);
+    if (!snapshot) throw new Error(`no fake PR ${key}`);
+    return structuredClone(snapshot);
   }
 
-  async compare(_repo: string, head: string, base: string) {
-    this.compareCalls++;
-    return this.comparisons.get(`${head}..${base}`) ?? { behindBy: 0, files: [], truncated: false };
+  async compare(repo: string, head: string, base: string) {
+    this.compareCalls = this.compareCalls + 1;
+    return this.comparisons.get(`${head}..${base}`) ?? NO_COMPARISON;
   }
 
   async searchOpenPullRequests(repo: string, author: string | null) {
     this.searches.push({ repo, author });
-    return this.searchResults.filter((c) => c.repo.toLowerCase() === repo.toLowerCase());
+    const lowerRepo = repo.toLowerCase();
+    return this.searchResults.filter((candidate) => candidate.repo.toLowerCase() === lowerRepo);
   }
 
   async merge(repo: string, number: number, sha: string, method: string) {
     if (this.mergeError) throw new Error(this.mergeError);
     this.merges.push({ repo, number, sha, method });
+  }
+
+  private nextScripted(key: string) {
+    const queue = this.scripted.get(key);
+    if (!queue || queue.length === 0) return;
+    return queue.length > 1 ? queue.shift() : queue[0];
   }
 }

@@ -35,8 +35,9 @@ describe("plugin packaging", () => {
     const h = json("hooks/hooks.json").hooks;
     expect(Object.keys(h)).toEqual(["SessionStart", "Stop"]);
     for (const event of Object.values<any>(h)) {
-      for (const cmd of event[0].hooks.map((x: any) => x.command))
+      for (const cmd of event[0].hooks.map((x: any) => x.command)) {
         expect(existsSync(join(ROOT, pluginPath(cmd)!))).toBe(true);
+      }
     }
     expect(h.SessionStart[0].hooks[0].command).toEndWith("hook session-start");
     expect(h.Stop[0].hooks[0].command).toEndWith("hook stop");

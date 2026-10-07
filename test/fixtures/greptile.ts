@@ -7,16 +7,16 @@ const header = (score: number) =>
 const footer = (reviews: number, sha: string) =>
   `<sub>Reviews (${reviews}) · Last reviewed commit: ["tidy the widget loader"](https://github.com/acme/widgets/commit/${sha}) · [Reviewed by Greptile](https://www.greptile.com/?utm_source=greptile_expert)</sub>`;
 
-export function greptileSummary(opts: {
+export function greptileSummary(options: {
   score?: number;
   visibleScore?: number | null;
   hiddenScore?: number | null;
   reviews?: number;
   sha?: string | null;
 }) {
-  const score = opts.score ?? 5;
-  const visible = opts.visibleScore === undefined ? score : opts.visibleScore;
-  const hidden = opts.hiddenScore === undefined ? score : opts.hiddenScore;
+  const score = options.score ?? 5;
+  const visible = options.visibleScore === undefined ? score : options.visibleScore;
+  const hidden = options.hiddenScore === undefined ? score : options.hiddenScore;
   const parts = ["<!-- greptile_summary -->", ""];
   if (visible !== null) parts.push(header(visible), "");
   parts.push(
@@ -30,6 +30,6 @@ export function greptileSummary(opts: {
     "",
   );
   if (hidden !== null) parts.push(`<!-- greptile_confidence_score:${hidden} -->`, "");
-  if (opts.sha !== null) parts.push(footer(opts.reviews ?? 1, opts.sha ?? SHA_A));
+  if (options.sha !== null) parts.push(footer(options.reviews ?? 1, options.sha ?? SHA_A));
   return parts.join("\n");
 }

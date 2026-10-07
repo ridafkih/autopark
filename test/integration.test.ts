@@ -6,11 +6,11 @@ import { ConfigSet } from "../src/daemon/config-set.ts";
 import { controlFetch } from "../src/daemon/client.ts";
 import { startDaemon } from "../src/daemon/daemon.ts";
 import { ReplaySource } from "../src/sources/replay.ts";
-import { check, config, greptileComment, snap } from "./fixtures/build.ts";
-import { ImmediateClock } from "./fixtures/clock.ts";
+import { check, config, greptileComment, snapshot } from "./fixtures/build.ts";
+import { ImmediateClock } from "./fixtures/immediate-clock.ts";
 import { FakeGitHub } from "./fixtures/fake-github.ts";
 import { RecordingRunner } from "./fixtures/harness.ts";
-import { deliveries, H1, H2, H3 } from "./fixtures/replay/build.ts";
+import { deliveries, FIRST_HEAD, SECOND_HEAD, THIRD_HEAD } from "./fixtures/replay/build.ts";
 import type { LoggedTransition, Snapshot } from "../src/core/types.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
@@ -59,7 +59,7 @@ describe("daemon end to end through the replay adapter", () => {
   test("fixture webhooks drive the PR lifecycle into the transition log", async () => {
     const source = new ReplaySource();
     const { github, daemon } = await boot({ source });
-    const world = (s: Partial<Snapshot>) => github.set(snap(s));
+    const world = (s: Partial<Snapshot>) => github.set(snapshot(s));
     const pending = [check("build", "pending")];
 
     const steps: Array<
@@ -67,39 +67,49 @@ describe("daemon end to end through the replay adapter", () => {
     > = [
       [
         "opened",
-        () => world({ headSha: H1, checks: pending, approvals: [], comments: [] }),
+        () => world({ headSha: FIRST_HEAD, checks: pending, approvals: [], comments: [] }),
         deliveries.opened,
       ],
       [
         "build fails",
-        () => world({ headSha: H1, checks: [check("build", "fail")], approvals: [], comments: [] }),
+        () =>
+          world({
+            headSha: FIRST_HEAD,
+            checks: [check("build", "fail")],
+            approvals: [],
+            comments: [],
+          }),
         deliveries.buildFailed,
       ],
       ["redelivered failure", null, deliveries.buildFailed],
       [
         "push H2",
-        () => world({ headSha: H2, checks: pending, approvals: [], comments: [] }),
+        () => world({ headSha: SECOND_HEAD, checks: pending, approvals: [], comments: [] }),
         deliveries.synchronize2,
       ],
       [
         "checks pass",
-        () => world({ headSha: H2, approvals: [], comments: [] }),
+        () => world({ headSha: SECOND_HEAD, approvals: [], comments: [] }),
         deliveries.suitePassed,
       ],
-      ["greptile scores H2", () => world({ headSha: H2, approvals: [] }), deliveries.greptile2],
-      ["approved on H2", () => world({ headSha: H2 }), deliveries.approved2],
+      [
+        "greptile scores H2",
+        () => world({ headSha: SECOND_HEAD, approvals: [] }),
+        deliveries.greptile2,
+      ],
+      ["approved on H2", () => world({ headSha: SECOND_HEAD }), deliveries.approved2],
       [
         "main moved, webhook missed, forwarder reconnects",
-        () => world({ headSha: H2, mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }),
+        () => world({ headSha: SECOND_HEAD, mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }),
         "reconnect",
       ],
       [
         "push H3 merging main",
         () =>
           world({
-            headSha: H3,
-            approvals: [{ login: "reviewer", state: "APPROVED", sha: H2 }],
-            comments: [greptileComment(5, H2)],
+            headSha: THIRD_HEAD,
+            approvals: [{ login: "reviewer", state: "APPROVED", sha: SECOND_HEAD }],
+            comments: [greptileComment(5, SECOND_HEAD)],
           }),
         deliveries.synchronize3,
       ],
@@ -107,20 +117,20 @@ describe("daemon end to end through the replay adapter", () => {
         "greptile scores H3",
         () =>
           world({
-            headSha: H3,
-            approvals: [{ login: "reviewer", state: "APPROVED", sha: H2 }],
-            comments: [greptileComment(5, H3, 2)],
+            headSha: THIRD_HEAD,
+            approvals: [{ login: "reviewer", state: "APPROVED", sha: SECOND_HEAD }],
+            comments: [greptileComment(5, THIRD_HEAD, 2)],
           }),
         deliveries.greptile3,
       ],
       [
         "approved on H3",
-        () => world({ headSha: H3, comments: [greptileComment(5, H3, 2)] }),
+        () => world({ headSha: THIRD_HEAD, comments: [greptileComment(5, THIRD_HEAD, 2)] }),
         deliveries.approved3,
       ],
       [
         "merged",
-        () => world({ headSha: H3, state: "MERGED", mergeable: "UNKNOWN" }),
+        () => world({ headSha: THIRD_HEAD, state: "MERGED", mergeable: "UNKNOWN" }),
         deliveries.merged,
       ],
     ];
@@ -129,9 +139,9 @@ describe("daemon end to end through the replay adapter", () => {
     for (const [label, mutate, delivery] of steps) {
       const before = readLog(daemon.paths.log).length;
       mutate?.();
-      if (delivery === "reconnect")
+      if (delivery === "reconnect") {
         source.reconnect("gh webhook forward connected for acme/widgets");
-      else await source.push(delivery);
+      } else await source.push(delivery);
       await daemon.engine.idle();
       perStep[label] = readLog(daemon.paths.log)
         .slice(before)
@@ -142,7 +152,7 @@ describe("daemon end to end through the replay adapter", () => {
           pr: "acme/widgets#7",
           state: "ready",
           mergeableNow: true,
-          head: H2,
+          head: SECOND_HEAD,
         });
       }
     }
@@ -170,7 +180,7 @@ describe("daemon end to end through the replay adapter", () => {
     const log = readLog(daemon.paths.log);
     expect(log.map((t) => t.id)).toEqual([...log.keys()].map((i) => log[0]!.id + i));
     expect(log.find((t) => t.kind === "checks_failed")).toMatchObject({
-      head: H1,
+      head: FIRST_HEAD,
       data: { names: ["build"], required: ["build"] },
       url: "https://github.com/acme/widgets/pull/7",
     });
@@ -184,7 +194,7 @@ describe("daemon end to end through the replay adapter", () => {
       cfg: {
         daemon: { debounceMs: 0, source: { type: "replay", options: { file: "lifecycle.jsonl" } } },
       },
-      prepare: (gh) => gh.set(snap({ headSha: H2 })),
+      prepare: (gh) => gh.set(snapshot({ headSha: SECOND_HEAD })),
     });
     expect(daemon.source.name).toBe("replay");
     await daemon.engine.idle();
@@ -202,7 +212,7 @@ describe("daemon end to end through the replay adapter", () => {
   test("cli status talks to the running daemon over its control socket", async () => {
     const source = new ReplaySource();
     const { github, daemon, home } = await boot({ source });
-    github.set(snap({ headSha: H2 }));
+    github.set(snapshot({ headSha: SECOND_HEAD }));
     await source.push(deliveries.opened);
     await daemon.engine.idle();
     const proc = Bun.spawn([process.execPath, join(ROOT, "src/cli/main.ts"), "status"], {

@@ -68,8 +68,9 @@ describe("webhook receiver", () => {
     );
     expect(res.status).toBe(status);
     expect(got.length).toBe(status === 202 ? 1 : 0);
-    if (status === 202)
+    if (status === 202) {
       expect(got[0]).toMatchObject({ id: "d1", event: "ping", payload: { zen: "hi" } });
+    }
   });
 
   test("delivery errors surface as 500 so the sender can retry", async () => {

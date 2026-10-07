@@ -229,6 +229,12 @@
       "rules": {
         "require-unicode-regexp": "off"
       }
+    },
+    {
+      "files": ["test/**/*.test.ts"],
+      "rules": {
+        "max-lines-per-function": "off"
+      }
     }
   ]
 }

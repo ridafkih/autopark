@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { evaluate } from "../src/core/evaluate.ts";
 import { diff } from "../src/core/transitions.ts";
 import { BUILTIN_PARSERS } from "../src/reviewers/index.ts";
-import { check, config, greptileComment, HEAD, HEAD2, OLD, snap } from "./fixtures/build.ts";
+import { check, config, greptileComment, HEAD, HEAD2, OLD, snapshot } from "./fixtures/build.ts";
 import type { Evaluation, Snapshot, TransitionKind } from "../src/core/types.ts";
 
 const parsers = new Map([["greptile", BUILTIN_PARSERS.greptile!]]);
 const cfg = config({ readiness: { baseFreshness: { policy: "contains-tip" } } });
 
 function ev(o: Partial<Snapshot> | null, prev: Evaluation | null = null) {
-  return o === null ? null : evaluate(snap(o), cfg, parsers, prev);
+  return o === null ? null : evaluate(snapshot(o), cfg, parsers, prev);
 }
 
 type Row = [

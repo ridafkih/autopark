@@ -7,7 +7,7 @@ import {
   type TrackedView,
 } from "../src/core/stop.ts";
 import { BUILTIN_PARSERS } from "../src/reviewers/index.ts";
-import { check, config, greptileComment, HEAD, OLD, snap } from "./fixtures/build.ts";
+import { check, config, greptileComment, HEAD, OLD, snapshot } from "./fixtures/build.ts";
 import type { Snapshot } from "../src/core/types.ts";
 
 const parsers = new Map([["greptile", BUILTIN_PARSERS.greptile!]]);
@@ -17,7 +17,7 @@ const cfg = config({
 });
 
 const view = (o: Partial<Snapshot>, extra: Partial<TrackedView> = {}): TrackedView => ({
-  evaluation: evaluate(snap(o), cfg, parsers, null),
+  evaluation: evaluate(snapshot(o), cfg, parsers, null),
   sessionId: "s1",
   reviewRequestedHead: HEAD,
   ...extra,

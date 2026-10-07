@@ -7,7 +7,7 @@ import { stopHook } from "../src/hooks/stop.ts";
 import { BUILTIN_PARSERS } from "../src/reviewers/index.ts";
 import type { TrackedView } from "../src/core/stop.ts";
 import type { Snapshot } from "../src/core/types.ts";
-import { config, snap } from "./fixtures/build.ts";
+import { config, snapshot } from "./fixtures/build.ts";
 
 const parsers = new Map([["greptile", BUILTIN_PARSERS.greptile!]]);
 const cfg = config();
@@ -20,7 +20,7 @@ const health = {
   source: { name: "gh-webhook-forward", state: "connected" as const, detail: "" },
 };
 const view = (o: Partial<Snapshot>, sessionId: string | null = "s1"): TrackedView => ({
-  evaluation: evaluate(snap(o), cfg, parsers, null),
+  evaluation: evaluate(snapshot(o), cfg, parsers, null),
   sessionId,
   reviewRequestedHead: null,
 });
