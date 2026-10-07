@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { dirname } from "node:path";
-import { bunSpawner } from "../sources/gh-webhook-forward.ts";
+import { bunSpawner } from "../sources/spawner.ts";
 import { createSource } from "../sources/index.ts";
 import type { Spawner } from "../sources/types.ts";
 import type { Clock } from "./clock.ts";

@@ -1,17 +1,28 @@
 import { timingSafeEqual } from "node:crypto";
+import { errorMessage } from "../core/errors.ts";
 import type { Delivery } from "./types.ts";
 
+export interface ReceiverOptions {
+  secret: string | null;
+  path: string;
+  deliver(delivery: Delivery): Promise<unknown> | unknown;
+}
+
+type ParsedPayload = { ok: true; payload: unknown } | { ok: false };
+
+const textResponse = (body: string, status: number) => new Response(body, { status });
+
 export function signature(secret: string, body: string) {
-  const h = new Bun.CryptoHasher("sha256", secret);
-  h.update(body);
-  return `sha256=${h.digest("hex")}`;
+  const hasher = new Bun.CryptoHasher("sha256", secret);
+  hasher.update(body);
+  return `sha256=${hasher.digest("hex")}`;
 }
 
 export function verifySignature(secret: string, body: string, header: string | null) {
   if (!header) return false;
-  const want = Buffer.from(signature(secret, body));
-  const got = Buffer.from(header);
-  return want.length === got.length && timingSafeEqual(want, got);
+  const expected = Buffer.from(signature(secret, body));
+  const received = Buffer.from(header);
+  return expected.length === received.length && timingSafeEqual(expected, received);
 }
 
 function parseBody(body: string, contentType: string | null): unknown {
@@ -23,41 +34,45 @@ function parseBody(body: string, contentType: string | null): unknown {
   return JSON.parse(body);
 }
 
-export interface ReceiverOptions {
-  secret: string | null;
-  path: string;
-  deliver(d: Delivery): Promise<unknown> | unknown;
+function parsePayload(body: string, contentType: string | null): ParsedPayload {
+  try {
+    return { ok: true, payload: parseBody(body, contentType) };
+  } catch {
+    return { ok: false };
+  }
 }
 
-export function webhookHandler(opts: ReceiverOptions) {
-  return async (req: Request): Promise<Response> => {
-    if (new URL(req.url).pathname !== opts.path) return new Response("not found", { status: 404 });
-    if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
-    const body = await req.text();
-    if (
-      opts.secret &&
-      !verifySignature(opts.secret, body, req.headers.get("x-hub-signature-256"))
-    ) {
-      return new Response("bad signature", { status: 401 });
-    }
-    const id = req.headers.get("x-github-delivery");
-    const event = req.headers.get("x-github-event");
-    if (!id || !event) return new Response("missing delivery headers", { status: 400 });
-    let payload: unknown;
-    try {
-      payload = parseBody(body, req.headers.get("content-type"));
-    } catch {
-      return new Response("bad payload", { status: 400 });
-    }
-    try {
-      await opts.deliver({ id, event, payload });
-    } catch (e) {
-      return new Response(`delivery failed: ${(e as Error).message}`, { status: 500 });
-    }
-    return new Response("accepted", { status: 202 });
+const isAuthentic = (secret: string | null, body: string, request: Request) =>
+  !secret || verifySignature(secret, body, request.headers.get("x-hub-signature-256"));
+
+async function deliver(options: ReceiverOptions, delivery: Delivery) {
+  try {
+    await options.deliver(delivery);
+  } catch (error) {
+    return textResponse(`delivery failed: ${errorMessage(error)}`, 500);
+  }
+  return textResponse("accepted", 202);
+}
+
+export function webhookHandler(options: ReceiverOptions) {
+  return async (request: Request): Promise<Response> => {
+    if (new URL(request.url).pathname !== options.path) return textResponse("not found", 404);
+    if (request.method !== "POST") return textResponse("method not allowed", 405);
+    const body = await request.text();
+    if (!isAuthentic(options.secret, body, request)) return textResponse("bad signature", 401);
+    const id = request.headers.get("x-github-delivery");
+    const event = request.headers.get("x-github-event");
+    if (!id || !event) return textResponse("missing delivery headers", 400);
+    const parsed = parsePayload(body, request.headers.get("content-type"));
+    if (!parsed.ok) return textResponse("bad payload", 400);
+    return deliver(options, { id, event, payload: parsed.payload });
   };
 }
 
-export function startReceiver(opts: ReceiverOptions & { hostname: string; port: number }) {
-  return Bun.serve({ hostname: opts.hostname, port: opts.port, fetch: webhookHandler(opts) });
+export function startReceiver(options: ReceiverOptions & { hostname: string; port: number }) {
+  return Bun.serve({
+    hostname: options.hostname,
+    port: options.port,
+    fetch: webhookHandler(options),
+  });
 }

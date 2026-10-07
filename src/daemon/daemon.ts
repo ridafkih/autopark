@@ -96,7 +96,7 @@ export async function startDaemon(options: DaemonOptions) {
   const stop = async () => {
     wake?.stop();
     await source.stop();
-    await control.stop(true);
+    void control.stop(true);
     await engine.idle();
     store.close();
     rmSync(paths.socket, { force: true });

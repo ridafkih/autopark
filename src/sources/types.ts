@@ -23,14 +23,14 @@ export interface SourceStatus {
 
 export interface SourceContext {
   repos: string[];
-  deliver(d: Delivery): Promise<unknown>;
+  deliver(delivery: Delivery): Promise<unknown>;
   reconnected(reason: string): void;
-  log(msg: string): void;
+  log(message: string): void;
 }
 
 export interface EventSource {
   readonly name: string;
-  start(ctx: SourceContext): Promise<void>;
+  start(context: SourceContext): Promise<void>;
   stop(): Promise<void>;
   status(): SourceStatus;
 }
@@ -41,7 +41,7 @@ export interface ChildHandle {
   kill(): void;
 }
 
-export type Spawner = (cmd: string[], env: Record<string, string>) => ChildHandle;
+export type Spawner = (command: string[], env: Record<string, string>) => ChildHandle;
 
 export interface SourceDependencies {
   clock: Clock;
@@ -53,5 +53,5 @@ export interface SourceDependencies {
 
 export type SourceFactory = (
   options: Record<string, unknown>,
-  deps: SourceDependencies,
+  dependencies: SourceDependencies,
 ) => EventSource;

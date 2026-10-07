@@ -1,4 +1,5 @@
 import type { Clock } from "../daemon/clock.ts";
+import { forwardArgs, readForwardOptions, type GhForwardOptions } from "./gh-forward-options.ts";
 import { startReceiver } from "./receiver.ts";
 import type {
   ChildHandle,
@@ -9,106 +10,60 @@ import type {
   Spawner,
 } from "./types.ts";
 
-export const DEFAULT_EVENTS = [
-  "push",
-  "pull_request",
-  "pull_request_review",
-  "pull_request_review_comment",
-  "pull_request_review_thread",
-  "issue_comment",
-  "check_run",
-  "check_suite",
-  "status",
-];
+export { DEFAULT_EVENTS, forwardArgs, type GhForwardOptions } from "./gh-forward-options.ts";
 
-const CONNECTED = /forwarding webhook events/i;
-
-export interface GhForwardOptions {
-  gh: string;
-  events: string[];
-  hostname: string;
-  path: string;
-  restartBackoffMs: number[];
+interface ForwardDependencies {
+  clock: Clock;
+  port: number;
+  secret: string;
+  spawn: Spawner;
+  listen?: boolean;
 }
 
-export function forwardArgs(o: GhForwardOptions, repo: string, port: number, secret: string) {
-  return [
-    o.gh,
-    "webhook",
-    "forward",
-    `--repo=${repo}`,
-    `--events=${o.events.join(",")}`,
-    `--url=http://${o.hostname}:${port}${o.path}`,
-    `--secret=${secret}`,
-  ];
+const CONNECTED = /forwarding webhook events/iu;
+const FAILURE = /error|unable|denied|not have access/iu;
+const FALLBACK_RESTART_MS = 5000;
+
+function overallState(isRunning: boolean, states: SourceState[]): SourceState {
+  if (!isRunning) return "stopped";
+  if (states.length > 0 && states.every((state) => state === "connected")) return "connected";
+  return states.includes("disconnected") ? "disconnected" : "connecting";
 }
 
 export class GhWebhookForwardSource implements EventSource {
   readonly name = "gh-webhook-forward";
-  private running = false;
-  private children = new Map<string, ChildHandle>();
-  private states = new Map<string, SourceState>();
+  private isRunning = false;
+  private readonly children = new Map<string, ChildHandle>();
+  private readonly states = new Map<string, SourceState>();
+  private readonly failures = new Map<string, number>();
   private server: ReturnType<typeof startReceiver> | null = null;
-  private loops: Promise<void>[] = [];
+  private loops: Array<Promise<void>> = [];
   private lastError = "";
 
   constructor(
-    private o: GhForwardOptions,
-    private deps: { clock: Clock; port: number; secret: string; spawn: Spawner; listen?: boolean },
+    private readonly options: GhForwardOptions,
+    private readonly dependencies: ForwardDependencies,
   ) {}
 
-  async start(ctx: SourceContext) {
-    this.running = true;
-    let port = this.deps.port;
-    if (this.deps.listen !== false) {
+  async start(context: SourceContext) {
+    this.isRunning = true;
+    if (this.dependencies.listen !== false) {
       this.server = startReceiver({
-        hostname: this.o.hostname,
-        port,
-        path: this.o.path,
-        secret: this.deps.secret,
-        deliver: (d) => ctx.deliver(d),
+        hostname: this.options.hostname,
+        port: this.dependencies.port,
+        path: this.options.path,
+        secret: this.dependencies.secret,
+        deliver: (delivery) => context.deliver(delivery),
       });
-      port = this.server.port ?? port;
     }
-    for (const repo of ctx.repos) this.loops.push(this.supervise(repo, port, ctx));
-  }
-
-  private async supervise(repo: string, port: number, ctx: SourceContext) {
-    let failures = 0;
-    while (this.running) {
-      this.states.set(repo, "connecting");
-      const child = this.deps.spawn(forwardArgs(this.o, repo, port, this.deps.secret), {});
-      this.children.set(repo, child);
-      const reader = (async () => {
-        for await (const line of child.lines) {
-          if (CONNECTED.test(line)) {
-            failures = 0;
-            this.states.set(repo, "connected");
-            ctx.reconnected(`gh webhook forward connected for ${repo}`);
-          } else if (/error|unable|denied|not have access/i.test(line)) {
-            this.lastError = `${repo}: ${line.trim()}`;
-            ctx.log(`gh webhook forward ${repo}: ${line.trim()}`);
-          }
-        }
-      })();
-      const code = await child.exited;
-      await reader.catch(() => {});
-      this.children.delete(repo);
-      if (!this.running) break;
-      this.states.set(repo, "disconnected");
-      const delay =
-        this.o.restartBackoffMs[Math.min(failures, this.o.restartBackoffMs.length - 1)] ?? 5000;
-      failures++;
-      ctx.log(`gh webhook forward for ${repo} exited ${code}; restarting in ${delay}ms`);
-      await this.deps.clock.sleep(delay);
-    }
-    this.states.set(repo, "stopped");
+    const port = this.server?.port ?? this.dependencies.port;
+    this.loops = context.repos.map((repo) => this.supervise(repo, port, context));
   }
 
   async stop() {
-    this.running = false;
-    for (const c of this.children.values()) c.kill();
-    this.server?.stop(true);
+    this.isRunning = false;
+    for (const child of this.children.values()) child.kill();
+    void this.server?.stop(true);
     this.server = null;
   }
 
@@ -117,71 +72,61 @@ export class GhWebhookForwardSource implements EventSource {
   }
 
   status() {
-    const perRepo = Object.fromEntries(this.states);
-    const values = [...this.states.values()];
-    const state: SourceState = !this.running
-      ? "stopped"
-      : values.length && values.every((s) => s === "connected")
-        ? "connected"
-        : values.some((s) => s === "disconnected")
-          ? "disconnected"
-          : "connecting";
-    return { name: this.name, state, detail: this.lastError, perRepo };
+    const state = overallState(this.isRunning, [...this.states.values()]);
+    return {
+      name: this.name,
+      state,
+      detail: this.lastError,
+      perRepo: Object.fromEntries(this.states),
+    };
   }
-}
 
-async function* linesOf(...streams: ReadableStream<Uint8Array>[]) {
-  const queue: string[] = [];
-  const waiter: { notify: (() => void) | null } = { notify: null };
-  let open = streams.length;
-  for (const s of streams) {
-    (async () => {
-      const decoder = new TextDecoder();
-      let buf = "";
-      for await (const chunk of s) {
-        buf += decoder.decode(chunk, { stream: true });
-        let i: number;
-        while ((i = buf.indexOf("\n")) >= 0) {
-          queue.push(buf.slice(0, i));
-          buf = buf.slice(i + 1);
-        }
-        waiter.notify?.();
-      }
-      if (buf) queue.push(buf);
-      open--;
-      waiter.notify?.();
-    })();
-  }
-  while (open > 0 || queue.length) {
-    if (queue.length) {
-      yield queue.shift()!;
-      continue;
+  private async supervise(repo: string, port: number, context: SourceContext) {
+    while (this.isRunning) {
+      const code = await this.runForwarder(repo, port, context);
+      if (!this.isRunning) break;
+      this.states.set(repo, "disconnected");
+      const delayMs = this.nextRestartDelay(repo);
+      context.log(`gh webhook forward for ${repo} exited ${code}; restarting in ${delayMs}ms`);
+      await this.dependencies.clock.sleep(delayMs);
     }
-    await new Promise<void>((r) => (waiter.notify = r));
-    waiter.notify = null;
+    this.states.set(repo, "stopped");
+  }
+
+  private async runForwarder(repo: string, port: number, context: SourceContext) {
+    this.states.set(repo, "connecting");
+    const args = forwardArgs(this.options, repo, port, this.dependencies.secret);
+    const child = this.dependencies.spawn(args, {});
+    this.children.set(repo, child);
+    const reader = this.watchOutput(repo, child, context);
+    const code = await child.exited;
+    await Promise.allSettled([reader]);
+    this.children.delete(repo);
+    return code;
+  }
+
+  private async watchOutput(repo: string, child: ChildHandle, context: SourceContext) {
+    for await (const line of child.lines) {
+      if (CONNECTED.test(line)) {
+        this.failures.set(repo, 0);
+        this.states.set(repo, "connected");
+        context.reconnected(`gh webhook forward connected for ${repo}`);
+      } else if (FAILURE.test(line)) {
+        this.lastError = `${repo}: ${line.trim()}`;
+        context.log(`gh webhook forward ${repo}: ${line.trim()}`);
+      }
+    }
+  }
+
+  private nextRestartDelay(repo: string) {
+    const failures = this.failures.get(repo) ?? 0;
+    const backoff = this.options.restartBackoffMs;
+    this.failures.set(repo, failures + 1);
+    return backoff[Math.min(failures, backoff.length - 1)] ?? FALLBACK_RESTART_MS;
   }
 }
 
-export const bunSpawner: Spawner = (cmd, env) => {
-  const proc = Bun.spawn(cmd, {
-    env: { ...process.env, ...env },
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  return { lines: linesOf(proc.stdout, proc.stderr), exited: proc.exited, kill: () => proc.kill() };
-};
-
-export const ghForwardFactory = (options: Record<string, unknown>, deps: SourceDependencies) =>
-  new GhWebhookForwardSource(
-    {
-      gh: typeof options.gh === "string" ? options.gh : "gh",
-      events: Array.isArray(options.events) ? (options.events as string[]) : DEFAULT_EVENTS,
-      hostname: typeof options.hostname === "string" ? options.hostname : "127.0.0.1",
-      path: typeof options.path === "string" ? options.path : "/github",
-      restartBackoffMs: Array.isArray(options.restartBackoffMs)
-        ? (options.restartBackoffMs as number[])
-        : [1000, 2000, 5000, 10000, 30000, 60000],
-    },
-    deps,
-  );
+export const ghForwardFactory = (
+  options: Record<string, unknown>,
+  dependencies: SourceDependencies,
+) => new GhWebhookForwardSource(readForwardOptions(options), dependencies);

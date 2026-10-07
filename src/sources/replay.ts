@@ -1,44 +1,55 @@
 import { resolve } from "node:path";
-import type { Delivery } from "./types.ts";
-import type { EventSource, SourceContext, SourceDependencies, SourceState } from "./types.ts";
+import type {
+  Delivery,
+  EventSource,
+  SourceContext,
+  SourceDependencies,
+  SourceState,
+} from "./types.ts";
+
+interface ReplayOptions {
+  file?: string;
+  deliveries?: Delivery[];
+}
 
 export async function readDeliveries(path: string): Promise<Delivery[]> {
   const text = await Bun.file(path).text();
   return text
     .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => JSON.parse(l) as Delivery);
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .map((line) => JSON.parse(line) as Delivery);
 }
 
 export class ReplaySource implements EventSource {
   readonly name = "replay";
-  private ctx: SourceContext | null = null;
+  private context: SourceContext | null = null;
   private state: SourceState = "idle";
   private delivered = 0;
 
-  constructor(private opts: { file?: string; deliveries?: Delivery[] } = {}) {}
+  constructor(private readonly options: ReplayOptions = {}) {}
 
-  async start(ctx: SourceContext) {
-    this.ctx = ctx;
+  async start(context: SourceContext) {
+    this.context = context;
     this.state = "connected";
-    const fromFile = this.opts.file ? await readDeliveries(this.opts.file) : [];
-    for (const d of [...(this.opts.deliveries ?? []), ...fromFile]) await this.push(d);
+    const fromFile = this.options.file ? await readDeliveries(this.options.file) : [];
+    const deliveries = [...(this.options.deliveries ?? []), ...fromFile];
+    for (const delivery of deliveries) await this.push(delivery);
   }
 
-  async push(d: Delivery) {
-    if (!this.ctx) throw new Error("replay source not started");
-    this.delivered++;
-    await this.ctx.deliver(d);
+  async push(delivery: Delivery) {
+    if (!this.context) throw new Error("replay source not started");
+    this.delivered = this.delivered + 1;
+    await this.context.deliver(delivery);
   }
 
   reconnect(reason = "replay reconnect") {
-    this.ctx?.reconnected(reason);
+    this.context?.reconnected(reason);
   }
 
   async stop() {
     this.state = "stopped";
-    this.ctx = null;
+    this.context = null;
   }
 
   status() {
@@ -46,7 +57,8 @@ export class ReplaySource implements EventSource {
   }
 }
 
-export const replayFactory = (options: Record<string, unknown>, deps: SourceDependencies) =>
+export const replayFactory = (options: Record<string, unknown>, dependencies: SourceDependencies) =>
   new ReplaySource({
-    file: typeof options.file === "string" ? resolve(deps.baseDir, options.file) : undefined,
+    file:
+      typeof options.file === "string" ? resolve(dependencies.baseDir, options.file) : undefined,
   });
