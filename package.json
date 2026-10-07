@@ -11,10 +11,14 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings",
     "schema": "bun src/cli/main.ts schema > schema/pr-autopilot.schema.json"
   },
   "devDependencies": {
+    "@oxlint/plugins": "1.87.0",
     "@types/bun": "latest",
+    "eslint-plugin-unicorn": "77.0.0",
+    "oxlint": "1.87.0",
     "typescript": "^5.9.0"
   }
 }

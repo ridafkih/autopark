@@ -1,0 +1,141 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
+  "jsPlugins": [
+    "./lint/autopilot.ts",
+    { "name": "unicorn-js", "specifier": "eslint-plugin-unicorn" }
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "error"
+  },
+  "env": { "builtin": true, "es2024": true, "node": true },
+  "ignorePatterns": ["node_modules/**", "schema/**"],
+  "rules": {
+    "id-length": [
+      "error",
+      { "min": 3, "properties": "never", "exceptions": ["id", "ok", "fs", "os", "db"] }
+    ],
+    "id-match": [
+      "error",
+      "^(?:[a-z][a-zA-Z0-9]*|[A-Z][a-zA-Z0-9]*|[A-Z][A-Z0-9_]*)$",
+      { "properties": false, "classFields": true, "onlyDeclarations": true }
+    ],
+    "unicorn-js/name-replacements": [
+      "error",
+      {
+        "checkFilenames": false,
+        "checkProperties": false,
+        "allowList": { "args": true, "argv": true, "env": true },
+        "replacements": {
+          "pr": { "pullRequest": true },
+          "prs": { "pullRequests": true },
+          "evt": { "event": true },
+          "cfg": { "config": true },
+          "conf": { "config": true },
+          "tx": { "transition": true },
+          "snap": { "snapshot": true },
+          "rec": { "record": true },
+          "cmp": { "comparison": true },
+          "rr": { "reviewRequest": true },
+          "sb": { "builder": true },
+          "ms": { "milliseconds": true },
+          "fn": { "callback": true },
+          "db": false,
+          "dir": false,
+          "ref": false,
+          "refs": false
+        }
+      }
+    ],
+    "unicorn-js/consistent-boolean-name": "error",
+    "autopilot/no-let": "error",
+    "autopilot/simple-template-expressions": "error",
+
+    "no-param-reassign": ["error", { "props": true }],
+    "prefer-const": "error",
+    "no-var": "error",
+    "no-plusplus": "error",
+    "no-multi-assign": "error",
+    "operator-assignment": ["error", "never"],
+    "logical-assignment-operators": "off",
+    "no-return-assign": ["error", "always"],
+    "no-sequences": "error",
+
+    "complexity": ["error", 10],
+    "max-depth": ["error", 3],
+    "max-params": ["error", 4],
+    "max-nested-callbacks": ["error", 3],
+    "max-statements": ["error", 15],
+    "max-lines": ["error", { "max": 200, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": [
+      "error",
+      { "max": 40, "skipBlankLines": true, "skipComments": true, "IIFEs": true }
+    ],
+    "max-classes-per-file": ["error", 1],
+    "import/max-dependencies": ["error", { "max": 12, "ignoreTypeImports": true }],
+
+    "no-nested-ternary": "error",
+    "unicorn/no-nested-ternary": "error",
+    "no-unneeded-ternary": "error",
+    "eqeqeq": "error",
+    "no-else-return": ["error", { "allowElseIf": false }],
+    "no-lonely-if": "error",
+    "no-implicit-coercion": "error",
+    "prefer-template": "error",
+    "object-shorthand": "error",
+    "arrow-body-style": ["error", "as-needed"],
+    "curly": ["error", "multi-line"],
+    "no-useless-computed-key": "error",
+    "default-param-last": "error",
+    "no-console": "error",
+    "no-underscore-dangle": ["error", { "allow": ["__typename"] }],
+    "no-await-in-loop": "off",
+    "require-await": "off",
+
+    "typescript/consistent-type-imports": "error",
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-inferrable-types": "error",
+    "typescript/prefer-function-type": "error",
+    "typescript/array-type": ["error", { "default": "array-simple" }],
+
+    "import/no-default-export": "error",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/first": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-namespace": "error",
+
+    "promise/prefer-await-to-then": "error",
+
+    "unicorn/catch-error-name": ["error", { "name": "error" }],
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "unicorn/no-array-for-each": "error",
+    "unicorn/no-array-callback-reference": "off",
+    "unicorn/no-await-expression-member": "error",
+    "unicorn/switch-case-braces": "error",
+    "unicorn/throw-new-error": "error",
+    "unicorn/error-message": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-number-properties": "error",
+    "unicorn/no-process-exit": "error",
+    "unicorn/prefer-module": "error",
+    "unicorn/prefer-optional-catch-binding": "error",
+    "unicorn/prefer-includes": "error",
+    "unicorn/prefer-spread": "error"
+  },
+  "overrides": [
+    {
+      "files": ["src/cli/main.ts", "src/daemon/main.ts", "src/channel/server.ts"],
+      "rules": { "unicorn/no-process-exit": "off", "no-console": "off" }
+    },
+    {
+      "files": ["lint/autopilot.ts", "test/fixtures/custom-parser.ts"],
+      "rules": { "import/no-default-export": "off" }
+    }
+  ]
+}
