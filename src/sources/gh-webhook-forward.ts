@@ -67,6 +67,10 @@ export class GhWebhookForwardSource implements EventSource {
     this.server = null;
   }
 
+  listeningPort() {
+    return this.server?.port ?? null;
+  }
+
   async settled() {
     await Promise.all(this.loops);
   }

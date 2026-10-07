@@ -9,10 +9,6 @@ import { FakeClock, flush } from "./fixtures/clock.ts";
 import { childAt, FakeChild } from "./fixtures/fake-child.ts";
 import { recordingContext } from "./fixtures/source-context.ts";
 
-interface ListeningSource {
-  server: { port: number } | null;
-}
-
 const SECRET = "s3cret";
 const BODY = JSON.stringify({ zen: "hi", repository: { full_name: "acme/widgets" } });
 const CONNECTED_LINE = "Forwarding Webhook events from GitHub...";
@@ -150,7 +146,7 @@ describe("gh-webhook-forward source", () => {
     started.push(source);
     const recorder = recordingContext([]);
     await source.start(recorder.context);
-    const port = (source as unknown as ListeningSource).server?.port ?? 0;
+    const port = source.listeningPort() ?? 0;
     const accepted = await postPing(port, "h1", signature(SECRET, BODY));
     const rejected = await postPing(port, "h2", "sha256=00");
     expect([accepted.status, rejected.status]).toEqual([202, 401]);
