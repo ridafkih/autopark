@@ -56,14 +56,14 @@ const greptileCases: Array<[string, string, Partial<ReviewerResult> | null]> = [
 
 describe("greptile parser", () => {
   test.each(greptileCases)("%s", (_label, body, expected) => {
-    const r = greptile.parse(comment(body), {});
+    const result = greptile.parse(comment(body), {});
     if (expected === null) {
-      expect(r).toBeNull();
+      expect(result).toBeNull();
       return;
     }
-    expect(r).not.toBeNull();
-    expect(r).toMatchObject(expected);
-    expect(r!.commentId).toBe("c1");
+    expect(result).not.toBeNull();
+    expect(result).toMatchObject(expected);
+    expect(result?.commentId).toBe("c1");
   });
 
   test("default logins cover the GraphQL and webhook spellings", () => {
@@ -106,13 +106,18 @@ const regexCases: Array<[string, Record<string, unknown>, string, Partial<Review
 
 describe("regex parser", () => {
   test.each(regexCases)("%s", (_label, options, body, expected) => {
-    const r = regexParser.parse(comment(body, "rabbit"), options);
-    if (expected === null) return expect(r).toBeNull();
-    expect(r).toMatchObject(expected);
+    const result = regexParser.parse(comment(body, "rabbit"), options);
+    if (expected === null) {
+      expect(result).toBeNull();
+      return;
+    }
+    expect(result).toMatchObject(expected);
   });
 
   test("rejects options without a score pattern", () => {
-    expect(() => regexParser.validate!({})).toThrow(/score/);
+    const { validate } = regexParser;
+    expect(validate).toBeDefined();
+    expect(() => validate?.({})).toThrow(/score/u);
   });
 });
 
@@ -157,8 +162,8 @@ describe("parser registry", () => {
       ],
       import.meta.dir,
     );
-    const p = parsers.get("custom")!;
-    expect(p.parse(comment("SCORE 9", "bot"), {})).toMatchObject({ score: 9 });
+    const parser = parsers.get("custom");
+    expect(parser?.parse(comment("SCORE 9", "bot"), {})).toMatchObject({ score: 9 });
   });
 
   test("unknown parser id fails loudly", async () => {
@@ -174,6 +179,6 @@ describe("parser registry", () => {
           options: {},
         },
       ]),
-    ).rejects.toThrow(/nope/);
+    ).rejects.toThrow(/nope/u);
   });
 });

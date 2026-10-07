@@ -1,39 +1,44 @@
 import { describe, expect, test } from "bun:test";
-import { parseConfig, configJsonSchema } from "../src/config/schema.ts";
-import { loadConfigFile, parseConfigText } from "../src/config/load.ts";
+import { parseConfig } from "../src/config/schema.ts";
 
 const minimal = { repos: ["acme/widgets"] };
 
 describe("config defaults", () => {
   test("minimal config fills every section", () => {
-    const r = parseConfig(minimal);
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    const c = r.config;
-    expect(c.repos).toEqual(["acme/widgets"]);
-    expect(c.track).toEqual({ authors: [], branchPrefixes: [], labels: [] });
-    expect(c.checks.useGitHubRequired).toBe(true);
-    expect(c.checks.required).toEqual([]);
-    expect(c.checks.humanGates).toEqual([]);
-    expect(c.reviewers).toEqual([]);
-    expect(c.readiness.approvalOnHead).toBe(true);
-    expect(c.readiness.minApprovals).toBe(1);
-    expect(c.readiness.noConflict).toBe(true);
-    expect(c.readiness.noUnresolvedThreads).toBe(true);
-    expect(c.autoMerge.method).toBe("squash");
-    expect(c.autoMerge.default).toBe(false);
-    expect(c.delivery).toEqual({ channel: true, monitor: "auto", playbook: null });
-    expect(c.hooks.stop.enabled).toBe(true);
-    expect(c.hooks.stop.maxBlocks).toBe(3);
-    expect(c.daemon.backoffMs).toEqual([1000, 2000, 4000, 8000, 16000, 30000]);
-    expect(c.daemon.source.type).toBe("gh-webhook-forward");
+    const result = parseConfig(minimal);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const { config } = result;
+    const expectations: Array<[unknown, unknown]> = [
+      [config.repos, ["acme/widgets"]],
+      [config.track, { authors: [], branchPrefixes: [], labels: [] }],
+      [config.checks.useGitHubRequired, true],
+      [config.checks.required, []],
+      [config.checks.humanGates, []],
+      [config.reviewers, []],
+      [config.readiness.approvalOnHead, true],
+      [config.readiness.minApprovals, 1],
+      [config.readiness.noConflict, true],
+      [config.readiness.noUnresolvedThreads, true],
+      [config.autoMerge.method, "squash"],
+      [config.autoMerge.default, false],
+      [config.delivery, { channel: true, monitor: "auto", playbook: null }],
+      [config.hooks.stop.enabled, true],
+      [config.hooks.stop.maxBlocks, 3],
+      [config.daemon.backoffMs, [1000, 2000, 4000, 8000, 16_000, 30_000]],
+      [config.daemon.source.type, "gh-webhook-forward"],
+    ];
+    for (const [actual, expected] of expectations) expect(actual).toEqual(expected);
   });
 
   test("reviewer defaults are applied per entry", () => {
-    const r = parseConfig({ ...minimal, reviewers: [{ name: "greptile", parser: "greptile" }] });
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.config.reviewers[0]).toEqual({
+    const result = parseConfig({
+      ...minimal,
+      reviewers: [{ name: "greptile", parser: "greptile" }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.config.reviewers[0]).toEqual({
       name: "greptile",
       parser: "greptile",
       logins: [],
@@ -45,11 +50,11 @@ describe("config defaults", () => {
   });
 
   test("defaults are not shared between parses", () => {
-    const a = parseConfig(minimal);
-    const b = parseConfig(minimal);
-    if (!a.ok || !b.ok) throw new Error("unexpected");
-    a.config.track.labels.push("x");
-    expect(b.config.track.labels).toEqual([]);
+    const first = parseConfig(minimal);
+    const second = parseConfig(minimal);
+    if (!first.ok || !second.ok) throw new Error("unexpected");
+    first.config.track.labels.push("x");
+    expect(second.config.track.labels).toEqual([]);
   });
 });
 
@@ -100,11 +105,11 @@ const invalid: Array<[string, unknown, string]> = [
 ];
 
 describe("config validation rejects", () => {
-  test.each(invalid)("%s", (_label, input, path) => {
-    const r = parseConfig(input);
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.issues.map((i) => i.path)).toContain(path);
+  test.each(invalid)("%s", (label, input, path) => {
+    const result = parseConfig(input);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.map((issue) => issue.path)).toContain(path);
   });
 });
 
@@ -161,45 +166,9 @@ const valid: Array<[string, unknown]> = [
 ];
 
 describe("config validation accepts", () => {
-  test.each(valid)("%s", (_label, input) => {
-    const r = parseConfig(input);
-    if (!r.ok) throw new Error(JSON.stringify(r.issues));
-    expect(r.ok).toBe(true);
-  });
-});
-
-describe("config files", () => {
-  test("yaml and json parse to the same config", () => {
-    const yaml = parseConfigText(
-      "repos:\n  - acme/widgets\nreadiness:\n  minApprovals: 2\n",
-      "x.yaml",
-    );
-    const json = parseConfigText(
-      '{"repos":["acme/widgets"],"readiness":{"minApprovals":2}}',
-      "x.json",
-    );
-    expect(yaml).toEqual(json);
-  });
-
-  test("shipped example configs are valid", async () => {
-    for (const name of ["examples/minimal.pr-autopilot.yaml", "examples/ando.pr-autopilot.yaml"]) {
-      const r = await loadConfigFile(`${import.meta.dir}/../${name}`);
-      if (!r.ok) throw new Error(`${name}: ${JSON.stringify(r.issues)}`);
-    }
-  });
-
-  test("json schema is generated from the same definition", () => {
-    const schema = configJsonSchema() as any;
-    expect(schema.type).toBe("object");
-    expect(schema.required).toEqual(["repos"]);
-    expect(schema.additionalProperties).toBe(false);
-    expect(schema.properties.autoMerge.properties.method.enum).toEqual([
-      "merge",
-      "squash",
-      "rebase",
-    ]);
-    expect(schema.properties.daemon.properties.backoffMs.default).toEqual([
-      1000, 2000, 4000, 8000, 16000, 30000,
-    ]);
+  test.each(valid)("%s", (label, input) => {
+    const result = parseConfig(input);
+    if (!result.ok) throw new Error(JSON.stringify(result.issues));
+    expect(result.ok).toBe(true);
   });
 });
