@@ -26,6 +26,7 @@ const USAGE = `pr-autopilot <command>
 
   init [--repo owner/name] [--force]      scaffold .pr-autopilot.yaml at the git root and register it
   validate [path]                         validate a config file
+  register <path>                         add a config that lives outside its repo to the daemon's registry
   schema                                  print the config JSON Schema
   doctor                                  check gh auth and scopes, the webhook extension, the daemon and the channel
   check <pr> [--json]                     fetch and evaluate one PR now (read-only)
@@ -229,6 +230,15 @@ async function cmdInit(argv: string[], p: Paths) {
   out(`wrote ${file} and registered it in ${p.projects}`);
 }
 
+async function cmdRegister(argv: string[], p: Paths) {
+  const path = argv[0];
+  if (!path) throw new CliError("usage: pr-autopilot register <config path>");
+  const r = await loadConfigFile(resolve(path));
+  if (!r.ok) throw new CliError(`${path}:\n${r.issues.map((i) => `  ${i.path}: ${i.message}`).join("\n")}`);
+  const added = addProject(p.projects, path);
+  out(`${added ? "registered" : "already registered"} ${resolve(path)} (${r.config.repos.join(", ")})`);
+}
+
 async function cmdValidate(argv: string[]) {
   const path = argv[0] ?? findConfig(process.cwd());
   if (!path) throw new CliError("no config found");
@@ -324,6 +334,8 @@ export async function main(argv: string[]) {
       return cmdInit(rest, p);
     case "validate":
       return cmdValidate(rest);
+    case "register":
+      return cmdRegister(rest, p);
     case "schema":
       return out(JSON.stringify(configJsonSchema(), null, 2));
     case "doctor": {

@@ -98,6 +98,17 @@ describe("cli commands", () => {
     expect((await cli(["init", "--repo", "acme/gadgets"], { cwd: repo, home })).code).toBe(1);
   });
 
+  test("register adds a valid config kept outside any repo, once", async () => {
+    const { home, dir } = project();
+    const file = join(dir, "ando.yaml");
+    writeFileSync(file, "repos:\n  - acme/widgets\n");
+    expect((await cli(["register", file], { cwd: dir, home })).stdout).toBe(`registered ${file} (acme/widgets)`);
+    expect((await cli(["register", file], { cwd: dir, home })).stdout).toBe(`already registered ${file} (acme/widgets)`);
+    expect(JSON.parse(readFileSync(join(home, "projects.json"), "utf8"))).toEqual([file]);
+    writeFileSync(join(dir, "bad.yaml"), "repos: []\n");
+    expect((await cli(["register", join(dir, "bad.yaml")], { cwd: dir, home })).code).toBe(1);
+  });
+
   test("validate reports each issue with its path", async () => {
     const { home, proj } = project();
     writeFileSync(join(proj, "bad.yaml"), "repos: [nope]\nreadiness:\n  minApprovals: -1\n");

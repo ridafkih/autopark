@@ -54,6 +54,7 @@ gh extension install cli/gh-webhook          # needed by the default event sourc
 
 cd ~/code/your-repo
 ~/pr-autopilot/bin/pr-autopilot init         # writes .pr-autopilot.yaml and registers it
+# or keep the config outside the repo: pr-autopilot register ~/.pr-autopilot/my-repo.yaml
 ~/pr-autopilot/bin/pr-autopilot doctor       # auth, scopes, extension, admin rights, daemon
 
 ~/pr-autopilot/bin/pr-autopilot daemon start     # or: daemon install (launchd/systemd, survives reboots)
