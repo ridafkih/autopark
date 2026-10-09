@@ -1,5 +1,6 @@
 import type { Config } from "../../config/schema.ts";
-import { formatFailedChecks, formatPullRequest, formatScore, shortSha } from "../format.ts";
+import { isApprovalRequestDue } from "../approval-request.ts";
+import { formatFailedChecks, formatPullRequest, formatScore } from "../format.ts";
 import type { HoldView } from "../hold.ts";
 import { nudgeKindsOf, type NudgeState } from "../nudge.ts";
 import type { Evaluation, ReasonCode, ReviewerEvaluation } from "../types.ts";
@@ -99,16 +100,12 @@ const reviewFindingsItem: ItemBuilder = ({ evaluation, config }) => {
 };
 
 const reviewNotRequestedItem: ItemBuilder = ({ evaluation, view, config, label }) => {
-  const needsApproval = hasReason(evaluation, "approval_missing", "approval_stale");
-  const requestedHead = view.reviewRequestedHead;
-  const isRequestedOnHead = requestedHead === evaluation.headSha;
-  const isHeadMoved = config.blockOnHeadMovedWithoutReview && requestedHead !== null;
-  const isDue = isHeadMoved || evaluation.awaitingHuman;
-  if (!needsApproval || isRequestedOnHead || !isDue) return null;
+  const isEarly = config.blockOnHeadMovedWithoutReview || evaluation.awaitingHuman;
+  if (!isEarly || !isApprovalRequestDue(evaluation, view.reviewRequestedHead)) return null;
   return {
     kind: "review_not_requested",
-    detail: `head ${shortSha(evaluation.headSha)} has no review request`,
-    next: `request review (autopark request-review ${label}).`,
+    detail: `${label} needs approval and review was never requested`,
+    next: `request approval once (autopark request-review ${label}); approvals persist across pushes, so never re-ask.`,
   };
 };
 

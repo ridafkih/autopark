@@ -77,12 +77,16 @@ function uniqueComments(node: JsonRecord) {
   );
 }
 
+const isBotReview = (review: JsonRecord) => stringAt(review, "author", "__typename") === "Bot";
+
 const approvalsOf = (node: JsonRecord): Approval[] =>
-  recordsAt(node, "latestOpinionatedReviews", "nodes").map((review) => ({
-    login: loginAt(review, "author") ?? "ghost",
-    state: stringAt(review, "state") ?? "",
-    sha: lowerShaAt(review, "commit", "oid"),
-  }));
+  recordsAt(node, "latestOpinionatedReviews", "nodes")
+    .filter((review) => !isBotReview(review))
+    .map((review) => ({
+      login: loginAt(review, "author") ?? "ghost",
+      state: stringAt(review, "state") ?? "",
+      sha: lowerShaAt(review, "commit", "oid"),
+    }));
 
 function normalizeThread(thread: JsonRecord): ReviewThread {
   const [firstComment] = recordsAt(thread, "comments", "nodes");
@@ -138,6 +142,7 @@ export function normalizePullRequest(repo: string, node: JsonRecord): Snapshot {
     mergeStateStatus: stringAt(node, "mergeStateStatus") ?? "UNKNOWN",
     checks: recordsAt(commit, "statusCheckRollup", "contexts", "nodes").map(normalizeCheck),
     approvals: approvalsOf(node),
+    reviewDecision: stringAt(node, "reviewDecision") ?? null,
     threads: recordsAt(node, "reviewThreads", "nodes").map(normalizeThread),
     comments: uniqueComments(node),
   };

@@ -107,7 +107,7 @@ describe("nudges", () => {
     expect(harness.nudges()[2]?.reason).toContain("ESCALATED: blocked for 30m");
   });
 
-  test("awaiting_human tells the session to re-request review with the instruction", async () => {
+  test("awaiting_human tells the session to request approval once with the instruction", async () => {
     const harness = await createNudgeHarness({
       reviewRequest: { instruction: "Ask Cortana to approve {url} at {head}." },
     });
@@ -121,7 +121,7 @@ describe("nudges", () => {
       instruction,
     });
     expect(nudge?.reason).toContain("awaiting human review for 10m");
-    expect(nudge?.reason).toContain(`re-request review: ${instruction}`);
+    expect(nudge?.reason).toContain(`request approval once: ${instruction}`);
   });
 
   test("awaiting_human with a review command points at request-review", async () => {
@@ -129,7 +129,7 @@ describe("nudges", () => {
     await harness.trackWith({ approvals: [] });
     await harness.minutes(10);
     expect(harness.nudges()[0]?.reason).toContain(
-      "re-request review: run `autopark request-review acme/widgets#7`",
+      "request approval once: run `autopark request-review acme/widgets#7`",
     );
   });
 

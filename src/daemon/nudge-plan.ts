@@ -29,7 +29,8 @@ function dueNudge(record: NudgeRecord, { holds, configs, now }: PlanInput): DueN
   const entry = configs.get(record.repo);
   if (!entry) return [];
   const heldUntil = activeHold(record.key, holds, now)?.until ?? null;
-  const dueAt = nextNudgeAt(record.nudge, record.evaluation, entry.config.nudge, heldUntil);
+  const timing = { heldUntil, requestedHead: record.reviewRequestedHead };
+  const dueAt = nextNudgeAt(record.nudge, record.evaluation, entry.config.nudge, timing);
   return dueAt === null ? [] : [{ record, entry, dueAt }];
 }
 

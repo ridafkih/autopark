@@ -26,6 +26,7 @@ describe("resync heals missed events", () => {
         "approval_stale",
         "awaiting_human",
         "not_ready",
+        "approval_needed",
       ],
     ],
   ])("%s", async (label, change, expected) => {

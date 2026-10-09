@@ -40,6 +40,8 @@ interface DeliveryResult {
 
 const DELIVERY_TTL_MS = 7 * 24 * 3600 * 1000;
 const PRUNE_EVERY_DELIVERIES = 500;
+const RECOMPUTE_RETRY_MS = [30_000, 60_000, 120_000, 300_000, 600_000];
+const RECOMPUTE_MAX_RETRIES = 12;
 
 export class Engine {
   readonly nudges: Nudger;
@@ -58,6 +60,8 @@ export class Engine {
     this.comparisons = new ComparisonCache(dependencies.github, this.log);
     this.scheduler = new CoalescingScheduler({
       debounceMs: () => dependencies.configs.daemon.debounceMs,
+      retryMs: () => RECOMPUTE_RETRY_MS,
+      maxRetries: () => RECOMPUTE_MAX_RETRIES,
       sleep: (durationMs) => dependencies.clock.sleep(durationMs),
       work: (key) => this.recompute(key),
       log: this.log,
@@ -177,6 +181,7 @@ export class Engine {
     store.saveEvaluation(key, next, clock.now());
     this.nudges.observe(key, previous, next);
     for (const transition of transitions) await this.emitter.emit(transition, next, entry);
+    await this.nudges.askForApprovalOnce(key, next, entry);
     await autoMergeIfReady(key, next, entry, { ...this.dependencies, emitter: this.emitter });
     if (next.state !== "OPEN") store.setTracked(key, false);
   }

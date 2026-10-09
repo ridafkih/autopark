@@ -56,9 +56,9 @@ describe("actionable items", () => {
     ["missing review is pending", { comments: [] }, []],
     ["open threads", { threads: [openThread] }, ["review_findings"]],
     [
-      "head moved without review re-requested",
+      "head moved after a review request never re-requests",
       { approvals: [{ login: "reviewer", state: "APPROVED", sha: OLD }] },
-      ["review_not_requested"],
+      [],
       { reviewRequestedHead: OLD },
     ],
     ["head moved but already approved on head", {}, [], { reviewRequestedHead: OLD }],

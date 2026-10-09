@@ -64,7 +64,9 @@ describe("next nudge", () => {
     ["a recent head pushes it out", fresh({ headMovedAt: 7 * MINUTE }), null, 17 * MINUTE],
     ["a hold pushes it to the hold's end", fresh(), 45 * MINUTE, 45 * MINUTE],
   ])("%s", (label, state, heldUntil, expected) => {
-    expect(nextNudgeAt(state, blocked, nudgeConfig, heldUntil)).toBe(expected);
+    expect(nextNudgeAt(state, blocked, nudgeConfig, { heldUntil, requestedHead: null })).toBe(
+      expected,
+    );
   });
 
   test.each<[string, Partial<Snapshot>]>([
@@ -72,6 +74,11 @@ describe("next nudge", () => {
     ["draft", { isDraft: true, threads: [openThread] }],
     ["closed", { state: "CLOSED", threads: [openThread] }],
   ])("%s never nudges", (label, changes) => {
-    expect(nextNudgeAt(fresh(), evaluated(changes), nudgeConfig, null)).toBeNull();
+    expect(
+      nextNudgeAt(fresh(), evaluated(changes), nudgeConfig, {
+        heldUntil: null,
+        requestedHead: null,
+      }),
+    ).toBeNull();
   });
 });

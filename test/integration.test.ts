@@ -22,7 +22,7 @@ interface StepContext {
 afterEach(stopDaemons);
 
 const EXPECTED_KINDS = {
-  opened: ["not_ready"],
+  opened: ["not_ready", "approval_needed"],
   "build fails": ["checks_failed"],
   "redelivered failure": [],
   "push H2": ["head_moved"],

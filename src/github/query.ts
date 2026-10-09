@@ -7,8 +7,8 @@ export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: St
       baseRef { target { oid } }
       author { login }
       labels(first: 50) { nodes { name } }
-      mergeable mergeStateStatus
-      latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { author { login } state commit { oid } } }
+      mergeable mergeStateStatus reviewDecision
+      latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { author { __typename login } state commit { oid } } }
       reviewThreads(first: 100) { nodes { id isResolved isOutdated path comments(first: 1) { nodes { author { login } url } } } }
       firstComments: comments(first: 25) { nodes { id author { login } body updatedAt } }
       lastComments: comments(last: 25) { nodes { id author { login } body updatedAt } }

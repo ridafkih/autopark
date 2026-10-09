@@ -87,7 +87,13 @@ function changesRequestedReason({ approvals }: ReasonInputs) {
   return reason("changes_requested", `changes requested by ${requesters}`);
 }
 
-function approvalReason({ approvals, readiness }: ReasonInputs) {
+function decisionReason(decision: string) {
+  if (decision === "APPROVED") return null;
+  return reason("approval_missing", `GitHub review decision is ${decision}`);
+}
+
+function approvalReason({ approvals, readiness, snapshot }: ReasonInputs) {
+  if (snapshot.reviewDecision) return decisionReason(snapshot.reviewDecision);
   const { onHead, stale } = approvals;
   const counted = readiness.approvalOnHead ? onHead.length : onHead.length + stale.length;
   if (counted >= readiness.minApprovals) return null;

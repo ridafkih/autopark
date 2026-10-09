@@ -1,4 +1,5 @@
 import { errorMessage } from "../core/errors.ts";
+import { requestApprovalOnce } from "./approval-asker.ts";
 import {
   activeHold,
   ALL_PULL_REQUESTS,
@@ -12,7 +13,7 @@ import { holdExpiredTransition, nextStep, nudgeTransition } from "../core/nudge-
 import { summarize, type PullRequestSummary } from "../core/summary.ts";
 import type { Evaluation } from "../core/types.ts";
 import type { Clock } from "./clock.ts";
-import type { ConfigSet } from "./config-set.ts";
+import type { ConfigSet, RepoEntry } from "./config-set.ts";
 import type { TransitionEmitter } from "./emitter.ts";
 import { nextWake, planNudges, type DueNudge, type PlanInput } from "./nudge-plan.ts";
 import { SingleTimer } from "./single-timer.ts";
@@ -52,6 +53,11 @@ export class Nudger {
     const current = store.getPullRequest(key)?.nudge ?? null;
     store.saveNudge(key, trackNudge(current, previous, next, clock.now()));
     this.rearm();
+  }
+
+  askForApprovalOnce(key: string, evaluation: Evaluation, entry: RepoEntry) {
+    const { store, emitter } = this.dependencies;
+    return requestApprovalOnce({ store, emitter }, key, evaluation, entry);
   }
 
   hold(target: string, durationMs = DEFAULT_HOLD_MS, reason: string | null = null): Hold {
@@ -111,8 +117,11 @@ export class Nudger {
   private async nudge({ record, entry }: DueNudge, now: number) {
     const { store, emitter } = this.dependencies;
     const { evaluation, nudge } = record;
-    const transition = nudgeTransition({ evaluation, state: nudge, config: entry.config, now });
-    store.saveNudge(record.key, markNudged(nudge, now, nextStep(evaluation, entry.config)));
+    const requestedHead = record.reviewRequestedHead;
+    const input = { evaluation, state: nudge, config: entry.config, now, requestedHead };
+    const transition = nudgeTransition(input);
+    const next = nextStep(evaluation, entry.config, requestedHead);
+    store.saveNudge(record.key, markNudged(nudge, now, next));
     await emitter.emit(transition, evaluation, entry);
   }
 
@@ -134,7 +143,12 @@ export class Nudger {
     const { evaluation } = record;
     const entry = configs.get(record.repo);
     if (!entry || evaluation?.state !== "OPEN") return;
-    const transition = holdExpiredTransition(evaluation, hold, entry.config);
+    const transition = holdExpiredTransition(
+      evaluation,
+      hold,
+      entry.config,
+      record.reviewRequestedHead,
+    );
     await emitter.emit(transition, evaluation, entry);
   }
 }

@@ -46,9 +46,9 @@ describe("Stop hook and the pause rule", () => {
     expect(runStop([held]).output).toBeNull();
   });
 
-  test("awaiting_human blocks until review is requested on the head", () => {
+  test("awaiting_human blocks until review is requested once", () => {
     expect(reasonOf([view({ approvals: [] })])).toContain(
-      "acme/widgets#7 review_not_requested: head 1111111 has no review request.",
+      "acme/widgets#7 review_not_requested: acme/widgets#7 needs approval and review was never requested.",
     );
     const requested = { ...view({ approvals: [] }), reviewRequestedHead: HEAD };
     expect(runStop([requested]).output).toBeNull();

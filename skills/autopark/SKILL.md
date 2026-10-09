@@ -1,6 +1,6 @@
 ---
 name: autopark
-description: Playbook for autopark events about tracked pull requests (channel tags from source autopark or monitor lines starting with "autopark"). Use it to decide what to do on nudge, hold_expired, conflicted, stale_base, checks_failed, review_scored, threads_open, head_moved, approval_stale, awaiting_human, ready, not_ready, merged and the other transition kinds.
+description: Playbook for autopark events about tracked pull requests (channel tags from source autopark or monitor lines starting with "autopark"). Use it to decide what to do on nudge, hold_expired, conflicted, stale_base, checks_failed, review_scored, threads_open, head_moved, approval_needed, approval_stale, awaiting_human, ready, not_ready, merged and the other transition kinds.
 ---
 
 # autopark playbook
@@ -35,9 +35,10 @@ A project can replace this playbook by setting `delivery.playbook` in `.autopark
 | `checks_failed` | For each name in `required_failed`: read the failing logs (`gh pr checks <pr>`, `gh run view <run-id> --log-failed`), reproduce locally, fix the root cause, push. Optional failures (`failed` minus `required_failed`): rerun once with `gh run rerun <run-id> --failed` if they look like infrastructure noise, otherwise fix or tell the user. |
 | `review_scored` | If `on_head` is true and `meets_threshold` is false, read the bot's summary and inline findings, address each one, push. If `on_head` is false, a re-review is coming; do nothing. |
 | `threads_open` | When `count` > 0, read every unresolved thread. Fix what is right and reply with the commit; reply with reasoning where you disagree. Resolve only threads you addressed, and only if the repo lets authors resolve. `count` 0 needs nothing. |
-| `head_moved` | Expected after your own push. If someone else pushed, pull it before further work. Approvals now sit on an older commit; the next events say what is needed. |
-| `approval_stale` | Run `autopark request-review <pr>` and carry out any instruction it prints. |
-| `awaiting_human` | Everything is green except human approval. If review has not been requested for this head, run `autopark request-review <pr>`. Then end the turn. |
+| `head_moved` | Expected after your own push. If someone else pushed, pull it before further work. Never re-request approval because the head moved. |
+| `approval_needed` | Sent once per PR, as soon as it needs a human approval and none has been requested, without waiting for checks. Carry out the `instruction` once, then run `autopark request-review <pr>` to record it. Never ask again for the same PR. |
+| `approval_stale` | The only approvals are on older commits and GitHub no longer counts them. If approval was never requested for this PR, do what `approval_needed` says; otherwise wait. |
+| `awaiting_human` | Everything is green except human approval. If approval was never requested for this PR, do what `approval_needed` says. Then end the turn. |
 | `approved_on_head` | Nothing; `ready` follows if every rule passes. |
 | `ready` | Tell the user once, with the link, whether it is mergeable now (`mergeable_now`), and anything still pending a human. Then wait. Do not merge unless asked. |
 | `not_ready` | Read `reasons`. Act only on actionable codes (`conflict`, `stale_base`, `checks_failed`, `review_below_threshold`, `threads_open`, `changes_requested`) using the rows above. Other codes are waits. |
@@ -45,5 +46,5 @@ A project can replace this playbook by setting `delivery.playbook` in `.autopark
 | `mergeability_unknown` | GitHub did not compute mergeability during the backoff. Run `autopark check <pr>` once; if it is still unknown, wait for the next event. |
 | `merge_attempted` | If `ok` is false, read `error`. "Base branch was modified" or "head out of date": merge the base and push. Missing review: request it. Otherwise tell the user. |
 | `merged`, `closed` | Stop working on the PR. Remove its worktree, then report the outcome in one line. |
-| `nudge` | The PR has been stuck on the same `reasons` for `blocked_for` and nothing moved it. Do the `next` step now, using the rows above for each code. For `awaiting_human` (`re_request_review` true), re-request review with the `instruction` it carries, then run `autopark request-review <pr>`. A nudge on `checks_pending` means confirm the checks are actually running and rerun any that are stuck. `escalated` means it has been stuck past the project's limit: act first, then tell the user in one line. Nudges repeat until the PR is ready, merged or held. |
+| `nudge` | The PR has been stuck on the same `reasons` for `blocked_for` and nothing moved it. Do the `next` step now, using the rows above for each code. When `re_request_review` is true, approval was never requested for this PR: carry out the `instruction` once, then run `autopark request-review <pr>`. Never re-ask approval after that, even when the head moves. A nudge on `checks_pending` means confirm the checks are actually running and rerun any that are stuck. `escalated` means it has been stuck past the project's limit: act first, then tell the user in one line. Nudges repeat until the PR is ready, merged or held. |
 | `hold_expired` | The hold on this PR (or on every PR, `scope` all) has ended. Resume work immediately on what the reason lists. |

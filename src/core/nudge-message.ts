@@ -1,9 +1,13 @@
 import type { Config } from "../config/schema.ts";
+import {
+  APPROVAL_CODES,
+  isApprovalRequestDue,
+  reviewStep,
+  type ReviewStep,
+} from "./approval-request.ts";
 import { formatDuration } from "./duration.ts";
-import { formatPullRequest } from "./format.ts";
 import { ALL_PULL_REQUESTS, type Hold } from "./hold.ts";
 import { isEscalated, nudgeKindsOf, type NudgeState } from "./nudge.ts";
-import { fillTemplate } from "./template.ts";
 import type { Evaluation, NudgeKind, Transition, TransitionKind } from "./types.ts";
 
 export const PAUSE_RULE =
@@ -28,44 +32,27 @@ const NEXT_STEPS: Record<NudgeKind, string> = {
   awaiting_human: "request review",
 };
 
-interface ReviewStep {
-  text: string;
-  instruction: string | null;
-  isRequested: boolean;
+const isApprovalKind = (kind: NudgeKind) => kind === "awaiting_human" || APPROVAL_CODES.has(kind);
+
+function otherSteps(evaluation: Evaluation) {
+  const kinds = nudgeKindsOf(evaluation).filter((kind) => !isApprovalKind(kind));
+  return [...new Set(kinds.map((kind) => NEXT_STEPS[kind]))];
 }
 
-const templateVariables = (evaluation: Evaluation) => ({
-  url: evaluation.url,
-  number: String(evaluation.number),
-  repo: evaluation.repo,
-  title: evaluation.title,
-  head: evaluation.headSha,
-});
-
-function reviewStep(evaluation: Evaluation, { command, instruction }: Config["reviewRequest"]) {
-  const record = `\`autopark request-review ${formatPullRequest(evaluation)}\``;
-  if (instruction) {
-    const filled = fillTemplate(instruction, templateVariables(evaluation));
-    const text = `re-request review: ${filled} Then run ${record} to record it`;
-    return { text, instruction: filled, isRequested: true };
+function stepFor(evaluation: Evaluation, config: Config, requestedHead: string | null): ReviewStep {
+  if (evaluation.ready) {
+    return { text: "tell the user it is ready to merge", instruction: null, isRequested: false };
   }
-  const text = command
-    ? `re-request review: run ${record}`
-    : "ask the user who reviews, then request review";
-  return { text, instruction: null, isRequested: command !== null };
+  const others = otherSteps(evaluation);
+  if (!isApprovalRequestDue(evaluation, requestedHead)) {
+    return { text: others.join("; "), instruction: null, isRequested: false };
+  }
+  const review = reviewStep(evaluation, config.reviewRequest);
+  return { ...review, text: [review.text, ...others].join("; ") };
 }
 
-function stepFor(evaluation: Evaluation, config: Config): ReviewStep {
-  if (evaluation.awaitingHuman) return reviewStep(evaluation, config.reviewRequest);
-  const steps = nudgeKindsOf(evaluation).map((kind) => NEXT_STEPS[kind]);
-  const text = evaluation.ready
-    ? "tell the user it is ready to merge"
-    : [...new Set(steps)].join("; ");
-  return { text, instruction: null, isRequested: false };
-}
-
-export const nextStep = (evaluation: Evaluation, config: Config) =>
-  stepFor(evaluation, config).text;
+export const nextStep = (evaluation: Evaluation, config: Config, requestedHead: string | null) =>
+  stepFor(evaluation, config, requestedHead).text;
 
 function situation(evaluation: Evaluation, blockedFor: string) {
   if (evaluation.ready) return `ready for ${blockedFor} and not merged`;
@@ -95,6 +82,7 @@ export interface NudgeInput {
   state: NudgeState;
   config: Config;
   now: number;
+  requestedHead: string | null;
 }
 
 function nudgeReason({ evaluation, state, config, now }: NudgeInput, next: string) {
@@ -109,8 +97,8 @@ function nudgeReason({ evaluation, state, config, now }: NudgeInput, next: strin
 }
 
 export function nudgeTransition(input: NudgeInput): Transition {
-  const { evaluation, state, config, now } = input;
-  const step = stepFor(evaluation, config);
+  const { evaluation, state, config, now, requestedHead } = input;
+  const step = stepFor(evaluation, config, requestedHead);
   const blockedForMs = now - state.since;
   return transitionFor("nudge", evaluation, nudgeReason(input, step.text), {
     reasons: evaluation.reasons,
@@ -126,12 +114,17 @@ export function nudgeTransition(input: NudgeInput): Transition {
   });
 }
 
-export function holdExpiredTransition(evaluation: Evaluation, hold: Hold, config: Config) {
+export function holdExpiredTransition(
+  evaluation: Evaluation,
+  hold: Hold,
+  config: Config,
+  requestedHead: string | null,
+) {
   const why = hold.reason ? ` (${hold.reason})` : "";
   const details = blockingDetails(evaluation);
   const blocking = evaluation.ready
     ? "It is ready."
-    : `Blocking: ${details}. Next: ${nextStep(evaluation, config)}.`;
+    : `Blocking: ${details}. Next: ${nextStep(evaluation, config, requestedHead)}.`;
   const reason = `${PAUSE_RULE} The hold${why} has ended, so work on this PR resumes now. ${blocking}`;
   return transitionFor("hold_expired", evaluation, reason, {
     holdReason: hold.reason,

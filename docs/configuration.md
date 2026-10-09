@@ -44,7 +44,7 @@
 | `hooks.stop.enabled` | `true` | |
 | `hooks.stop.scope` | `session` | `session` (PRs tracked with this session id), `repo` (PRs in this config's repos), `all` |
 | `hooks.stop.maxBlocks` | `3` | consecutive blocks before letting go (Claude Code caps at 8) |
-| `hooks.stop.blockOn*` | see schema | `Conflict`, `StaleBase`, `FailedChecks`, `ReviewFindings` default on; `HeadMovedWithoutReview` off. Whatever these say, the Stop hook also blocks on a PR awaiting human review with no review request on its head, and on a PR that has been nudged; held PRs never block. A new nudge resets the `maxBlocks` count |
+| `hooks.stop.blockOn*` | see schema | `Conflict`, `StaleBase`, `FailedChecks`, `ReviewFindings` default on; `HeadMovedWithoutReview` off; turning it on blocks on any open PR that needs approval and was never requested, green or not. Whatever these say, the Stop hook also blocks on a PR awaiting human review that was never requested, and on a PR that has been nudged; held PRs never block. A new nudge resets the `maxBlocks` count |
 | `daemon.source.type` | `gh-webhook-forward` | event source adapter id, or a path to your own module |
 | `daemon.source.options` | `{}` | adapter options (below) |
 | `daemon.port` | `8787` | local webhook receiver, bound to 127.0.0.1 |
@@ -56,7 +56,7 @@
 
 Transitions fire once, when state changes, so a PR that stays stuck would otherwise go silent. The daemon keeps one timer for the next nudge due across every tracked PR, recomputed whenever a PR's state changes, and emits a `nudge` for each open, tracked PR that is still blocked. The blocking reasons are the ones `autopark status` shows. The clock restarts whenever the set of blocking reasons changes, and it survives daemon restarts; an overdue nudge fires as soon as the daemon is back.
 
-For a PR waiting only on approval (`awaiting_human`), the nudge says to re-request review. If `reviewRequest.instruction` is set, the nudge carries it with `{url}`, `{head}` and the rest filled in; if only `reviewRequest.command` is set, it points at `autopark request-review <pr>`.
+A PR that needs a human approval gets one `approval_needed` as soon as the daemon sees it, without waiting for checks. Until `autopark request-review` records a request, every nudge for it leads with the approval request: if `reviewRequest.instruction` is set, the nudge carries it with `{url}`, `{head}` and the rest filled in; if only `reviewRequest.command` is set, it points at `autopark request-review <pr>`. Once a request is recorded the daemon never asks again for that PR, and a PR waiting only on that approval stops nudging. Approval counts as given when GitHub's review decision is `APPROVED`; bot reviews never count.
 
 Only an explicit hold pauses this. `autopark hold <pr|all> [--for 30m] [--reason "..."]` stores an expiring hold (default 30m, at most 4h) in the daemon's state; `autopark unhold <pr|all>` releases it early (`all` releases every hold). A held PR doesn't nudge and the Stop hook doesn't block on it; `status`, the control API and the SessionStart summary show the hold. When it expires the daemon emits `hold_expired` and nudges anything overdue straight away.
 

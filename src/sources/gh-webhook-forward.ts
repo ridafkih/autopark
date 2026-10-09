@@ -22,7 +22,12 @@ interface ForwardDependencies {
 
 const CONNECTED = /forwarding webhook events/iu;
 const FAILURE = /error|unable|denied|not have access/iu;
+const HOOK_EXISTS = /error creating webhook: HTTP 422/iu;
+const HOOK_ID = /^\d+$/u;
 const FALLBACK_RESTART_MS = 5000;
+
+export const STALE_HOOK_FILTER =
+  '.[] | select(.name == "cli" and ((.config.url // "") | startswith("https://webhook-forwarder.github.com")) and .last_response.code == 404) | .id';
 
 function overallState(isRunning: boolean, states: SourceState[]): SourceState {
   if (!isRunning) return "stopped";
@@ -36,6 +41,7 @@ export class GhWebhookForwardSource implements EventSource {
   private readonly children = new Map<string, ChildHandle>();
   private readonly states = new Map<string, SourceState>();
   private readonly failures = new Map<string, number>();
+  private readonly blockedByHook = new Set<string>();
   private server: ReturnType<typeof startReceiver> | null = null;
   private loops: Array<Promise<void>> = [];
   private lastError = "";
@@ -90,6 +96,7 @@ export class GhWebhookForwardSource implements EventSource {
       const code = await this.runForwarder(repo, port, context);
       if (!this.isRunning) break;
       this.states.set(repo, "disconnected");
+      if (this.blockedByHook.delete(repo)) await this.clearStaleHooks(repo, context);
       const delayMs = this.nextRestartDelay(repo);
       context.log(`gh webhook forward for ${repo} exited ${code}; restarting in ${delayMs}ms`);
       await this.dependencies.clock.sleep(delayMs);
@@ -118,8 +125,35 @@ export class GhWebhookForwardSource implements EventSource {
       } else if (FAILURE.test(line)) {
         this.lastError = `${repo}: ${line.trim()}`;
         context.log(`gh webhook forward ${repo}: ${line.trim()}`);
+        if (HOOK_EXISTS.test(line)) this.blockedByHook.add(repo);
       }
     }
+  }
+
+  private async clearStaleHooks(repo: string, context: SourceContext) {
+    const { gh } = this.options;
+    const listing = await this.run([gh, "api", `repos/${repo}/hooks`, "--jq", STALE_HOOK_FILTER]);
+    const ids = listing.lines.filter((line) => HOOK_ID.test(line));
+    for (const id of ids) {
+      const removal = await this.run([
+        gh,
+        "api",
+        "--method",
+        "DELETE",
+        `repos/${repo}/hooks/${id}`,
+      ]);
+      const isRemoved = removal.exitCode === 0;
+      const outcome = isRemoved ? "removed" : "could not remove";
+      context.log(`gh webhook forward ${repo}: ${outcome} stale forwarding hook ${id}`);
+      if (isRemoved) this.failures.set(repo, 0);
+    }
+  }
+
+  private async run(command: string[]) {
+    const child = this.dependencies.spawn(command, {});
+    const lines: string[] = [];
+    for await (const line of child.lines) lines.push(line.trim());
+    return { lines, exitCode: await child.exited };
   }
 
   private nextRestartDelay(repo: string) {

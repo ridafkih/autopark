@@ -54,9 +54,13 @@ export const detectApprovedOnHead: Detector = ({ sameHeadPrevious, next, emit })
 const hasOnlyStaleApprovals = (evaluation: Evaluation) =>
   evaluation.approvals.onHead.length === 0 && evaluation.approvals.stale.length > 0;
 
+const isApprovalStale = (evaluation: Evaluation) =>
+  hasOnlyStaleApprovals(evaluation) &&
+  evaluation.reasons.some((reason) => reason.code === "approval_stale");
+
 export const detectApprovalStale: Detector = ({ sameHeadPrevious, next, emit }) => {
   const wasStale = sameHeadPrevious !== null && hasOnlyStaleApprovals(sameHeadPrevious);
-  if (!hasOnlyStaleApprovals(next) || wasStale) return [];
+  if (!isApprovalStale(next) || wasStale) return [];
   const approvers = next.approvals.stale;
   const reason = `approval by ${approvers.join(", ")} predates head ${describeSha(next.headSha)}`;
   return [emit("approval_stale", reason, { by: approvers })];

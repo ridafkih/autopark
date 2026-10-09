@@ -80,6 +80,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
       check("gate", "pass", { isRequired: true }),
     ],
     approvals: [{ login: "reviewer", state: "APPROVED", sha: headSha }],
+    reviewDecision: null,
     threads: [],
     comments: [greptileComment(5, headSha)],
     ...overrides,

@@ -3,6 +3,7 @@ import {
   DEFAULT_EVENTS,
   forwardArgs,
   GhWebhookForwardSource,
+  STALE_HOOK_FILTER,
 } from "../src/sources/gh-webhook-forward.ts";
 import { signature } from "../src/sources/receiver.ts";
 import { FakeClock, flush } from "./fixtures/clock.ts";
@@ -63,6 +64,14 @@ function postPing(port: number, id: string, signatureHeader: string) {
   });
 }
 
+async function failWithExistingHook(child: FakeChild) {
+  child.emit(
+    "Error: error creating webhook: HTTP 422: Validation Failed (https://api.github.com/repos/acme/widgets/hooks)",
+  );
+  child.exit(1);
+  await flush();
+}
+
 describe("gh-webhook-forward source", () => {
   test("builds the forward command per repo", () => {
     expect(forwardArgs(OPTIONS, "acme/widgets", 8787, SECRET)).toEqual([
@@ -110,6 +119,47 @@ describe("gh-webhook-forward source", () => {
     expect(await forwarder.childrenAfter(4999)).toBe(2);
     expect(await forwarder.childrenAfter(1)).toBe(3);
     expect(forwarder.clock.sleeps).toEqual([1000, 5000]);
+  });
+
+  test("a hook left behind by a dropped forwarder is removed before the restart", async () => {
+    const forwarder = await startForwarder();
+    await failWithExistingHook(childAt(forwarder.children, 0));
+    const list = childAt(forwarder.children, 1);
+    expect(list.command).toEqual([
+      "gh",
+      "api",
+      "repos/acme/widgets/hooks",
+      "--jq",
+      STALE_HOOK_FILTER,
+    ]);
+    list.emit("694974757");
+    list.exit(0);
+    await flush();
+    const remove = childAt(forwarder.children, 2);
+    expect(remove.command).toEqual([
+      "gh",
+      "api",
+      "--method",
+      "DELETE",
+      "repos/acme/widgets/hooks/694974757",
+    ]);
+    remove.exit(0);
+    await flush();
+    expect(forwarder.recorder.logs).toContain(
+      "gh webhook forward acme/widgets: removed stale forwarding hook 694974757",
+    );
+    expect(await forwarder.childrenAfter(1000)).toBe(4);
+    expect(childAt(forwarder.children, 3).command.slice(0, 3)).toEqual([
+      "gh",
+      "webhook",
+      "forward",
+    ]);
+  });
+
+  test("the stale hook filter only matches dead gh forwarding hooks", () => {
+    expect(STALE_HOOK_FILTER).toContain('.name == "cli"');
+    expect(STALE_HOOK_FILTER).toContain("https://webhook-forwarder.github.com");
+    expect(STALE_HOOK_FILTER).toContain(".last_response.code == 404");
   });
 
   test("a successful connect resets the backoff", async () => {

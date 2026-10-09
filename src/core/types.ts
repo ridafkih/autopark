@@ -10,6 +10,7 @@ export const TRANSITION_KINDS = [
   "threads_open",
   "approved_on_head",
   "approval_stale",
+  "approval_needed",
   "awaiting_human",
   "ready",
   "not_ready",
@@ -86,6 +87,7 @@ export interface Snapshot {
   mergeStateStatus: string;
   checks: CheckContext[];
   approvals: Approval[];
+  reviewDecision: string | null;
   threads: ReviewThread[];
   comments: PullRequestComment[];
 }
@@ -213,9 +215,6 @@ export interface LoggedTransition extends Transition {
   url: string;
 }
 
-export interface PullRequestLocator {
-  repo: string;
-  number: number;
-}
+export type PullRequestLocator = Pick<Transition, "repo" | "number">;
 
 export const pullRequestKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;

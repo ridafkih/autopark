@@ -244,6 +244,7 @@
                 "threads_open",
                 "approved_on_head",
                 "approval_stale",
+                "approval_needed",
                 "awaiting_human",
                 "ready",
                 "not_ready",

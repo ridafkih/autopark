@@ -152,6 +152,11 @@ export class Store {
     return id;
   }
 
+  hasTransition(key: string, kind: string) {
+    const select = "SELECT 1 FROM transitions WHERE key = ? AND kind = ? LIMIT 1";
+    return this.db.query(select).get(key, kind) !== null;
+  }
+
   transitionsSince(id: number, limit = 500): StoredTransition[] {
     const select = "SELECT id, at, json FROM transitions WHERE id > ? ORDER BY id LIMIT ?";
     return this.db.query(select).all(id, limit).map(toStoredTransition);
