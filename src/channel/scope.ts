@@ -1,7 +1,7 @@
 import type { LoggedTransition } from "../core/types.ts";
 
 export interface DeliveryScope {
-  repos: string[] | null;
+  repos: string[];
 }
 
 const CHANNEL_FLAG =
@@ -10,7 +10,6 @@ const PS_LINE = /^(\d+)\s+(.*)$/u;
 const ANCESTOR_DEPTH = 8;
 
 export function inScope(transition: LoggedTransition, scope: DeliveryScope) {
-  if (!scope.repos) return true;
   const repo = transition.repo.toLowerCase();
   return scope.repos.some((candidate) => candidate.toLowerCase() === repo);
 }

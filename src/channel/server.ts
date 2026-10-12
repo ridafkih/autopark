@@ -27,7 +27,7 @@ async function main() {
   const instructions = channelInstructions(playbookRef(config, path));
   const relayOptions = {
     logPath: resolvePaths().log,
-    scope: { repos: config?.repos ?? null },
+    scope: { repos: config?.repos ?? [] },
     isEnabled: config?.delivery.channel ?? true,
     log,
   };

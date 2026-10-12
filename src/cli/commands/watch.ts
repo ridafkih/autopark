@@ -35,7 +35,7 @@ export async function watchTransitions({ paths }: Invocation) {
     process.stderr.write(`autopark watch: silent (monitor=${mode}${reason})\n`);
     await waitForever();
   }
-  const scope = { repos: config?.repos ?? null };
+  const scope = { repos: config?.repos ?? [] };
   new LogTailer(paths.log, (line) => printInScope(line, scope)).start();
   process.stderr.write(`autopark watch: tailing ${paths.log}\n`);
   await waitForever();

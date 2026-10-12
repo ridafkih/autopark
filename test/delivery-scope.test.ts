@@ -4,11 +4,11 @@ import { BASE_TRANSITION } from "./fixtures/transition.ts";
 
 describe("delivery scope", () => {
   test.each([
-    ["no config delivers everything", null, "acme/widgets", true],
+    ["no config delivers nothing", [], "acme/widgets", false],
     ["repo in config", ["Acme/Widgets"], "acme/widgets", true],
     ["repo outside config", ["acme/other"], "acme/widgets", false],
   ] as const)("%s", (label, repos, repo, expected) => {
-    const scope = { repos: repos ? [...repos] : null };
+    const scope = { repos: [...repos] };
     expect(inScope({ ...BASE_TRANSITION, repo }, scope)).toBe(expected);
   });
 
