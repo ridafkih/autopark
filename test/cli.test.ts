@@ -17,6 +17,20 @@ describe("cli commands", () => {
     );
   });
 
+  test.each([
+    ["Claude Code's session id", { CLAUDE_CODE_SESSION_ID: "cc1" }, "cc1"],
+    ["the legacy session id", { CLAUDE_SESSION_ID: "legacy1" }, "legacy1"],
+  ])("track without --session binds %s", async (label, env, expected) => {
+    const { home, project } = createProject();
+    const location = { cwd: project, home };
+    await runCli(["track", "7"], location, env);
+    const mine = arrayAt(
+      await cliJson(["status", "--json", "--session", expected], location),
+      "prs",
+    );
+    expect(mine).toHaveLength(1);
+  });
+
   test("offline track, auto-merge, status and untrack round-trip through the state db", async () => {
     const { home, project } = createProject();
     const location = { cwd: project, home };

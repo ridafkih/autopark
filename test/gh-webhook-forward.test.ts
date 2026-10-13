@@ -184,10 +184,11 @@ describe("gh-webhook-forward source", () => {
   });
 
   test("the real receiver verifies HMAC end to end over HTTP", async () => {
+    const clock = new FakeClock();
     const source = new GhWebhookForwardSource(
       { ...OPTIONS },
       {
-        clock: new FakeClock(),
+        clock,
         port: 0,
         secret: SECRET,
         spawn: (command) => new FakeChild(command),
@@ -197,9 +198,13 @@ describe("gh-webhook-forward source", () => {
     const recorder = recordingContext([]);
     await source.start(recorder.context);
     const port = source.listeningPort() ?? 0;
+    expect(source.status().lastDeliveryAt).toBeNull();
+    clock.jump(5000);
     const accepted = await postPing(port, "h1", signature(SECRET, BODY));
+    clock.jump(1000);
     const rejected = await postPing(port, "h2", "sha256=00");
     expect([accepted.status, rejected.status]).toEqual([202, 401]);
     expect(recorder.deliveries.map((delivery) => delivery.id)).toEqual(["h1"]);
+    expect(source.status().lastDeliveryAt).toBe(5000);
   });
 });

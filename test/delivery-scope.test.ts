@@ -1,15 +1,68 @@
 import { describe, expect, test } from "bun:test";
 import { channelLoaded, inScope, monitorShouldEmit } from "../src/channel/scope.ts";
+import { sessionIdFrom } from "../src/core/session.ts";
 import { BASE_TRANSITION } from "./fixtures/transition.ts";
 
 describe("delivery scope", () => {
   test.each([
-    ["no config delivers nothing", [], "acme/widgets", false],
-    ["repo in config", ["Acme/Widgets"], "acme/widgets", true],
-    ["repo outside config", ["acme/other"], "acme/widgets", false],
-  ] as const)("%s", (label, repos, repo, expected) => {
-    const scope = { repos: [...repos] };
-    expect(inScope({ ...BASE_TRANSITION, repo }, scope)).toBe(expected);
+    { label: "no config and no session delivers nothing", repos: [], expected: false },
+    { label: "repo in config", repos: ["Acme/Widgets"], expected: true },
+    { label: "repo outside config", repos: ["acme/other"], expected: false },
+    {
+      label: "no config, PR bound to this session",
+      repos: [],
+      session: ["s1", "s1"],
+      expected: true,
+    },
+    {
+      label: "no config, PR bound to another session",
+      repos: [],
+      session: ["s1", "s2"],
+      expected: false,
+    },
+    {
+      label: "no config, PR bound to no session",
+      repos: [],
+      session: ["s1", null],
+      expected: false,
+    },
+    {
+      label: "repo outside config, PR bound to this session",
+      repos: ["acme/other"],
+      session: ["s1", "s1"],
+      expected: true,
+    },
+    {
+      label: "repo in config, PR bound to another session",
+      repos: ["acme/widgets"],
+      session: ["s1", "s2"],
+      expected: true,
+    },
+  ])("$label", ({ repos, session = [null, null], expected }) => {
+    const [sessionId = null, boundTo = null] = session;
+    const scope = { repos: [...repos], sessionId, sessionOf: () => boundTo };
+    expect(inScope(BASE_TRANSITION, scope)).toBe(expected);
+  });
+
+  test("the binding is looked up only when the session could match", () => {
+    const lookups: string[] = [];
+    const sessionOf = (transition: { repo: string }) => {
+      lookups.push(transition.repo);
+      return null;
+    };
+    inScope(BASE_TRANSITION, { repos: ["acme/widgets"], sessionId: "s1", sessionOf });
+    inScope(BASE_TRANSITION, { repos: [], sessionId: null, sessionOf });
+    expect(lookups).toEqual([]);
+  });
+
+  test.each([
+    ["Claude Code's session id", { CLAUDE_CODE_SESSION_ID: "a" }, "a"],
+    ["the legacy name as a fallback", { CLAUDE_SESSION_ID: "b" }, "b"],
+    ["Claude Code's name wins", { CLAUDE_CODE_SESSION_ID: "a", CLAUDE_SESSION_ID: "b" }, "a"],
+    ["empty values are no session", { CLAUDE_CODE_SESSION_ID: "", CLAUDE_SESSION_ID: "" }, null],
+    ["nothing set", {}, null],
+  ] as const)("sessionIdFrom: %s", (label, env, expected) => {
+    expect(sessionIdFrom(env)).toBe(expected);
   });
 
   test.each([

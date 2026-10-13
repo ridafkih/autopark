@@ -3,12 +3,15 @@ import { monitorLine } from "../../channel/meta.ts";
 import {
   ancestorArgs,
   channelLoaded,
+  deliveryScope,
   inScope,
   monitorShouldEmit,
   type DeliveryScope,
 } from "../../channel/scope.ts";
 import { LogTailer } from "../../channel/tail.ts";
 import type { Config } from "../../config/schema.ts";
+import { errorMessage } from "../../core/errors.ts";
+import { sessionIdFrom } from "../../core/session.ts";
 import { parseLoggedTransition } from "../../core/transition-codec.ts";
 import type { Invocation } from "./types.ts";
 
@@ -22,8 +25,12 @@ function shouldEmit(config: Config | null) {
 
 function printInScope(line: string, scope: DeliveryScope) {
   const transition = parseLoggedTransition(line);
-  if (transition && inScope(transition, scope)) {
-    process.stdout.write(`${monitorLine(transition)}\n`);
+  try {
+    if (transition && inScope(transition, scope)) {
+      process.stdout.write(`${monitorLine(transition)}\n`);
+    }
+  } catch (error) {
+    process.stderr.write(`autopark watch: skipped a transition: ${errorMessage(error)}\n`);
   }
 }
 
@@ -35,7 +42,7 @@ export async function watchTransitions({ paths }: Invocation) {
     process.stderr.write(`autopark watch: silent (monitor=${mode}${reason})\n`);
     await waitForever();
   }
-  const scope = { repos: config?.repos ?? [] };
+  const scope = deliveryScope(config?.repos ?? [], sessionIdFrom(process.env), paths.db);
   new LogTailer(paths.log, (line) => printInScope(line, scope)).start();
   process.stderr.write(`autopark watch: tailing ${paths.log}\n`);
   await waitForever();

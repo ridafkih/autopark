@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { Store } from "../src/daemon/store.ts";
 import { LineSplitter } from "../src/sources/line-splitter.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
@@ -32,22 +33,46 @@ async function nextValue(lines: AsyncGenerator<string>) {
   return value;
 }
 
-function prepareProject(configYaml: string) {
+function prepareProject(configYaml: string | null) {
   const directory = mkdtempSync(join(tmpdir(), "apl-chan-"));
   const home = join(directory, "home");
   const project = join(directory, "proj");
   mkdirSync(home, { recursive: true });
   mkdirSync(project, { recursive: true });
-  writeFileSync(join(project, ".autopark.yaml"), configYaml);
+  if (configYaml !== null) writeFileSync(join(project, ".autopark.yaml"), configYaml);
   writeFileSync(join(home, "transitions.jsonl"), OLD_TRANSITION);
   return { home, project };
 }
 
-function spawnServer(configYaml: string) {
+interface ServerSetup {
+  configYaml: string | null;
+  sessionId?: string;
+  bindings?: Array<{ number: number; sessionId: string | null }>;
+}
+
+function bindPullRequests(home: string, bindings: ServerSetup["bindings"] = []) {
+  const store = new Store(join(home, "state.db"));
+  try {
+    for (const { number, sessionId } of bindings) {
+      store.track({ repo: "acme/widgets", number, source: "explicit", sessionId, now: 1 });
+    }
+  } finally {
+    store.close();
+  }
+}
+
+function spawnServer({ configYaml, sessionId = "", bindings }: ServerSetup) {
   const { home, project } = prepareProject(configYaml);
+  bindPullRequests(home, bindings);
   const subprocess = Bun.spawn([process.execPath, join(ROOT, "src/channel/server.ts")], {
     cwd: project,
-    env: { ...process.env, AUTOPARK_HOME: home, MCP_PROTOCOL_NEGOTIATION: "legacy" },
+    env: {
+      ...process.env,
+      AUTOPARK_HOME: home,
+      MCP_PROTOCOL_NEGOTIATION: "legacy",
+      CLAUDE_CODE_SESSION_ID: sessionId,
+      CLAUDE_SESSION_ID: "",
+    },
     stdin: "pipe",
     stdout: "pipe",
     stderr: "pipe",
@@ -66,8 +91,11 @@ function spawnServer(configYaml: string) {
 
 type ChannelServer = ReturnType<typeof spawnServer>;
 
-async function withServer(configYaml: string, run: (server: ChannelServer) => Promise<void>) {
-  const server = spawnServer(configYaml);
+async function withServer(
+  setup: string | ServerSetup,
+  run: (server: ChannelServer) => Promise<void>,
+) {
+  const server = spawnServer(typeof setup === "string" ? { configYaml: setup } : setup);
   try {
     await run(server);
   } finally {
@@ -75,19 +103,30 @@ async function withServer(configYaml: string, run: (server: ChannelServer) => Pr
   }
 }
 
-const transition = (id: number, repo: string, kind = "conflicted") =>
+const transition = (id: number, repo: string, kind = "conflicted", number = 7) =>
   jsonLine({
     id,
     ts: "2026-10-06T00:00:00.000Z",
     kind,
     repo,
-    number: 7,
+    number,
     head: "1".repeat(40),
     reason: "conflicts with main",
     data: { base: "main" },
     title: "Tidy",
-    url: `https://github.com/${repo}/pull/7`,
+    url: `https://github.com/${repo}/pull/${number}`,
   });
+
+async function initialize(server: ChannelServer) {
+  server.send({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: { protocolVersion: "2025-06-18" },
+  });
+  await server.nextMessage();
+  server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+}
 
 test("speaks MCP over stdio and pushes new in-scope transitions as channel notifications", async () => {
   await withServer("repos:\n  - acme/widgets\n", async (server) => {
@@ -139,6 +178,38 @@ test("delivery.channel false keeps the server connected but silent", async () =>
       "[autopark channel] delivery.channel is false; staying silent",
     );
     appendFileSync(server.log, transition(2, "acme/widgets"));
+    server.send({ jsonrpc: "2.0", id: 9, method: "ping" });
+    expect(await server.nextMessage()).toEqual({ jsonrpc: "2.0", id: 9, result: {} });
+  });
+});
+
+test("outside any config, only PRs bound to this session are pushed", async () => {
+  const bindings = [
+    { number: 7, sessionId: "s1" },
+    { number: 8, sessionId: "s2" },
+    { number: 9, sessionId: null },
+  ];
+  await withServer({ configYaml: null, sessionId: "s1", bindings }, async (server) => {
+    await initialize(server);
+    server.send({ jsonrpc: "2.0", id: 2, method: "ping" });
+    await server.nextMessage();
+    appendFileSync(server.log, transition(2, "acme/widgets", "conflicted", 8));
+    appendFileSync(server.log, transition(3, "acme/widgets", "conflicted", 9));
+    appendFileSync(server.log, transition(4, "acme/widgets", "conflicted", 10));
+    appendFileSync(server.log, transition(5, "acme/widgets", "conflicted", 7));
+    const notification = await server.nextMessage();
+    expect(notification.params.meta).toMatchObject({ pr: "7", transition_id: "5" });
+  });
+});
+
+test("outside any config and without a session, nothing is pushed", async () => {
+  const bindings = [{ number: 7, sessionId: "s1" }];
+  await withServer({ configYaml: null, bindings }, async (server) => {
+    await initialize(server);
+    server.send({ jsonrpc: "2.0", id: 2, method: "ping" });
+    await server.nextMessage();
+    appendFileSync(server.log, transition(2, "acme/widgets", "conflicted", 7));
+    await Bun.sleep(300);
     server.send({ jsonrpc: "2.0", id: 9, method: "ping" });
     expect(await server.nextMessage()).toEqual({ jsonrpc: "2.0", id: 9, result: {} });
   });

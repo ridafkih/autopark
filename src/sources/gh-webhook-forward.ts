@@ -44,7 +44,9 @@ export class GhWebhookForwardSource implements EventSource {
   private readonly blockedByHook = new Set<string>();
   private server: ReturnType<typeof startReceiver> | null = null;
   private loops: Array<Promise<void>> = [];
-  private lastError = "";
+  private readonly errors = new Map<string, string>();
+  private lastConnectedAt: number | null = null;
+  private lastDeliveryAt: number | null = null;
 
   constructor(
     private readonly options: GhForwardOptions,
@@ -59,7 +61,10 @@ export class GhWebhookForwardSource implements EventSource {
         port: this.dependencies.port,
         path: this.options.path,
         secret: this.dependencies.secret,
-        deliver: (delivery) => context.deliver(delivery),
+        deliver: (delivery) => {
+          this.lastDeliveryAt = this.dependencies.clock.now();
+          return context.deliver(delivery);
+        },
       });
     }
     const port = this.server?.port ?? this.dependencies.port;
@@ -86,8 +91,10 @@ export class GhWebhookForwardSource implements EventSource {
     return {
       name: this.name,
       state,
-      detail: this.lastError,
+      detail: [...this.errors.values()].join("; "),
       perRepo: Object.fromEntries(this.states),
+      lastConnectedAt: this.lastConnectedAt,
+      lastDeliveryAt: this.lastDeliveryAt,
     };
   }
 
@@ -120,10 +127,12 @@ export class GhWebhookForwardSource implements EventSource {
     for await (const line of child.lines) {
       if (CONNECTED.test(line)) {
         this.failures.set(repo, 0);
+        this.errors.delete(repo);
+        this.lastConnectedAt = this.dependencies.clock.now();
         this.states.set(repo, "connected");
         context.reconnected(`gh webhook forward connected for ${repo}`);
       } else if (FAILURE.test(line)) {
-        this.lastError = `${repo}: ${line.trim()}`;
+        this.errors.set(repo, `${repo}: ${line.trim()}`);
         context.log(`gh webhook forward ${repo}: ${line.trim()}`);
         if (HOOK_EXISTS.test(line)) this.blockedByHook.add(repo);
       }

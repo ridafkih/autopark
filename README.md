@@ -72,7 +72,7 @@ claude --dangerously-load-development-channels plugin:autopark@autopark
 
 The channel flag lets Autopark push events straight into your session. Without it, everything still works through the plugin's monitor, it's just a little less immediate.
 
-Events only reach sessions started inside a repository with an `.autopark.yaml`, and only for the repos it lists, so sessions in other projects stay quiet.
+A session receives events for the repos listed in the `.autopark.yaml` it was started under, plus every PR tracked with its session id (`autopark track` picks that up from `CLAUDE_CODE_SESSION_ID`), so sessions in other projects stay quiet.
 
 Coming from pr-autopilot? `autopark daemon start` moves `~/.pr-autopilot` to `~/.autopark` on first run, so just rename any `.pr-autopilot.yaml` in your repositories to `.autopark.yaml`.
 

@@ -1,7 +1,10 @@
 import type { LoggedTransition } from "../core/types.ts";
+import { storeSessionOf } from "./bindings.ts";
 
 export interface DeliveryScope {
   repos: string[];
+  sessionId: string | null;
+  sessionOf: (transition: LoggedTransition) => string | null;
 }
 
 const CHANNEL_FLAG =
@@ -11,7 +14,16 @@ const ANCESTOR_DEPTH = 8;
 
 export function inScope(transition: LoggedTransition, scope: DeliveryScope) {
   const repo = transition.repo.toLowerCase();
-  return scope.repos.some((candidate) => candidate.toLowerCase() === repo);
+  if (scope.repos.some((candidate) => candidate.toLowerCase() === repo)) return true;
+  return scope.sessionId !== null && scope.sessionOf(transition) === scope.sessionId;
+}
+
+export function deliveryScope(
+  repos: string[],
+  sessionId: string | null,
+  db: string,
+): DeliveryScope {
+  return { repos, sessionId, sessionOf: storeSessionOf(db) };
 }
 
 export const channelLoaded = (commandLines: string[]) =>

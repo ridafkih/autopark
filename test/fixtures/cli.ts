@@ -25,10 +25,20 @@ export function createProject() {
   return { dir, home, project };
 }
 
-export async function runCli(args: string[], { cwd, home }: CliLocation): Promise<CliResult> {
+export async function runCli(
+  args: string[],
+  { cwd, home }: CliLocation,
+  env: Record<string, string> = {},
+): Promise<CliResult> {
   const subprocess = Bun.spawn([process.execPath, join(ROOT, "src/cli/main.ts"), ...args], {
     cwd,
-    env: { ...process.env, AUTOPARK_HOME: home, CLAUDE_SESSION_ID: "" },
+    env: {
+      ...process.env,
+      AUTOPARK_HOME: home,
+      CLAUDE_SESSION_ID: "",
+      CLAUDE_CODE_SESSION_ID: "",
+      ...env,
+    },
     stdout: "pipe",
     stderr: "pipe",
   });

@@ -1,10 +1,12 @@
 import { PAUSE_RULE } from "../core/nudge-message.ts";
+import { sessionIdFrom } from "../core/session.ts";
 import { VERSION } from "../daemon/client.ts";
 import { resolvePaths } from "../daemon/paths.ts";
 import { cwdConfig } from "./context.ts";
 import { StdioMcp } from "./mcp.ts";
 import { playbookRef } from "./playbook.ts";
 import { ChannelRelay } from "./relay.ts";
+import { deliveryScope } from "./scope.ts";
 
 const log = (message: string) => {
   process.stderr.write(`[autopark channel] ${message}\n`);
@@ -25,9 +27,10 @@ export function channelInstructions(playbook: string) {
 async function main() {
   const { config, path } = await cwdConfig(process.cwd());
   const instructions = channelInstructions(playbookRef(config, path));
+  const paths = resolvePaths();
   const relayOptions = {
-    logPath: resolvePaths().log,
-    scope: { repos: config?.repos ?? [] },
+    logPath: paths.log,
+    scope: deliveryScope(config?.repos ?? [], sessionIdFrom(process.env), paths.db),
     isEnabled: config?.delivery.channel ?? true,
     log,
   };

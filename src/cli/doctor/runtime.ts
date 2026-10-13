@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { formatDuration } from "../../core/duration.ts";
 import { daemonHealth } from "../../daemon/client.ts";
+import type { Health } from "../../daemon/control.ts";
 import type { Paths } from "../../daemon/paths.ts";
 import { ROOT } from "../root.ts";
 import { shell, type Check } from "./check.ts";
@@ -40,6 +42,31 @@ export async function forwardingChecks(sources: Set<string>, repos: string[]) {
   return checks;
 }
 
+function activity(source: Health["source"], now: number) {
+  if (source.state !== "connected") return [];
+  const connected =
+    typeof source.lastConnectedAt === "number"
+      ? [`connected ${formatDuration(now - source.lastConnectedAt)} ago`]
+      : [];
+  if (source.lastDeliveryAt === undefined) return connected;
+  const delivery =
+    source.lastDeliveryAt === null
+      ? "no delivery yet"
+      : `last delivery ${formatDuration(now - source.lastDeliveryAt)} ago`;
+  return [...connected, delivery];
+}
+
+export function daemonStatus(health: Health, now: number): Check {
+  const { source } = health;
+  const sourceDetail = source.detail ? ` (${source.detail})` : "";
+  const parts = [`pid ${health.pid}`, `${source.name} ${source.state}${sourceDetail}`];
+  return {
+    level: source.state === "connected" ? "ok" : "warn",
+    name: "daemon",
+    detail: [...parts, ...activity(source, now)].join(", "),
+  };
+}
+
 export async function daemonCheck(paths: Paths): Promise<Check> {
   const health = await daemonHealth(paths.socket);
   if (!health) {
@@ -50,13 +77,7 @@ export async function daemonCheck(paths: Paths): Promise<Check> {
       hint: "autopark daemon start (or daemon install)",
     };
   }
-  const { source } = health;
-  const sourceDetail = source.detail ? ` (${source.detail})` : "";
-  return {
-    level: source.state === "connected" ? "ok" : "warn",
-    name: "daemon",
-    detail: `pid ${health.pid}, ${source.name} ${source.state}${sourceDetail}`,
-  };
+  return daemonStatus(health, Date.now());
 }
 
 export function channelCheck(): Check {

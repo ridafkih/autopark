@@ -22,6 +22,8 @@ export interface SourceStatus {
   state: SourceState;
   detail: string;
   perRepo?: Record<string, SourceState>;
+  lastConnectedAt?: number | null;
+  lastDeliveryAt?: number | null;
 }
 
 export interface SourceContext {
