@@ -16,6 +16,7 @@ export const FORGOTTEN: BriefMemory = { fingerprint: null, briefs: 0 };
 const DRIFT: Array<[RegExp, string]> = [
   [/\d+ commit\(s\)/gu, "N commit(s)"],
   [/nudged \d+x/gu, "nudged Nx"],
+  [/ @ [0-9a-f]{7,40}\b/gu, " @ tip"],
 ];
 
 const withoutDrift = (detail: string) =>

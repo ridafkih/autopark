@@ -8,14 +8,15 @@ import type { TrackedView } from "../src/core/stop.ts";
 import type { Snapshot } from "../src/core/types.ts";
 import { resolvePaths } from "../src/daemon/paths.ts";
 import { stopOutput } from "../src/hooks/run.ts";
-import { check, config, HEAD2 } from "./fixtures/build.ts";
+import { BASE, check, config, HEAD2 } from "./fixtures/build.ts";
 import { hookState, view } from "./fixtures/hook-state.ts";
 import { view as freshnessView } from "./fixtures/stop-views.ts";
 
 const BRIEF = "No change since last check.";
 const MINUTE = 60_000;
 
-const behind = (behindBy: number): Partial<Snapshot> => ({
+const behind = (behindBy: number, baseSha: string): Partial<Snapshot> => ({
+  baseSha,
   baseComparison: { behindBy, files: [], truncated: false },
 });
 const conflict: Partial<Snapshot> = { mergeable: "CONFLICTING" };
@@ -52,12 +53,12 @@ describe("Stop hook brief mode", () => {
     expect(stop([view(conflict)])).toEqual({ decision: "block", reason: BRIEF });
   });
 
-  test("commit-count drift alone is no change", () => {
+  test("commit-count drift alone is no change, even as the base tip moves", () => {
     const stop = stopper();
-    const first = stop([freshnessView(behind(5))]);
+    const first = stop([freshnessView(behind(5, BASE))]);
     expect(isFull(first)).toBe(true);
-    expect(reasonOf(first)).toContain("stale_base: head is 5 commit(s) behind main");
-    expect(isBrief(stop([freshnessView(behind(6))]))).toBe(true);
+    expect(reasonOf(first)).toContain("stale_base: head is 5 commit(s) behind main @ bbbbbbb");
+    expect(isBrief(stop([freshnessView(behind(6, "c".repeat(40)))]))).toBe(true);
   });
 
   test("a new kind prints the full list again", () => {

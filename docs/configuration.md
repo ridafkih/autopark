@@ -44,7 +44,7 @@
 | `hooks.stop.enabled` | `true` | |
 | `hooks.stop.scope` | `session` | `session` (PRs tracked with this session id), `repo` (PRs in this config's repos), `all` |
 | `hooks.stop.maxBlocks` | `3` | consecutive blocks before letting go (Claude Code caps at 8) |
-| `hooks.stop.maxBriefs` | `10` | a block whose items match the last one this session saw (ignoring commit-count and nudge-count drift) says only `No change since last check.`; after this many in a row the full list comes back. `0` always prints the full list |
+| `hooks.stop.maxBriefs` | `10` | a block whose items match the last one this session saw (ignoring commit-count, base-tip and nudge-count drift) says only `No change since last check.`; after this many in a row the full list comes back. `0` always prints the full list |
 | `hooks.stop.blockOn*` | see schema | `Conflict`, `StaleBase`, `FailedChecks`, `ReviewFindings` default on; `HeadMovedWithoutReview` off; turning it on blocks on any open PR that needs approval and was never requested, green or not. Whatever these say, the Stop hook also blocks on a PR awaiting human review that was never requested, and on a PR that has been nudged; held PRs never block. A new nudge resets the `maxBlocks` count |
 | `daemon.source.type` | `gh-webhook-forward` | event source adapter id, or a path to your own module |
 | `daemon.source.options` | `{}` | adapter options (below) |
