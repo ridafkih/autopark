@@ -62,7 +62,7 @@ function sessionStartOutput(state: HookState) {
   return JSON.stringify({ hookSpecificOutput: output });
 }
 
-function stopOutput(state: HookState, input: HookInput, paths: Paths) {
+export function stopOutput(state: HookState, input: HookInput, paths: Paths) {
   const key = state.sessionId ?? "unknown";
   const prior = readStopState(paths)[key];
   const result = stopHook({
@@ -70,9 +70,10 @@ function stopOutput(state: HookState, input: HookInput, paths: Paths) {
     stopHookActive: input.stop_hook_active === true,
     priorBlocks: prior?.blocks ?? 0,
     priorMark: prior?.mark ?? 0,
+    priorBrief: prior,
   });
   if (existsSync(paths.home)) {
-    writeStopState(paths, key, { blocks: result.blocks, mark: result.mark });
+    writeStopState(paths, key, { blocks: result.blocks, mark: result.mark, ...result.brief });
   }
   return result.output ? JSON.stringify(result.output) : null;
 }

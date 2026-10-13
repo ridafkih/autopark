@@ -537,6 +537,12 @@
               "maximum": 8,
               "default": 3
             },
+            "maxBriefs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 10
+            },
             "blockOnConflict": {
               "type": "boolean",
               "default": true

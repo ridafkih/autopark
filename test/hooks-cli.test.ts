@@ -104,6 +104,7 @@ test("stop hook blocks on a conflict up to the cap, then lets go", async () => {
   const decisions = outputs.slice(0, 3).map((output) => stringAt(output, "decision"));
   expect(decisions).toEqual(["block", "block", "block"]);
   expect(stringAt(outputs[0], "reason")).toContain("acme/widgets#7 conflict: conflicts with main");
+  expect(stringAt(outputs[1], "reason")).toBe("No change since last check.");
   expect(outputs[3]).toEqual({
     systemMessage: expect.stringContaining("stopped blocking after 3"),
   });
