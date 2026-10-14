@@ -20,7 +20,6 @@
 | `readiness.noConflict` | `true` | |
 | `readiness.requiredChecksPass` | `true` | if nothing is required, every non-gate check is |
 | `readiness.allowDraft` | `false` | |
-| `readiness.baseFreshness.policy` | `off` | `contains-tip`: head must contain the base tip. `max-behind`: at most `maxBehind` base commits missing. `paths`: base changes since the merge base must not touch `paths` globs |
 | `notify[]` | `[]` | `{type: command, command, on: [kinds]}`; transition fields arrive as `AUTOPARK_*` env vars and JSON on stdin. `on` defaults to `ready, conflicted, checks_failed, merged` |
 | `autoMerge.default` | `false` | auto-merge every tracked PR |
 | `autoMerge.labels` | `[]` | PRs with these labels auto-merge; `autopark auto-merge <pr> on/off` overrides per PR |
@@ -31,7 +30,7 @@
 | `nudge.after` | `10m` | first `nudge` once a PR has been blocked by the same reasons for this long. Durations are text: `30s`, `10m`, `1h30m` |
 | `nudge.every` | `10m` | repeat while it stays blocked (at least `1m`) |
 | `nudge.escalateAfter` | `null` | once blocked this long, nudges carry `escalated: true` and lead with `ESCALATED` |
-| `nudge.kinds` | every kind but `draft` | blocking reasons that nudge: the reason codes (`conflict`, `stale_base`, `checks_failed`, `checks_pending`, `review_missing`, `review_stale`, `review_below_threshold`, `threads_open`, `changes_requested`, `approval_missing`, `approval_stale`, `human_gate_pending`, `mergeability_unknown`, `base_unknown`, `draft`) plus `awaiting_human`. A draft stays silent unless `draft` is listed |
+| `nudge.kinds` | every kind but `draft` | blocking reasons that nudge: the reason codes (`conflict`, `checks_failed`, `checks_pending`, `review_missing`, `review_stale`, `review_below_threshold`, `threads_open`, `changes_requested`, `approval_missing`, `approval_stale`, `human_gate_pending`, `mergeability_unknown`, `draft`) plus `awaiting_human`. A draft stays silent unless `draft` is listed |
 | `nudge.quietWhenHeadMoving` | `true` | no nudge while the head moved within the last `after`; the work is visibly progressing |
 | `nudge.nudgeReadyUnmerged` | `false` | also nudge PRs that are ready but not merged (by default a human merges them) |
 | `standards.files` | `[CLAUDE.md, AGENTS.md]` | what `/ship` reads first |
@@ -44,8 +43,8 @@
 | `hooks.stop.enabled` | `true` | |
 | `hooks.stop.scope` | `session` | `session` (PRs tracked with this session id), `repo` (PRs in this config's repos), `all` |
 | `hooks.stop.maxBlocks` | `3` | consecutive blocks before letting go (Claude Code caps at 8) |
-| `hooks.stop.maxBriefs` | `10` | a block whose items match the last one this session saw (ignoring commit-count, base-tip and nudge-count drift) says only `No change since last check.`; after this many in a row the full list comes back. `0` always prints the full list |
-| `hooks.stop.blockOn*` | see schema | `Conflict`, `StaleBase`, `FailedChecks`, `ReviewFindings` default on; `HeadMovedWithoutReview` off; turning it on blocks on any open PR that needs approval and was never requested, green or not. Whatever these say, the Stop hook also blocks on a PR awaiting human review that was never requested, and on a PR that has been nudged; held PRs never block. A new nudge resets the `maxBlocks` count |
+| `hooks.stop.maxBriefs` | `10` | a block whose items match the last one this session saw (ignoring nudge-count drift) says only `No change since last check.`; after this many in a row the full list comes back. `0` always prints the full list |
+| `hooks.stop.blockOn*` | see schema | `Conflict`, `FailedChecks`, `ReviewFindings` default on; `HeadMovedWithoutReview` off; turning it on blocks on any open PR that needs approval and was never requested, green or not. Whatever these say, the Stop hook also blocks on a PR awaiting human review that was never requested, and on a PR that has been nudged; held PRs never block. A new nudge resets the `maxBlocks` count |
 | `daemon.source.type` | `gh-webhook-forward` | event source adapter id, or a path to your own module |
 | `daemon.source.options` | `{}` | adapter options (below) |
 | `daemon.port` | `8787` | local webhook receiver, bound to 127.0.0.1 |

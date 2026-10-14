@@ -17,6 +17,6 @@
 - **Mergeability is not evented.** It is recomputed on base pushes and PR updates, plus the bounded backoff.
 - **Channels are a research preview.** A custom channel needs `--dangerously-load-development-channels`, which only works in interactive sessions with claude.ai login. Stdio MCP servers are not auto-reconnected if they crash; reconnect from `/mcp`. The server never offers MCP revision 2026-07-28, which would unregister it as a channel, and the plugin sets `MCP_PROTOCOL_NEGOTIATION=legacy` as well.
 - **Monitor `auto` mode** detects the channel by looking for the flag in its ancestor processes' command lines. Set `delivery.monitor` explicitly if that guess is wrong for your launcher.
-- **Query windows.** One query reads up to 100 check contexts, 100 review threads, and the first and last 25 issue comments. A base comparison listing 300 or more files is treated as touching every watched path.
+- **Query windows.** One query reads up to 100 check contexts, 100 review threads, and the first and last 25 issue comments.
 - **Platforms.** macOS and Linux only for service install.
 

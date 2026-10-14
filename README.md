@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Autopark</h1>
   <p>Drive pull requests to ready, without babysitting them.</p>
-  <p>Welcome to Autopark. A Claude Code plugin that watches your pull requests through live GitHub events, and has Claude fix whatever is blocking them the moment it happens. Conflicts, failed checks, review comments, stale bases, all handled without you having to ask for a status update.</p>
+  <p>Welcome to Autopark. A Claude Code plugin that watches your pull requests through live GitHub events, and has Claude fix whatever is blocking them the moment it happens. Conflicts, failed checks, review comments, all handled without you having to ask for a status update.</p>
   	<span>
 		<a href="#quickstart">Quickstart</a>
 		<span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
@@ -131,8 +131,6 @@ reviewers:
 
 readiness:
   minApprovals: 1
-  baseFreshness:
-    policy: contains-tip
 
 nudge:
   after: 10m

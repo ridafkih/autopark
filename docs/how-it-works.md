@@ -28,7 +28,6 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 | `head_moved` | new head commit (`from`, `to`) |
 | `conflicted` / `conflict_resolved` | mergeability flipped |
 | `mergeability_unknown` | GitHub did not compute mergeability within the backoff |
-| `stale_base` | head does not contain the base tip under the `baseFreshness` policy (`behind_by`, `touched`) |
 | `checks_failed` | new failures on this head (`failed`, `required_failed`) |
 | `checks_passed` | every required check passed on this head |
 | `review_scored` | a reviewer bot scored (`bot`, `score`, `reviewed_head`, `on_head`, `meets_threshold`) |
