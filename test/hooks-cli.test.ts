@@ -103,7 +103,7 @@ test("stop hook blocks on a conflict up to the cap, then lets go", async () => {
   for (const isActive of [false, true, true, true]) outputs.push(await stop(isActive));
   const decisions = outputs.slice(0, 3).map((output) => stringAt(output, "decision"));
   expect(decisions).toEqual(["block", "block", "block"]);
-  expect(stringAt(outputs[0], "reason")).toContain("acme/widgets#7 conflict: conflicts with main");
+  expect(stringAt(outputs[0], "reason")).toEndWith("\n#7 conflict");
   expect(stringAt(outputs[1], "reason")).toBe("No change since last check.");
   expect(outputs[3]).toEqual({
     systemMessage: expect.stringContaining("stopped blocking after 3"),
@@ -130,7 +130,7 @@ test("session start injects daemon state, tracked PRs and actionable items", asy
   expect(additionalContext).toContain(
     `autopark daemon is running (pid ${process.pid}, replay connected).`,
   );
-  expect(additionalContext).toContain("Actionable now:\n- acme/widgets#7 conflict");
+  expect(additionalContext).toContain("Actionable now:\n#7 conflict");
 });
 
 test("hooks never fail the session on bad input", async () => {

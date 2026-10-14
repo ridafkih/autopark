@@ -22,9 +22,7 @@ describe("SessionStart context", () => {
     expect(context).toContain(
       "- acme/widgets#7 [not_ready] Tidy the widget loader\n  blocking: conflict: conflicts with main",
     );
-    expect(context).toContain(
-      "Actionable now:\n- acme/widgets#7 conflict: conflicts with main. Next: merge main into the branch, resolve, push.",
-    );
+    expect(context).toContain("Actionable now:\n#7 conflict\n");
   });
 
   test("a stopped daemon is called out with how to start it", () => {

@@ -13,16 +13,11 @@ export const BRIEF_REASON = "No change since last check.";
 
 export const FORGOTTEN: BriefMemory = { fingerprint: null, briefs: 0 };
 
-const DRIFT: Array<[RegExp, string]> = [[/nudged \d+x/gu, "nudged Nx"]];
-
-const withoutDrift = (detail: string) =>
-  DRIFT.reduce((text, [pattern, replacement]) => text.replaceAll(pattern, replacement), detail);
-
 export function fingerprintOf(views: TrackedView[], config: StopConfig) {
   const lines = views
     .flatMap((view) =>
       actionItemsFor(view, config).map((item) =>
-        [item.pr, view.evaluation.headSha, item.kind, withoutDrift(item.detail)].join("\t"),
+        [item.repo, item.number, view.evaluation.headSha, item.kind, ...item.codes].join("\t"),
       ),
     )
     .toSorted();

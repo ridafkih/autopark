@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HookState } from "../src/hooks/state.ts";
 import { stopHook } from "../src/hooks/stop.ts";
 import { config } from "./fixtures/build.ts";
-import { hookState, PLAYBOOK, view } from "./fixtures/hook-state.ts";
+import { hookState, view } from "./fixtures/hook-state.ts";
 import { stringAt } from "../src/core/json.ts";
 
 interface Continuation {
@@ -20,8 +20,8 @@ type Row = [string, Partial<HookState>, Continuation, Expectation];
 const fresh: Continuation = { stopHookActive: false, priorBlocks: 0 };
 const allow: Expectation = { output: null, blocks: 0 };
 const conflicted = [view({ mergeable: "CONFLICTING" })];
-const NEXT_STEP =
-  "acme/widgets#7 conflict: conflicts with main. Next: merge main into the branch, resolve, push.";
+const BLOCK_REASON =
+  "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work.\n#7 conflict";
 
 describe("Stop hook", () => {
   test.each<Row>([
@@ -75,9 +75,7 @@ describe("Stop hook", () => {
     if (expected.output === null) expect(result.output).toBeNull();
     if (expected.output === "block") {
       expect(result.output).toMatchObject({ decision: "block" });
-      const reason = stringAt(result.output, "reason");
-      expect(reason).toContain(NEXT_STEP);
-      expect(reason).toContain(PLAYBOOK);
+      expect(stringAt(result.output, "reason")).toBe(BLOCK_REASON);
     }
     if (expected.output === "message") {
       expect(Object.keys(result.output ?? {})).toEqual(["systemMessage"]);

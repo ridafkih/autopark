@@ -2,13 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PAUSE_RULE } from "../src/core/nudge-message.ts";
 import { parseJson, stringAt } from "../src/core/json.ts";
-import type { TrackedView } from "../src/core/stop.ts";
+import { STOP_HEADER, type TrackedView } from "../src/core/stop.ts";
 import type { Snapshot } from "../src/core/types.ts";
 import { resolvePaths } from "../src/daemon/paths.ts";
 import { stopOutput } from "../src/hooks/run.ts";
-import { check, config, HEAD2 } from "./fixtures/build.ts";
+import { check, config, greptileComment, HEAD, HEAD2 } from "./fixtures/build.ts";
 import { hookState, view } from "./fixtures/hook-state.ts";
 
 const BRIEF = "No change since last check.";
@@ -29,7 +28,7 @@ function stopper(overrides: { config?: ReturnType<typeof config> } = {}) {
 const reasonOf = (output: unknown) => stringAt(output, "reason");
 
 const isFull = (output: unknown) =>
-  stringAt(output, "decision") === "block" && reasonOf(output)?.startsWith(PAUSE_RULE) === true;
+  stringAt(output, "decision") === "block" && reasonOf(output)?.startsWith(STOP_HEADER) === true;
 
 const isBrief = (output: unknown) =>
   stringAt(output, "decision") === "block" && reasonOf(output) === BRIEF;
@@ -39,13 +38,33 @@ describe("Stop hook brief mode", () => {
     const stop = stopper();
     const output = stop([view(conflict)]);
     expect(isFull(output)).toBe(true);
-    expect(reasonOf(output)).toContain("acme/widgets#7 conflict: conflicts with main");
+    expect(reasonOf(output)).toEndWith("\n#7 conflict");
   });
 
   test("an identical second call is one brief line that still blocks", () => {
     const stop = stopper();
     stop([view(conflict)]);
     expect(stop([view(conflict)])).toEqual({ decision: "block", reason: BRIEF });
+  });
+
+  test("a repeated nudge alone is no change", () => {
+    const stop = stopper();
+    const nudge = { signature: "x", since: 0, headMovedAt: null, lastNudgeAt: 1, next: null };
+    stop([
+      { ...view({ approvals: [] }), reviewRequestedHead: HEAD, nudge: { ...nudge, count: 1 } },
+    ]);
+    const again = {
+      ...view({ approvals: [] }),
+      reviewRequestedHead: HEAD,
+      nudge: { ...nudge, count: 2 },
+    };
+    expect(isBrief(stop([again]))).toBe(true);
+  });
+
+  test("a changed score prints the full list again", () => {
+    const stop = stopper();
+    stop([view({ comments: [greptileComment(2, HEAD)] })]);
+    expect(isFull(stop([view({ comments: [greptileComment(3, HEAD)] })]))).toBe(true);
   });
 
   test("a new kind prints the full list again", () => {
@@ -60,7 +79,7 @@ describe("Stop hook brief mode", () => {
     stop([view(conflict)]);
     const output = stop([view(conflict), view({ ...conflict, number: 8 })]);
     expect(isFull(output)).toBe(true);
-    expect(reasonOf(output)).toContain("acme/widgets#8 conflict");
+    expect(reasonOf(output)).toContain("\n#8 conflict");
   });
 
   test("a resolved item prints the full list again", () => {
@@ -68,7 +87,7 @@ describe("Stop hook brief mode", () => {
     stop([view({ ...conflict, ...failing })]);
     const output = stop([view(conflict)]);
     expect(isFull(output)).toBe(true);
-    expect(reasonOf(output)).not.toContain("failed_checks");
+    expect(reasonOf(output)).not.toContain("checks:");
   });
 
   test("a new head prints the full list again", () => {

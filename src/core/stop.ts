@@ -1,10 +1,9 @@
 import type { Config } from "../config/schema.ts";
-import { PAUSE_RULE } from "./nudge-message.ts";
-import { actionItemsFor } from "./stop/items.ts";
+import { actionItemsFor, actionLines } from "./stop/items.ts";
 import type { ActionItem, TrackedView } from "./stop/items.ts";
 
 export type { ActionItem, ActionKind, TrackedView } from "./stop/items.ts";
-export { actionItemsFor } from "./stop/items.ts";
+export { actionItemsFor, actionLines } from "./stop/items.ts";
 
 type StopConfig = Config["hooks"]["stop"];
 
@@ -47,8 +46,8 @@ export const actionableItems = (views: TrackedView[], config: StopConfig, contex
     .filter((view) => !isHeld(view))
     .flatMap((view) => actionItemsFor(view, config));
 
-const describeItem = (item: ActionItem) =>
-  `- ${item.pr} ${item.kind}: ${item.detail}. Next: ${item.next}`;
+export const STOP_HEADER =
+  "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work.";
 
 export function decideStop({
   items,
@@ -65,10 +64,9 @@ export function decideStop({
       systemMessage: `autopark: stopped blocking after ${priorBlocks} consecutive continuations; ${remaining}.`,
     };
   }
-  const lines = items.map(describeItem).join("\n");
   return {
     decision: "block",
     blocks: stopHookActive ? priorBlocks + 1 : 1,
-    reason: `${PAUSE_RULE}\nTracked PRs have actionable items:\n${lines}`,
+    reason: [STOP_HEADER, ...actionLines(items)].join("\n"),
   };
 }

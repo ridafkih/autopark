@@ -1,7 +1,13 @@
 import { formatDuration, formatRemaining } from "../core/duration.ts";
 import { formatPullRequest } from "../core/format.ts";
 import { PAUSE_RULE } from "../core/nudge-message.ts";
-import { actionItemsFor, isHeld, viewsInScope, type TrackedView } from "../core/stop.ts";
+import {
+  actionItemsFor,
+  actionLines,
+  isHeld,
+  viewsInScope,
+  type TrackedView,
+} from "../core/stop.ts";
 import { stateLabel } from "../core/summary.ts";
 import type { Health } from "../daemon/control.ts";
 import { configOrDefaults, type HookState } from "./state.ts";
@@ -74,9 +80,7 @@ export function sessionStartContext(state: HookState): string | null {
   const items = scoped
     .filter((view) => !isHeld(view))
     .flatMap((view) => actionItemsFor(view, config.hooks.stop));
-  const actionable = items.map(
-    (item) => `- ${item.pr} ${item.kind}: ${item.detail}. Next: ${item.next}`,
-  );
+  const actionable = actionLines(items);
   return [
     daemonLine(state.health),
     ...trackedLines(scoped, state.now),

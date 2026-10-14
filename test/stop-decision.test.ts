@@ -34,7 +34,7 @@ describe("scope", () => {
       { ...stopConfig.hooks.stop, scope },
       { sessionId: "s1", repos: ["Acme/Widgets"] },
     );
-    expect(items.map((item) => item.pr)).toEqual([...expected]);
+    expect(items.map((item) => `${item.repo}#${item.number}`)).toEqual([...expected]);
   });
 });
 
@@ -59,10 +59,10 @@ describe("decideStop", () => {
     expect(decideStop(stopInput)).toMatchObject(expected);
   });
 
-  test("block reason states the pause rule and lists each PR with its next step", () => {
+  test("block reason states the pause rule once, then one line of codes per PR", () => {
     const decision = decideStop(input(items, false, 0));
     expect(decision.reason).toBe(
-      "A declined tool call or a quiet conversation does not pause PR work. Only `autopark hold` does.\nTracked PRs have actionable items:\n- acme/widgets#7 conflict: conflicts with main. Next: merge main into the branch, resolve, push.",
+      "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work.\n#7 conflict",
     );
   });
 

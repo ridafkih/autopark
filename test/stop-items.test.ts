@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { ActionKind, TrackedView } from "../src/core/stop.ts";
+import {
+  actionLines,
+  actionableItems,
+  type ActionKind,
+  type TrackedView,
+} from "../src/core/stop.ts";
 import type { Snapshot } from "../src/core/types.ts";
 import { check, config, greptileComment, HEAD, OLD } from "./fixtures/build.ts";
 import { kindsFor, stopConfig, view } from "./fixtures/stop-views.ts";
@@ -90,5 +95,72 @@ describe("actionable items", () => {
 
   test("head-moved check is off by default", () => {
     expect(kindsFor(view({}, { reviewRequestedHead: OLD }), config().hooks.stop)).toEqual([]);
+  });
+});
+
+const linesFor = (views: TrackedView[]) =>
+  actionLines(actionableItems(views, stopConfig.hooks.stop, { sessionId: "s1", repos: [] }));
+
+describe("action lines", () => {
+  test.each<[string, Partial<Snapshot>, Partial<TrackedView>, string]>([
+    ["conflict", { mergeable: "CONFLICTING" }, {}, "#7 conflict"],
+    [
+      "failed required checks by name",
+      {
+        checks: [
+          check("build", "fail"),
+          check("lint", "fail"),
+          check("deploy", "fail", { isRequired: true }),
+        ],
+      },
+      {},
+      "#7 checks:build+deploy",
+    ],
+    [
+      "open threads before low scores",
+      { threads: [openThread, { ...openThread, id: "b" }], comments: [greptileComment(2, HEAD)] },
+      {},
+      "#7 threads:2, greptile:2/5",
+    ],
+    [
+      "approval never requested",
+      { approvals: [] },
+      { reviewRequestedHead: null },
+      "#7 approval_needed",
+    ],
+    [
+      "nudged with nothing else to do",
+      { checks: [check("build", "pending"), check("gate", "pending")] },
+      {
+        nudge: {
+          signature: "checks_pending",
+          since: 0,
+          headMovedAt: null,
+          lastNudgeAt: 1,
+          count: 2,
+          next: null,
+        },
+      },
+      "#7 nudged:checks_pending",
+    ],
+  ])("%s", (label, changes, extra, expected) => {
+    expect(linesFor([view(changes, extra)])).toEqual([expected]);
+  });
+
+  test("one line per PR joins every code", () => {
+    const blocked = view({
+      mergeable: "CONFLICTING",
+      checks: [check("build", "fail"), check("gate", "pass")],
+      threads: [openThread],
+    });
+    expect(linesFor([blocked, view({ number: 8 })])).toEqual([
+      "#7 conflict, checks:build, threads:1",
+    ]);
+  });
+
+  test("PRs from more than one repo keep the repo in the label", () => {
+    const here = view({ mergeable: "CONFLICTING" });
+    const there = view({ mergeable: "CONFLICTING", repo: "acme/other", number: 9 });
+    expect(linesFor([here, there])).toEqual(["acme/widgets#7 conflict", "acme/other#9 conflict"]);
   });
 });

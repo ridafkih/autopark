@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { NudgeState } from "../src/core/nudge.ts";
-import { PAUSE_RULE } from "../src/core/nudge-message.ts";
-import type { TrackedView } from "../src/core/stop.ts";
+import { STOP_HEADER, type TrackedView } from "../src/core/stop.ts";
 import { stringAt } from "../src/core/json.ts";
 import { stopHook, type StopHookState } from "../src/hooks/stop.ts";
 import { HEAD } from "./fixtures/build.ts";
@@ -34,8 +33,7 @@ const reasonOf = (views: TrackedView[], overrides: Partial<StopHookState> = {}) 
 describe("Stop hook and the pause rule", () => {
   test("the block reason states the rule, then each blocked PR and its reasons", () => {
     const reason = reasonOf([view({ mergeable: "CONFLICTING" })]);
-    expect(reason).toStartWith(`${PAUSE_RULE}\nTracked PRs have actionable items:\n`);
-    expect(reason).toContain("- acme/widgets#7 conflict: conflicts with main.");
+    expect(reason).toBe(`${STOP_HEADER}\n#7 conflict`);
   });
 
   test("a held PR does not block", () => {
@@ -47,9 +45,7 @@ describe("Stop hook and the pause rule", () => {
   });
 
   test("awaiting_human blocks until review is requested once", () => {
-    expect(reasonOf([view({ approvals: [] })])).toContain(
-      "acme/widgets#7 review_not_requested: acme/widgets#7 needs approval and review was never requested.",
-    );
+    expect(reasonOf([view({ approvals: [] })])).toEndWith("\n#7 approval_needed");
     const requested = { ...view({ approvals: [] }), reviewRequestedHead: HEAD };
     expect(runStop([requested]).output).toBeNull();
   });
@@ -57,9 +53,7 @@ describe("Stop hook and the pause rule", () => {
   test("a nudged PR blocks even when review was already requested", () => {
     const stuck = { ...view({ approvals: [] }), reviewRequestedHead: HEAD, nudge: nudged() };
     const reason = reasonOf([stuck]);
-    expect(reason).toContain(
-      "- acme/widgets#7 nudged: stuck on approval_missing, awaiting_human, nudged 1x. Next: re-request review: Ask Cortana.",
-    );
+    expect(reason).toEndWith("\n#7 nudged:approval_missing+awaiting_human");
   });
 
   test("the block count resets when a new nudge has arrived since the last block", () => {
