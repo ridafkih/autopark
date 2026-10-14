@@ -1,9 +1,6 @@
 import { HEAD, HEAD2 } from "./fixtures/build.ts";
 import { transitionTable } from "./fixtures/transition-table.ts";
 
-const behind = (behindBy: number) => ({ behindBy, files: [], truncated: false });
-const MOVED_BASE = "c".repeat(40);
-
 transitionTable(
   "transition: merged and closed",
   ["merged", "closed", "ready", "not_ready", "conflicted"],
@@ -85,39 +82,21 @@ transitionTable(
 );
 
 transitionTable(
-  "transition: stale base",
-  ["stale_base"],
+  "transition: base moves ahead of head",
+  ["conflicted", "ready", "not_ready"],
   [
-    ["base tip contained", {}, {}, []],
     [
-      "base moves past head",
-      {},
-      { baseSha: MOVED_BASE, baseComparison: behind(2) },
-      ["stale_base"],
+      "behind but mergeable on first sight is ready",
+      null,
+      { mergeStateStatus: "BEHIND" },
+      ["ready"],
     ],
+    ["base moving past a ready head is silent", {}, { mergeStateStatus: "BEHIND" }, []],
     [
-      "still stale on same head and base",
-      { baseComparison: behind(2) },
-      { baseComparison: behind(2) },
-      [],
-    ],
-    [
-      "base moves again while stale",
-      { baseComparison: behind(2) },
-      { baseSha: MOVED_BASE, baseComparison: behind(3) },
-      ["stale_base"],
-    ],
-    [
-      "new head still behind",
-      { baseComparison: behind(2) },
-      { headSha: HEAD2, baseComparison: behind(1) },
-      ["stale_base"],
-    ],
-    [
-      "merge of base clears it silently",
-      { baseComparison: behind(2) },
-      { headSha: HEAD2, baseComparison: behind(0) },
-      [],
+      "a behind head that starts conflicting reports the conflict",
+      { mergeStateStatus: "BEHIND" },
+      { mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" },
+      ["conflicted", "not_ready"],
     ],
   ],
 );

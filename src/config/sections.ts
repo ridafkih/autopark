@@ -77,15 +77,6 @@ export const readinessSection = objectSchema({
   noConflict: booleanSchema({ default: true }),
   requiredChecksPass: booleanSchema({ default: true }),
   allowDraft: booleanSchema({ default: false }),
-  baseFreshness: objectSchema({
-    policy: enumSchema(["off", "contains-tip", "max-behind", "paths"] as const, {
-      default: "off",
-      description:
-        "contains-tip: head must contain the base tip; max-behind: base may be ahead by at most maxBehind commits; paths: base changes since the merge base must not touch `paths`",
-    }),
-    maxBehind: numberSchema({ default: 0, min: 0, int: true }),
-    paths: strings("Globs used by the paths policy"),
-  }),
 });
 
 export const autoMergeSection = objectSchema({
@@ -147,7 +138,6 @@ export const hooksSection = objectSchema({
     maxBlocks: numberSchema({ default: 3, min: 1, max: 8, int: true }),
     maxBriefs: numberSchema({ default: 10, min: 0, max: 100, int: true }),
     blockOnConflict: booleanSchema({ default: true }),
-    blockOnStaleBase: booleanSchema({ default: true }),
     blockOnFailedChecks: booleanSchema({ default: true }),
     blockOnReviewFindings: booleanSchema({ default: true }),
     blockOnHeadMovedWithoutReview: booleanSchema({ default: false }),

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Snapshot } from "../src/core/types.ts";
-import { BASE, check, HEAD, REPO, snapshot } from "./fixtures/build.ts";
+import { check, HEAD, REPO, snapshot } from "./fixtures/build.ts";
 import { createHarness } from "./fixtures/harness.ts";
 import { reviewDelivery } from "./fixtures/review-delivery.ts";
 import { parseJson, stringAt } from "../src/core/json.ts";
@@ -84,22 +84,13 @@ describe("notifications and bookkeeping", () => {
     expect(stringAt(parseJson(call?.stdin ?? ""), "kind")).toBe("ready");
   });
 
-  test("base comparison is fetched once per head and base pair", async () => {
-    const harness = await createHarness({
-      config: { readiness: { baseFreshness: { policy: "contains-tip" } } },
-    });
-    harness.github.set(snapshot());
-    harness.github.comparisons.set(`${HEAD}..${BASE}`, {
-      behindBy: 2,
-      files: [],
-      truncated: false,
-    });
+  test("a head behind its base but mergeable is announced ready", async () => {
+    const harness = await createHarness();
+    harness.github.set(snapshot({ mergeStateStatus: "BEHIND" }));
     harness.engine.track(REPO, 7);
     await harness.engine.idle();
-    await harness.engine.handleDelivery(reviewDelivery("x"));
-    await harness.engine.idle();
-    expect(harness.github.compareCalls).toBe(1);
-    expect(harness.kinds()).toContain("stale_base");
+    expect(harness.kinds()).toContain("ready");
+    expect(harness.kinds()).not.toContain("not_ready");
   });
 
   test("review request is recorded against the current head", async () => {

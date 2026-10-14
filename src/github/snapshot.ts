@@ -109,7 +109,6 @@ const refsOf = (node: JsonRecord, commit: unknown) => ({
   headRef: stringAt(node, "headRefName") ?? "",
   baseRef: stringAt(node, "baseRefName") ?? "",
   headSha: (stringAt(node, "headRefOid") ?? stringAt(commit, "oid") ?? "").toLowerCase(),
-  baseSha: lowerShaAt(node, "baseRef", "target", "oid"),
 });
 
 const descriptionOf = (repo: string, node: JsonRecord, number: number) => ({
@@ -136,7 +135,6 @@ export function normalizePullRequest(repo: string, node: JsonRecord): Snapshot {
     number,
     ...descriptionOf(repo, node, number),
     ...refsOf(node, commit),
-    baseComparison: null,
     labels: labelsOf(node),
     mergeable: mergeableOf(node.mergeable),
     mergeStateStatus: stringAt(node, "mergeStateStatus") ?? "UNKNOWN",

@@ -34,8 +34,6 @@ readiness:
   approvalOnHead: true
   minApprovals: 1
   noConflict: true
-  baseFreshness:
-    policy: "off"
 
 notify: []
 #  - type: command

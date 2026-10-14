@@ -24,6 +24,7 @@ reasonTable("rule: open and not draft", [
 
 reasonTable("rule: no conflict", [
   ["mergeable", { mergeable: "MERGEABLE" }, []],
+  ["behind its base but mergeable", { mergeable: "MERGEABLE", mergeStateStatus: "BEHIND" }, []],
   ["conflicting", { mergeable: "CONFLICTING", mergeStateStatus: "DIRTY" }, ["conflict"]],
   [
     "unknown is not ready yet",

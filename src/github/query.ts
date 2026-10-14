@@ -4,7 +4,6 @@ export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: St
     nameWithOwner
     pullRequest(number: $number) {
       number title url state isDraft headRefName baseRefName headRefOid
-      baseRef { target { oid } }
       author { login }
       labels(first: 50) { nodes { name } }
       mergeable mergeStateStatus reviewDecision

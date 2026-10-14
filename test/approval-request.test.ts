@@ -9,7 +9,7 @@ import { kindsFor, view } from "./fixtures/stop-views.ts";
 const INSTRUCTION = "Ask the Chief Approval Officer to approve {url}.";
 const FILLED = `Ask the Chief Approval Officer to approve https://github.com/${REPO}/pull/7.`;
 const reviewRequest = { reviewRequest: { instruction: INSTRUCTION } };
-const behind = { baseComparison: { behindBy: 4, files: [], truncated: false } };
+const behind = { mergeStateStatus: "BEHIND" };
 const threads = { threads: [openThread] };
 const pending = {
   checks: [check("build", "pending"), check("gate", "pass", { isRequired: true })],

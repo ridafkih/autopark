@@ -1,7 +1,6 @@
 import type { Config } from "../config/schema.ts";
 import type { ReviewerParser } from "../reviewers/types.ts";
 import { evaluateApprovals } from "./readiness/approvals.ts";
-import { evaluateBase } from "./readiness/base.ts";
 import { evaluateChecks } from "./readiness/checks.ts";
 import { collectReasons } from "./readiness/reasons.ts";
 import { evaluateReviewers } from "./readiness/reviewers.ts";
@@ -33,15 +32,13 @@ const isAwaitingHuman = (reasons: Reason[]) =>
 
 function assessReadiness(snapshot: Snapshot, config: Config, parsers: Map<string, ReviewerParser>) {
   const { readiness } = config;
-  const { base, isUnknown } = evaluateBase(snapshot, readiness.baseFreshness);
   const assessment = {
-    base,
     checks: evaluateChecks(snapshot.checks, config.checks),
     reviewers: evaluateReviewers(snapshot, config.reviewers, parsers),
     threadsOpen: countOpenThreads(snapshot.threads, readiness),
     approvals: evaluateApprovals(snapshot),
   };
-  const reasons = collectReasons({ snapshot, readiness, isBaseUnknown: isUnknown, ...assessment });
+  const reasons = collectReasons({ snapshot, readiness, ...assessment });
   return { ...assessment, reasons };
 }
 
@@ -51,7 +48,7 @@ export function evaluate(
   parsers: Map<string, ReviewerParser>,
   previous: Evaluation | null,
 ): Evaluation {
-  const { base, checks, reviewers, threadsOpen, approvals, reasons } = assessReadiness(
+  const { checks, reviewers, threadsOpen, approvals, reasons } = assessReadiness(
     snapshot,
     config,
     parsers,
@@ -64,7 +61,6 @@ export function evaluate(
       : snapshot.mergeable;
   return {
     ...identityOf(snapshot),
-    base,
     mergeable: snapshot.mergeable,
     lastKnownMergeable,
     mergeStateStatus: snapshot.mergeStateStatus,

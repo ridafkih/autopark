@@ -10,7 +10,6 @@ const RAW = {
   headRefName: "bot/tidy",
   baseRefName: "main",
   headRefOid: "ABCDEF1234567890ABCDEF1234567890ABCDEF12",
-  baseRef: { target: { oid: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB" } },
   author: { login: "octo" },
   labels: { nodes: [{ name: "autopark" }] },
   mergeable: "CONFLICTING",
@@ -90,9 +89,8 @@ const RAW = {
 describe("normalizePullRequest", () => {
   const snapshot = normalizePullRequest("acme/widgets", RAW);
 
-  test("lowercases shas and reads the base tip", () => {
+  test("lowercases shas", () => {
     expect(snapshot.headSha).toBe("abcdef1234567890abcdef1234567890abcdef12");
-    expect(snapshot.baseSha).toBe("b".repeat(40));
     expect(snapshot.approvals[0]?.sha).toBe(snapshot.headSha);
   });
 

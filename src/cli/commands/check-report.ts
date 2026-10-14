@@ -20,12 +20,6 @@ function formatHead(evaluation: Evaluation, { cost, reads }: CheckCost) {
 const formatReadiness = (evaluation: Evaluation) =>
   `ready ${evaluation.ready}  mergeable now ${evaluation.mergeableNow}  awaiting human ${evaluation.awaitingHuman}`;
 
-function formatBase({ baseRef, base }: Evaluation) {
-  const shaSuffix = base.sha ? ` @ ${displaySha(base.sha)}` : "";
-  const behindSuffix = base.behindBy === null ? "" : ` (behind ${base.behindBy})`;
-  return `base ${baseRef}${shaSuffix}  freshness ${base.policy}${behindSuffix}`;
-}
-
 const formatFailure = (check: FailedCheck) => {
   const marker = check.required ? "*" : "";
   return `${check.name}${marker}=${check.conclusion}`;
@@ -57,7 +51,6 @@ export function formatCheckReport(evaluation: Evaluation, cost: CheckCost) {
     `${formatPullRequest(evaluation)} ${evaluation.title}`,
     formatHead(evaluation, cost),
     formatReadiness(evaluation),
-    formatBase(evaluation),
     formatChecks(evaluation),
     ...evaluation.reviewers.map(formatReviewer),
     formatThreads(evaluation),

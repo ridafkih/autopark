@@ -26,19 +26,3 @@ export const detectMergeabilityUnknown: Detector = ({ previous, next, options, e
   const reason = "GitHub did not compute mergeability within the backoff window";
   return [emit("mergeability_unknown", reason, { lastKnown: next.lastKnownMergeable })];
 };
-
-export const detectStaleBase: Detector = ({ sameHeadPrevious, next, emit }) => {
-  const wasStale =
-    sameHeadPrevious?.base.stale === true && sameHeadPrevious.base.sha === next.base.sha;
-  if (!next.base.stale || wasStale) return [];
-  const staleReason = next.reasons.find((reason) => reason.code === "stale_base");
-  return [
-    emit("stale_base", staleReason?.detail ?? `behind ${next.baseRef}`, {
-      base: next.baseRef,
-      baseSha: next.base.sha,
-      behindBy: next.base.behindBy,
-      touched: next.base.touched,
-      policy: next.base.policy,
-    }),
-  ];
-};

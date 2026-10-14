@@ -87,15 +87,6 @@ describe("GitHub HTTP client", () => {
     );
   });
 
-  test("compare reads behind count from ahead_by of head...base", async () => {
-    const { fetchStub, calls } = stubFetch({
-      "/compare/": () => ({ ahead_by: 3, files: [{ filename: "a.ts" }, { filename: "b/c.json" }] }),
-    });
-    const comparison = await clientFor(fetchStub).compare("acme/widgets", "h", "b");
-    expect(calls[0]?.url).toContain("/repos/acme/widgets/compare/h...b");
-    expect(comparison).toEqual({ behindBy: 3, files: ["a.ts", "b/c.json"], truncated: false });
-  });
-
   test("search paginates and maps candidates", async () => {
     const { fetchStub } = stubFetch({ "/graphql": searchPage });
     const candidates = await clientFor(fetchStub).searchOpenPullRequests("acme/widgets", "octo");

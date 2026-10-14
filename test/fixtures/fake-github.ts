@@ -1,5 +1,5 @@
 import type { Candidate } from "../../src/core/track.ts";
-import { pullRequestKey, type BaseComparison, type Snapshot } from "../../src/core/types.ts";
+import { pullRequestKey, type Snapshot } from "../../src/core/types.ts";
 import type { GitHub } from "../../src/github/types.ts";
 
 interface MergeCall {
@@ -9,14 +9,10 @@ interface MergeCall {
   method: string;
 }
 
-const NO_COMPARISON: BaseComparison = { behindBy: 0, files: [], truncated: false };
-
 export class FakeGitHub implements GitHub {
   readonly snapshots = new Map<string, Snapshot>();
   readonly scripted = new Map<string, Snapshot[]>();
   readonly reads = new Map<string, number>();
-  readonly comparisons = new Map<string, BaseComparison>();
-  compareCalls = 0;
   searchResults: Candidate[] = [];
   readonly searches: Array<{ repo: string; author: string | null }> = [];
   readonly merges: MergeCall[] = [];
@@ -47,11 +43,6 @@ export class FakeGitHub implements GitHub {
     const snapshot = this.nextScripted(key) ?? this.snapshots.get(key);
     if (!snapshot) throw new Error(`no fake PR ${key}`);
     return structuredClone(snapshot);
-  }
-
-  async compare(repo: string, head: string, base: string) {
-    this.compareCalls = this.compareCalls + 1;
-    return this.comparisons.get(`${head}..${base}`) ?? NO_COMPARISON;
   }
 
   async searchOpenPullRequests(repo: string, author: string | null) {

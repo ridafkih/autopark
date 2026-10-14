@@ -13,11 +13,7 @@ export const BRIEF_REASON = "No change since last check.";
 
 export const FORGOTTEN: BriefMemory = { fingerprint: null, briefs: 0 };
 
-const DRIFT: Array<[RegExp, string]> = [
-  [/\d+ commit\(s\)/gu, "N commit(s)"],
-  [/nudged \d+x/gu, "nudged Nx"],
-  [/ @ [0-9a-f]{7,40}\b/gu, " @ tip"],
-];
+const DRIFT: Array<[RegExp, string]> = [[/nudged \d+x/gu, "nudged Nx"]];
 
 const withoutDrift = (detail: string) =>
   DRIFT.reduce((text, [pattern, replacement]) => text.replaceAll(pattern, replacement), detail);

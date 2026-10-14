@@ -9,7 +9,6 @@ type StopConfig = ReturnType<typeof config>["hooks"]["stop"];
 const parsers = new Map([["greptile", greptile]]);
 
 export const stopConfig = config({
-  readiness: { baseFreshness: { policy: "contains-tip" } },
   hooks: { stop: { blockOnHeadMovedWithoutReview: true } },
 });
 

@@ -20,11 +20,7 @@ describe("actionable items", () => {
     ["ready PR has nothing to do", {}, []],
     ["conflict", { mergeable: "CONFLICTING" }, ["conflict"]],
     ["unknown mergeability is not actionable", { mergeable: "UNKNOWN" }, []],
-    [
-      "stale base",
-      { baseComparison: { behindBy: 3, files: [], truncated: false } },
-      ["stale_base"],
-    ],
+    ["behind its base but mergeable is not actionable", { mergeStateStatus: "BEHIND" }, []],
     [
       "failed required check",
       { checks: [check("build", "fail"), check("gate", "pass")] },
@@ -86,7 +82,6 @@ describe("actionable items", () => {
 
   test.each([
     ["blockOnConflict", { mergeable: "CONFLICTING" as const }],
-    ["blockOnStaleBase", { baseComparison: { behindBy: 1, files: [], truncated: false } }],
     ["blockOnFailedChecks", { checks: [check("build", "fail")] }],
     ["blockOnReviewFindings", { comments: [greptileComment(1, HEAD)] }],
   ])("%s=false disables its item", (flag, changes) => {

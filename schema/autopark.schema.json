@@ -177,37 +177,6 @@
         "allowDraft": {
           "type": "boolean",
           "default": false
-        },
-        "baseFreshness": {
-          "type": "object",
-          "properties": {
-            "policy": {
-              "type": "string",
-              "enum": [
-                "off",
-                "contains-tip",
-                "max-behind",
-                "paths"
-              ],
-              "default": "off",
-              "description": "contains-tip: head must contain the base tip; max-behind: base may be ahead by at most maxBehind commits; paths: base changes since the merge base must not touch `paths`"
-            },
-            "maxBehind": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0
-            },
-            "paths": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              },
-              "default": [],
-              "description": "Globs used by the paths policy"
-            }
-          },
-          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -237,7 +206,6 @@
                 "conflicted",
                 "conflict_resolved",
                 "mergeability_unknown",
-                "stale_base",
                 "checks_failed",
                 "checks_passed",
                 "review_scored",
@@ -381,8 +349,6 @@
               "draft",
               "conflict",
               "mergeability_unknown",
-              "stale_base",
-              "base_unknown",
               "checks_failed",
               "checks_pending",
               "review_missing",
@@ -399,8 +365,6 @@
           "default": [
             "conflict",
             "mergeability_unknown",
-            "stale_base",
-            "base_unknown",
             "checks_failed",
             "checks_pending",
             "review_missing",
@@ -544,10 +508,6 @@
               "default": 10
             },
             "blockOnConflict": {
-              "type": "boolean",
-              "default": true
-            },
-            "blockOnStaleBase": {
               "type": "boolean",
               "default": true
             },

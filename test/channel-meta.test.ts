@@ -62,11 +62,6 @@ describe("channel meta", () => {
       { holdReason: "lunch", scope: "all", reasons: [] },
       { hold_reason: "lunch", scope: "all", reasons: "" },
     ],
-    [
-      "stale_base",
-      { base: "main", baseSha: "bbb", behindBy: 4, touched: ["a.ts"], policy: "contains-tip" },
-      { base: "main", base_sha: "bbb", behind_by: "4", touched: "a.ts", policy: "contains-tip" },
-    ],
     ["head_moved", { from: "a", to: "b" }, { from: "a", to: "b" }],
     ["approved_on_head", { by: ["r1", "r2"] }, { by: "r1,r2" }],
     [

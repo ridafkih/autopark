@@ -1,5 +1,5 @@
 import type { Candidate } from "../core/track.ts";
-import type { BaseComparison, Snapshot } from "../core/types.ts";
+import type { Snapshot } from "../core/types.ts";
 import {
   arrayAt,
   isRecord,
@@ -24,7 +24,6 @@ interface GitHubHttpOptions {
 
 const DEFAULT_API_URL = "https://api.github.com";
 const MAX_SEARCH_PAGES = 5;
-const COMPARE_FILE_LIMIT = 300;
 
 export async function resolveToken(): Promise<string> {
   const fromEnvironment = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
@@ -65,12 +64,6 @@ function candidateFrom(repo: string, node: JsonRecord): Candidate[] {
   ];
 }
 
-const fileNames = (comparison: unknown) =>
-  recordsAt(comparison, "files").flatMap((file) => {
-    const name = stringAt(file, "filename");
-    return name === undefined ? [] : [name];
-  });
-
 export class GitHubHttp implements GitHub {
   lastCost: number | null = null;
   private token: string | null = null;
@@ -106,17 +99,6 @@ export class GitHubHttp implements GitHub {
     if (!isRecord(pullRequest)) throw new Error(`${repo}#${number} not found`);
     const owner = stringAt(data, "repository", "nameWithOwner") ?? repo;
     return normalizePullRequest(owner, pullRequest);
-  }
-
-  async compare(repo: string, headSha: string, baseSha: string): Promise<BaseComparison> {
-    const path = `/repos/${repo}/compare/${headSha}...${baseSha}?per_page=1`;
-    const comparison = await this.request(path);
-    const files = fileNames(comparison);
-    return {
-      behindBy: numberAt(comparison, "ahead_by") ?? 0,
-      files,
-      truncated: files.length >= COMPARE_FILE_LIMIT,
-    };
   }
 
   searchOpenPullRequests(repo: string, author: string | null): Promise<Candidate[]> {

@@ -1,15 +1,12 @@
 import type { Config } from "../../config/schema.ts";
 import { formatScore, shortSha } from "../format.ts";
 import type { Evaluation, Reason, ReasonCode, ReviewerEvaluation, Snapshot } from "../types.ts";
-import { staleDetail } from "./base.ts";
 
 type Readiness = Config["readiness"];
 
 export interface ReasonInputs {
   snapshot: Snapshot;
   readiness: Readiness;
-  base: Evaluation["base"];
-  isBaseUnknown: boolean;
   checks: Evaluation["checks"];
   reviewers: ReviewerEvaluation[];
   threadsOpen: number;
@@ -34,14 +31,6 @@ function mergeabilityReason({ snapshot, readiness }: ReasonInputs) {
   }
   if (snapshot.mergeable === "UNKNOWN" && snapshot.state === "OPEN") {
     return reason("mergeability_unknown", "GitHub has not computed mergeability yet");
-  }
-  return null;
-}
-
-function baseReason({ snapshot, base, isBaseUnknown }: ReasonInputs) {
-  if (base.stale) return reason("stale_base", staleDetail(snapshot.baseRef, base));
-  if (isBaseUnknown) {
-    return reason("base_unknown", `could not compare head with ${snapshot.baseRef}`);
   }
   return null;
 }
@@ -109,7 +98,6 @@ export function collectReasons(inputs: ReasonInputs): Reason[] {
   return [
     ...lifecycleReasons(inputs),
     mergeabilityReason(inputs),
-    baseReason(inputs),
     ...checkReasons(inputs),
     ...reviewers.map((reviewer) => reviewerReason(reviewer, snapshot.headSha)),
     threadReason(inputs),

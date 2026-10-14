@@ -7,7 +7,6 @@ import type { Delivery } from "../sources/types.ts";
 import { autoMergeIfReady } from "./auto-merge.ts";
 import { AutoTracker } from "./auto-tracker.ts";
 import type { Clock } from "./clock.ts";
-import { ComparisonCache } from "./comparison-cache.ts";
 import type { ConfigSet } from "./config-set.ts";
 import { TransitionEmitter } from "./emitter.ts";
 import type { TransitionSink } from "./log.ts";
@@ -47,7 +46,6 @@ export class Engine {
   readonly nudges: Nudger;
   private readonly resyncs = new Set<Promise<void>>();
   private readonly log: (message: string) => void;
-  private readonly comparisons: ComparisonCache;
   private readonly scheduler: CoalescingScheduler;
   private readonly tracker: AutoTracker;
   private readonly emitter: TransitionEmitter;
@@ -57,7 +55,6 @@ export class Engine {
     this.log = dependencies.log ?? (() => {});
     this.emitter = new TransitionEmitter({ ...dependencies, log: this.log });
     this.nudges = new Nudger({ ...dependencies, emitter: this.emitter, log: this.log });
-    this.comparisons = new ComparisonCache(dependencies.github, this.log);
     this.scheduler = new CoalescingScheduler({
       debounceMs: () => dependencies.configs.daemon.debounceMs,
       retryMs: () => RECOMPUTE_RETRY_MS,
@@ -174,9 +171,8 @@ export class Engine {
     const entry = record?.tracked ? configs.get(record.repo) : undefined;
     if (!record || !entry) return;
     const settled = await fetchSettled(this.dependencies, record, entry.config.daemon.backoffMs);
-    const snapshot = await this.comparisons.attach(settled.snapshot, entry);
     const previous = store.getPullRequest(key)?.evaluation ?? null;
-    const next = evaluate(snapshot, entry.config, entry.parsers, previous);
+    const next = evaluate(settled.snapshot, entry.config, entry.parsers, previous);
     const transitions = diff(previous, next, { mergeabilityExhausted: settled.exhausted });
     store.saveEvaluation(key, next, clock.now());
     this.nudges.observe(key, previous, next);

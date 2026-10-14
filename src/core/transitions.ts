@@ -2,7 +2,6 @@ import {
   detectConflict,
   detectHeadMoved,
   detectMergeabilityUnknown,
-  detectStaleBase,
 } from "./transitions/branch.ts";
 import { detectChecksFailed, detectChecksPassed } from "./transitions/checks.ts";
 import { diffContext, type Detector, type DiffOptions } from "./transitions/context.ts";
@@ -45,7 +44,6 @@ const OPEN_DETECTORS: Detector[] = [
   detectHeadMoved,
   detectConflict,
   detectMergeabilityUnknown,
-  detectStaleBase,
   detectChecksFailed,
   detectChecksPassed,
   detectReviewScored,

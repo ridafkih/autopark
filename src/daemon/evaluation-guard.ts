@@ -42,14 +42,6 @@ const isReviewerEvaluation = (value: unknown): value is ReviewerEvaluation =>
   [value.score, value.maxScore, value.reviewsCount, value.minScore].every(isNullableNumber) &&
   [value.reviewedSha, value.commentId].every(isNullableString);
 
-const isBase = (value: unknown): value is Evaluation["base"] =>
-  isRecord(value) &&
-  isNullableString(value.sha) &&
-  isNullableNumber(value.behindBy) &&
-  isStringArray(value.touched) &&
-  hasBooleans(value, ["stale"]) &&
-  isString(value.policy);
-
 const isChecks = (value: unknown): value is Evaluation["checks"] =>
   isRecord(value) &&
   isArrayOf(value.failed, isFailedCheck) &&
@@ -76,7 +68,6 @@ const hasScalars = (value: Record<string, unknown>) =>
 export const isEvaluation = (value: unknown): value is Evaluation =>
   isRecord(value) &&
   hasScalars(value) &&
-  isBase(value.base) &&
   isChecks(value.checks) &&
   isArrayOf(value.reviewers, isReviewerEvaluation) &&
   isApprovals(value.approvals) &&

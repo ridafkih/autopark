@@ -17,8 +17,6 @@ const NEXT_STEPS: Record<NudgeKind, string> = {
   draft: "mark it ready for review once the work is done",
   conflict: "merge the base in, resolve, push",
   mergeability_unknown: "run `autopark check` once to re-read it",
-  stale_base: "merge the base in, re-run the affected tests, push",
-  base_unknown: "run `autopark check` once to re-read the base",
   checks_failed: "read the failing logs, fix the cause, push",
   checks_pending: "confirm the pending checks are running and rerun any that are stuck",
   review_missing: "make sure the reviewer bot has been triggered on the head",

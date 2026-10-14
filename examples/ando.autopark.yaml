@@ -23,8 +23,6 @@ readiness:
   approvalOnHead: true
   minApprovals: 1
   noConflict: true
-  baseFreshness:
-    policy: contains-tip
 
 notify:
   - type: command

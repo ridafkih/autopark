@@ -6,7 +6,6 @@ export const HEAD = "1111111111111111111111111111111111111111";
 export const HEAD2 = "2222222222222222222222222222222222222222";
 export const OLD = "0000000000000000000000000000000000000000";
 export const REPO = "acme/widgets";
-export const BASE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 export function config(overrides: Record<string, unknown> = {}): Config {
   const result = parseConfig({
@@ -69,8 +68,6 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     headRef: "bot/tidy",
     baseRef: "main",
     headSha,
-    baseSha: BASE,
-    baseComparison: { behindBy: 0, files: [], truncated: false },
     labels: [],
     mergeable: "MERGEABLE",
     mergeStateStatus: "CLEAN",

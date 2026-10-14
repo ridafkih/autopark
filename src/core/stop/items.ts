@@ -15,7 +15,6 @@ export interface TrackedView {
 
 export type ActionKind =
   | "conflict"
-  | "stale_base"
   | "failed_checks"
   | "review_findings"
   | "review_not_requested"
@@ -43,12 +42,6 @@ type ItemBuilder = (context: ItemContext) => ItemDraft | null;
 const hasReason = (evaluation: Evaluation, ...codes: ReasonCode[]) =>
   evaluation.reasons.some((reason) => codes.includes(reason.code));
 
-const reasonDetail = (evaluation: Evaluation, code: ReasonCode) =>
-  evaluation.reasons
-    .filter((reason) => reason.code === code)
-    .map((reason) => reason.detail)
-    .join("; ");
-
 const isBelowThreshold = (reviewer: ReviewerEvaluation) =>
   reviewer.required && reviewer.onHead && reviewer.score !== null && !reviewer.meetsThreshold;
 
@@ -58,15 +51,6 @@ const conflictItem: ItemBuilder = ({ evaluation, config }) => {
     kind: "conflict",
     detail: `conflicts with ${evaluation.baseRef}`,
     next: `merge ${evaluation.baseRef} into the branch, resolve, push.`,
-  };
-};
-
-const staleBaseItem: ItemBuilder = ({ evaluation, config }) => {
-  if (!config.blockOnStaleBase || !evaluation.base.stale) return null;
-  return {
-    kind: "stale_base",
-    detail: reasonDetail(evaluation, "stale_base"),
-    next: `merge ${evaluation.baseRef} in so required checks run against the current base, push.`,
   };
 };
 
@@ -111,7 +95,6 @@ const reviewNotRequestedItem: ItemBuilder = ({ evaluation, view, config, label }
 
 const ITEM_BUILDERS: ItemBuilder[] = [
   conflictItem,
-  staleBaseItem,
   failedChecksItem,
   reviewFindingsItem,
   reviewNotRequestedItem,

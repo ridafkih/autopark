@@ -16,10 +16,10 @@ export type TransitionRow = [
 ];
 
 const parsers = new Map([["greptile", greptile]]);
-const freshnessConfig = config({ readiness: { baseFreshness: { policy: "contains-tip" } } });
+const transitionConfig = config();
 
 export const evaluateChanges = (changes: SnapshotChanges, previous: Evaluation | null = null) =>
-  evaluate(snapshot(changes), freshnessConfig, parsers, previous);
+  evaluate(snapshot(changes), transitionConfig, parsers, previous);
 
 export const evaluatePrevious = (changes: SnapshotChanges | null) =>
   changes === null ? null : evaluateChanges(changes);
