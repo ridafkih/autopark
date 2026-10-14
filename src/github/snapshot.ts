@@ -46,6 +46,12 @@ function normalizeStatus(context: JsonRecord): CheckContext {
   };
 }
 
+interface HeadCheck {
+  check: CheckContext;
+  workflow: string | null;
+  startedAt: string | null;
+}
+
 function normalizeCheck(context: JsonRecord): CheckContext {
   if (context.__typename === "StatusContext") return normalizeStatus(context);
   const status = stringAt(context, "status") ?? "";
@@ -60,6 +66,55 @@ function normalizeCheck(context: JsonRecord): CheckContext {
     url: stringAt(context, "detailsUrl") ?? null,
   };
 }
+
+const headCheckOf = (context: JsonRecord, workflow: string | null): HeadCheck => ({
+  check: normalizeCheck(context),
+  workflow,
+  startedAt: stringAt(context, "startedAt") ?? null,
+});
+
+const rollupChecksOf = (commit: unknown) =>
+  recordsAt(commit, "statusCheckRollup", "contexts", "nodes").map((context) =>
+    headCheckOf(
+      context,
+      stringAt(context, "checkSuite", "workflowRun", "workflow", "name") ?? null,
+    ),
+  );
+
+const suiteChecksOf = (commit: unknown) =>
+  recordsAt(commit, "checkSuites", "nodes").flatMap((suite) => {
+    const workflow = stringAt(suite, "workflowRun", "workflow", "name") ?? null;
+    const app = stringAt(suite, "app", "slug") ?? null;
+    return recordsAt(suite, "checkRuns", "nodes").map((context) =>
+      headCheckOf({ ...context, checkSuite: { app: { slug: app } } }, workflow),
+    );
+  });
+
+const runKey = ({ check, workflow }: HeadCheck) =>
+  `${check.kind}\u0000${workflow ?? check.app ?? ""}\u0000${check.name}`;
+
+const isNewer = (candidate: HeadCheck, current: HeadCheck) =>
+  current.startedAt !== null &&
+  (candidate.startedAt === null || candidate.startedAt > current.startedAt);
+
+function newestRunPerCheck(runs: HeadCheck[]) {
+  const newest = new Map<string, HeadCheck>();
+  const required = new Set<string>();
+  for (const run of runs) {
+    const key = runKey(run);
+    if (run.check.isRequired) required.add(key);
+    const current = newest.get(key);
+    if (run.check.kind === "status" && current) continue;
+    if (!current || isNewer(run, current)) newest.set(key, run);
+  }
+  return [...newest].map(([key, run]): CheckContext => {
+    const { name, kind, outcome, conclusion, app, url } = run.check;
+    return { name, kind, outcome, conclusion, isRequired: required.has(key), app, url };
+  });
+}
+
+const checksOf = (commit: unknown) =>
+  newestRunPerCheck([...rollupChecksOf(commit), ...suiteChecksOf(commit)]);
 
 const normalizeComment = (comment: JsonRecord): PullRequestComment => ({
   id: String(comment.id ?? comment.databaseId),
@@ -138,7 +193,7 @@ export function normalizePullRequest(repo: string, node: JsonRecord): Snapshot {
     labels: labelsOf(node),
     mergeable: mergeableOf(node.mergeable),
     mergeStateStatus: stringAt(node, "mergeStateStatus") ?? "UNKNOWN",
-    checks: recordsAt(commit, "statusCheckRollup", "contexts", "nodes").map(normalizeCheck),
+    checks: checksOf(commit),
     approvals: approvalsOf(node),
     reviewDecision: stringAt(node, "reviewDecision") ?? null,
     threads: recordsAt(node, "reviewThreads", "nodes").map(normalizeThread),

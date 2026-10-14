@@ -13,9 +13,12 @@ export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: St
       lastComments: comments(last: 25) { nodes { id author { login } body updatedAt } }
       commits(last: 1) { nodes { commit { oid statusCheckRollup { state contexts(first: 100) { nodes {
         __typename
-        ... on CheckRun { name status conclusion detailsUrl isRequired(pullRequestNumber: $number) checkSuite { app { slug } } }
+        ... on CheckRun { name status conclusion detailsUrl startedAt isRequired(pullRequestNumber: $number) checkSuite { app { slug } workflowRun { workflow { name } } } }
         ... on StatusContext { context state targetUrl isRequired(pullRequestNumber: $number) }
-      } } } } } }
+      } } }
+      checkSuites(first: 50) { nodes { app { slug } workflowRun { event workflow { name } } checkRuns(first: 100, filterBy: { checkType: LATEST }) { nodes {
+        name status conclusion detailsUrl startedAt isRequired(pullRequestNumber: $number)
+      } } } } } } }
     }
   }
 }`;
