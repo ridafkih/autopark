@@ -48,3 +48,7 @@ A project can replace this playbook by setting `delivery.playbook` in `.autopark
 | `merged`, `closed` | Stop working on the PR. Remove its worktree, then report the outcome in one line. |
 | `nudge` | The PR has been stuck on the same `reasons` for `blocked_for` and nothing moved it. Do the `next` step now, using the rows above for each code. When `re_request_review` is true, approval was never requested for this PR: carry out the `instruction` once, then run `autopark request-review <pr>`. Never re-ask approval after that, even when the head moves. A nudge on `checks_pending` means confirm the checks are actually running and rerun any that are stuck. `escalated` means it has been stuck past the project's limit: act first, then tell the user in one line. Nudges repeat until the PR is ready, merged or held. |
 | `hold_expired` | The hold on this PR (or on every PR, `scope` all) has ended. Resume work immediately on what the reason lists. |
+
+## Stop hook codes
+
+The Stop hook lists one line per PR, such as `#15951 checks:Merge Ready, threads:2, greptile:4/5`. Act on each code with the matching row above: `conflict` is `conflicted`, `checks:<names>` is `checks_failed`, `threads:<n>` is `threads_open`, `<reviewer>:<score>` is `review_scored` below threshold on head, `approval_needed` is `approval_needed`, and `nudged:<reasons>` is `nudge`.
