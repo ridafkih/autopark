@@ -43,7 +43,7 @@ const WATCH_COMMAND = `"${resolve(import.meta.dir, "../..")}/bin/autopark" watch
 export const DELIVERY_DOWN = [
   "autopark cannot wake this session: no channel or monitor running current autopark code is delivering this session's PR events,",
   "so approval requests, failed checks and nudges reach you only when a turn ends.",
-  `Start the monitor now with the Monitor tool (persistent: true, command: ${WATCH_COMMAND}).`,
+  `Start the monitor now with the Monitor tool at its longest timeout and re-arm it each time it expires: ${WATCH_COMMAND}`,
 ].join(" ");
 
 const nudgeMark = (views: TrackedView[]) =>
