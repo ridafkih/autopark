@@ -22,7 +22,12 @@ interface GitHubHttpOptions {
   apiUrl?: string;
 }
 
+interface GitHubRequestInit extends RequestInit {
+  apiVersion?: string;
+}
+
 const DEFAULT_API_URL = "https://api.github.com";
+const STACK_MERGE_API_VERSION = "2026-03-10";
 const MAX_SEARCH_PAGES = 5;
 
 export async function resolveToken(): Promise<string> {
@@ -107,6 +112,15 @@ export class GitHubHttp implements GitHub {
   }
 
   async merge(repo: string, number: number, sha: string, method: MergeMethod) {
+    const pullRequest = await this.request(`/repos/${repo}/pulls/${number}`);
+    if (isRecord(valueAt(pullRequest, "stack"))) {
+      await this.request(`/repos/${repo}/pulls/${number}/merge-async`, {
+        method: "PUT",
+        body: JSON.stringify({ sha, merge_method: method, merge_action: "direct_merge" }),
+        apiVersion: STACK_MERGE_API_VERSION,
+      });
+      return;
+    }
     await this.request(`/repos/${repo}/pulls/${number}/merge`, {
       method: "PUT",
       body: JSON.stringify({ sha, merge_method: method }),
@@ -118,14 +132,15 @@ export class GitHubHttp implements GitHub {
     return this.token;
   }
 
-  private async request(path: string, init: RequestInit = {}): Promise<unknown> {
+  private async request(path: string, options: GitHubRequestInit = {}): Promise<unknown> {
+    const { apiVersion, ...init } = options;
     const send = this.options.fetch ?? ((url, requestInit) => fetch(url, requestInit));
     const response = await send(`${this.options.apiUrl ?? DEFAULT_API_URL}${path}`, {
       ...init,
       headers: {
         authorization: `Bearer ${await this.authorization()}`,
         accept: "application/vnd.github+json",
-        "x-github-api-version": "2022-11-28",
+        "x-github-api-version": apiVersion ?? "2022-11-28",
         "user-agent": "autopark",
         ...(init.body ? { "content-type": "application/json" } : {}),
       },

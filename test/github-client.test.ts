@@ -94,9 +94,33 @@ describe("GitHub HTTP client", () => {
   });
 
   test("merge pins the head sha", async () => {
-    const { fetchStub, calls } = stubFetch({ "/merge": () => ({ merged: true }) });
+    const { fetchStub, calls } = stubFetch({
+      "/merge": () => ({ merged: true }),
+      "/pulls/7": () => ({ number: 7 }),
+    });
     await clientFor(fetchStub).merge("acme/widgets", 7, "abc", "squash");
-    expect(calls[0]).toMatchObject({ method: "PUT", body: { sha: "abc", merge_method: "squash" } });
+    expect(calls.at(-1)).toMatchObject({
+      method: "PUT",
+      body: { sha: "abc", merge_method: "squash" },
+    });
+    expect(calls.at(-1)?.url).toEndWith("/pulls/7/merge");
+  });
+
+  test("a pull request in a stack merges through the async endpoint, pinned to the head", async () => {
+    const { fetchStub, calls } = stubFetch({
+      "/merge-async": () => ({ status: "pending" }),
+      "/merge": () => ({ message: "part of a stack" }),
+      "/pulls/7": () => ({ number: 7, stack: { id: 1, size: 2, position: 2 } }),
+    });
+    await clientFor(fetchStub).merge("acme/widgets", 7, "abc", "squash");
+    const puts = calls.filter((call) => call.method === "PUT");
+    expect(puts).toHaveLength(1);
+    expect(puts[0]?.url).toEndWith("/pulls/7/merge-async");
+    expect(puts[0]?.body).toEqual({
+      sha: "abc",
+      merge_method: "squash",
+      merge_action: "direct_merge",
+    });
   });
 
   test("http errors include status and message", async () => {
