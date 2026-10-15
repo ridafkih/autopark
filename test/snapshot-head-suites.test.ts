@@ -61,8 +61,19 @@ const withHeadSuites = (
     },
   });
 
-const outcomes = (snapshot: ReturnType<typeof normalizePullRequest>) =>
-  snapshot.checks.map((check) => [check.name, check.outcome, check.isRequired, check.url]);
+const RANK = { pending: 0, fail: 1, pass: 2 } as const;
+
+const verdicts = (snapshot: ReturnType<typeof normalizePullRequest>) => {
+  const worst = new Map<string, (typeof snapshot.checks)[number]>();
+  for (const check of snapshot.checks) {
+    const current = worst.get(check.name);
+    if (!current || RANK[check.outcome] < RANK[current.outcome]) worst.set(check.name, check);
+  }
+  return [...worst.values()].map((check) => [check.name, check.outcome, check.isRequired]);
+};
+
+const listing = (snapshot: ReturnType<typeof normalizePullRequest>) =>
+  snapshot.checks.map((check) => [check.name, check.outcome, check.url]);
 
 describe("head commit check suites outside the pull request rollup", () => {
   const pullRequestRun = [
@@ -78,9 +89,9 @@ describe("head commit check suites outside the pull request rollup", () => {
         run("Merge Ready", "FAILURE", "2026-10-14T23:40:00Z", "dispatch/ready"),
       ]),
     ]);
-    expect(outcomes(snapshot)).toEqual([
-      ["E2E CI", "fail", false, "dispatch/e2e"],
-      ["Merge Ready", "fail", true, "dispatch/ready"],
+    expect(verdicts(snapshot)).toEqual([
+      ["E2E CI", "fail", false],
+      ["Merge Ready", "fail", true],
     ]);
   });
 
@@ -96,9 +107,33 @@ describe("head commit check suites outside the pull request rollup", () => {
         run("Merge Ready", "SUCCESS", "2026-10-15T00:16:00Z", "new/ready"),
       ]),
     ]);
-    expect(outcomes(snapshot)).toEqual([
-      ["E2E CI", "pass", false, "new/e2e"],
-      ["Merge Ready", "pass", true, "new/ready"],
+    expect(verdicts(snapshot)).toEqual([
+      ["E2E CI", "pass", false],
+      ["Merge Ready", "pass", true],
+    ]);
+  });
+
+  test("a passing dispatched run never hides a failed pull request run of the same check", () => {
+    const failedPullRequestRun = [
+      run("Build or update the pull request", "FAILURE", "2026-10-15T00:05:21Z", "pr/build"),
+      run("Merge Ready", "FAILURE", "2026-10-15T00:10:28Z", "pr/ready"),
+    ];
+    const snapshot = withHeadSuites(failedPullRequestRun, [
+      suite("pull_request", failedPullRequestRun),
+      suite("workflow_dispatch", [
+        run(
+          "Build or update the pull request",
+          "SUCCESS",
+          "2026-10-15T00:06:00Z",
+          "dispatch/build",
+        ),
+        run("Merge Ready", "SUCCESS", "2026-10-15T00:12:00Z", "dispatch/ready"),
+      ]),
+    ]);
+    const failed = snapshot.checks.filter((check) => check.outcome === "fail");
+    expect(failed.map((check) => [check.name, check.isRequired, check.url])).toEqual([
+      ["Build or update the pull request", false, "pr/build"],
+      ["Merge Ready", true, "pr/ready"],
     ]);
   });
 
@@ -107,9 +142,9 @@ describe("head commit check suites outside the pull request rollup", () => {
       suite("pull_request", pullRequestRun),
       suite("workflow_dispatch", [run("Merge Ready", null, null, "dispatch/ready")]),
     ]);
-    expect(outcomes(snapshot)).toEqual([
-      ["E2E CI", "pass", false, "pr/e2e"],
-      ["Merge Ready", "pending", true, "dispatch/ready"],
+    expect(verdicts(snapshot)).toEqual([
+      ["E2E CI", "pass", false],
+      ["Merge Ready", "pending", true],
     ]);
   });
 
@@ -122,9 +157,7 @@ describe("head commit check suites outside the pull request rollup", () => {
       [run("lint", "SUCCESS", "2026-10-14T23:05:00Z", "pr/lint")],
       [suite("pull_request", [run("lint", "SUCCESS", "2026-10-14T23:05:00Z", "pr/lint")]), other],
     );
-    expect(outcomes(snapshot)).toEqual([
-      ["lint", "pass", false, "pr/lint"],
-      ["lint", "fail", false, "other/lint"],
-    ]);
+    expect(listing(snapshot)).toContainEqual(["lint", "pass", "pr/lint"]);
+    expect(listing(snapshot)).toContainEqual(["lint", "fail", "other/lint"]);
   });
 });

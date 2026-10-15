@@ -49,6 +49,7 @@ function normalizeStatus(context: JsonRecord): CheckContext {
 interface HeadCheck {
   check: CheckContext;
   workflow: string | null;
+  event: string | null;
   startedAt: string | null;
 }
 
@@ -67,9 +68,14 @@ function normalizeCheck(context: JsonRecord): CheckContext {
   };
 }
 
-const headCheckOf = (context: JsonRecord, workflow: string | null): HeadCheck => ({
+const headCheckOf = (
+  context: JsonRecord,
+  workflow: string | null,
+  event: string | null,
+): HeadCheck => ({
   check: normalizeCheck(context),
   workflow,
+  event,
   startedAt: stringAt(context, "startedAt") ?? null,
 });
 
@@ -78,20 +84,22 @@ const rollupChecksOf = (commit: unknown) =>
     headCheckOf(
       context,
       stringAt(context, "checkSuite", "workflowRun", "workflow", "name") ?? null,
+      stringAt(context, "checkSuite", "workflowRun", "event") ?? "pull_request",
     ),
   );
 
 const suiteChecksOf = (commit: unknown) =>
   recordsAt(commit, "checkSuites", "nodes").flatMap((suite) => {
     const workflow = stringAt(suite, "workflowRun", "workflow", "name") ?? null;
+    const event = stringAt(suite, "workflowRun", "event") ?? null;
     const app = stringAt(suite, "app", "slug") ?? null;
     return recordsAt(suite, "checkRuns", "nodes").map((context) =>
-      headCheckOf({ ...context, checkSuite: { app: { slug: app } } }, workflow),
+      headCheckOf({ ...context, checkSuite: { app: { slug: app } } }, workflow, event),
     );
   });
 
-const runKey = ({ check, workflow }: HeadCheck) =>
-  `${check.kind}\u0000${workflow ?? check.app ?? ""}\u0000${check.name}`;
+const runKey = ({ check, workflow, event }: HeadCheck) =>
+  [check.kind, workflow ?? check.app ?? "", event ?? "", check.name].join("\u0000");
 
 const isNewer = (candidate: HeadCheck, current: HeadCheck) =>
   current.startedAt !== null &&
