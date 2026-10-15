@@ -1,13 +1,12 @@
 import { PAUSE_RULE } from "../core/nudge-message.ts";
 import { sessionIdFrom } from "../core/session.ts";
 import { VERSION } from "../daemon/client.ts";
-import { resolvePaths } from "../daemon/paths.ts";
+import { resolvePaths, type Paths } from "../daemon/paths.ts";
 import { cwdConfig } from "./context.ts";
 import { StdioMcp } from "./mcp.ts";
 import { playbookRef } from "./playbook.ts";
-import { codeStamp, removeHeartbeat, writeHeartbeat } from "./heartbeat.ts";
+import { removeHeartbeat, writeHeartbeat } from "./heartbeat.ts";
 import { ChannelRelay } from "./relay.ts";
-import { deliveryScope } from "./scope.ts";
 
 const log = (message: string) => {
   process.stderr.write(`[autopark channel] ${message}\n`);
@@ -25,32 +24,40 @@ export function channelInstructions(playbook: string) {
   ].join(" ");
 }
 
+function announce(paths: Paths, sessionId: string | null) {
+  if (!sessionId) return;
+  const heartbeat = { kind: "channel" as const, pid: process.pid, sessionId };
+  writeHeartbeat(paths, { ...heartbeat, startedAt: Date.now() });
+}
+
 async function main() {
-  const stamp = codeStamp();
-  const { config, path } = await cwdConfig(process.cwd());
+  const cwd = process.cwd();
+  const { config, path } = await cwdConfig(cwd);
   const instructions = channelInstructions(playbookRef(config, path));
   const paths = resolvePaths();
   const sessionId = sessionIdFrom(process.env);
-  const relayOptions = {
-    logPath: paths.log,
-    scope: deliveryScope(config?.repos ?? [], sessionId, paths.db),
-    isEnabled: config?.delivery.channel ?? true,
-    log,
-  };
-  const announce = () => {
-    if (!relayOptions.isEnabled || !sessionId) return;
-    const heartbeat = { kind: "channel" as const, pid: process.pid, sessionId, stamp };
-    writeHeartbeat(paths, { ...heartbeat, startedAt: Date.now() });
-  };
   const mcp = new StdioMcp(
     { name: "autopark", version: VERSION, instructions },
     (text) => process.stdout.write(text),
     () => {
       relay.start();
-      announce();
+      announce(paths, sessionId);
     },
   );
-  const relay = new ChannelRelay(mcp, relayOptions);
+  const relay = new ChannelRelay({
+    logPath: paths.log,
+    sessionId,
+    cwd,
+    format: "channel",
+    emit: (delivery) => {
+      if (delivery.format !== "channel") return;
+      mcp.notify("notifications/claude/channel", {
+        content: delivery.content,
+        meta: delivery.meta,
+      });
+    },
+    log,
+  });
   process.on("uncaughtException", (error) => log(`error: ${error.message}`));
   process.on("unhandledRejection", (reason) => log(`error: ${String(reason)}`));
   process.stdin.setEncoding("utf8");

@@ -86,7 +86,7 @@ function spawnServer({ configYaml, sessionId = "", bindings }: ServerSetup) {
   const nextMessage = async () => JSON.parse(await nextValue(outputLines));
   const nextErrorLine = () => nextValue(errorLines);
   const log = join(home, "transitions.jsonl");
-  return { subprocess, send, nextMessage, log, nextErrorLine };
+  return { subprocess, send, nextMessage, log, nextErrorLine, project };
 }
 
 type ChannelServer = ReturnType<typeof spawnServer>;
@@ -164,22 +164,15 @@ test("speaks MCP over stdio and pushes new in-scope transitions as channel notif
   });
 });
 
-test("delivery.channel false keeps the server connected but silent", async () => {
+test("config changes apply to the next transition without restarting the server", async () => {
   await withServer("repos:\n  - acme/widgets\ndelivery:\n  channel: false\n", async (server) => {
-    server.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: { protocolVersion: "2025-06-18" },
-    });
-    await server.nextMessage();
-    server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
-    expect(await server.nextErrorLine()).toBe(
-      "[autopark channel] delivery.channel is false; staying silent",
-    );
-    appendFileSync(server.log, transition(2, "acme/widgets"));
+    await initialize(server);
     server.send({ jsonrpc: "2.0", id: 9, method: "ping" });
     expect(await server.nextMessage()).toEqual({ jsonrpc: "2.0", id: 9, result: {} });
+    writeFileSync(join(server.project, ".autopark.yaml"), "repos:\n  - acme/widgets\n");
+    appendFileSync(server.log, transition(2, "acme/widgets", "conflicted", 8));
+    const message = await server.nextMessage();
+    expect(message.params.meta.pr).toBe("8");
   });
 });
 

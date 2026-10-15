@@ -16,7 +16,7 @@
 - **Deliveries made while nothing is connected are lost.** The next resync heals them from current state; history in between is not replayed.
 - **Mergeability is not evented.** It is recomputed on base pushes and PR updates, plus the bounded backoff.
 - **Channels are a research preview.** A custom channel needs `--dangerously-load-development-channels`, which only works in interactive sessions with claude.ai login. Stdio MCP servers are not auto-reconnected if they crash; reconnect from `/mcp`. The server never offers MCP revision 2026-07-28, which would unregister it as a channel, and the plugin sets `MCP_PROTOCOL_NEGOTIATION=legacy` as well.
-- **Monitor `auto` mode** stands down only while a channel for the same session has a live heartbeat in `~/.autopark/deliveries` written by current delivery code; a missing, dead or outdated channel makes the monitor deliver. The Stop hook blocks with the fallback monitor command when neither delivers to a session that drives PRs.
+- **Monitor `auto` mode** stands down only while a channel for the same session has a live heartbeat in `~/.autopark/deliveries`. Channel and monitor decide each transition in a fresh process, so config and code changes apply without restarting the session. The Stop hook blocks when nothing delivers to a session that drives PRs.
 - **Query windows.** One query reads up to 100 check contexts, 100 review threads, and the first and last 25 issue comments.
 - **Platforms.** macOS and Linux only for service install.
 

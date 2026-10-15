@@ -1,4 +1,4 @@
-import { codeStamp, writeHeartbeat } from "../../src/channel/heartbeat.ts";
+import { writeHeartbeat } from "../../src/channel/heartbeat.ts";
 import type { Clock } from "../../src/daemon/clock.ts";
 import { ConfigSet } from "../../src/daemon/config-set.ts";
 import { Engine } from "../../src/daemon/engine.ts";
@@ -58,6 +58,6 @@ export const pullRequestPayload = (number: number, extra: Record<string, unknown
 });
 
 export function markChannelLive(home: string, sessionId: string) {
-  const channel = { kind: "channel" as const, pid: process.pid, sessionId, stamp: codeStamp() };
+  const channel = { kind: "channel" as const, pid: process.pid, sessionId };
   writeHeartbeat(resolvePaths(home), { ...channel, startedAt: 1 });
 }

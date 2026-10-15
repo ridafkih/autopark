@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { cwdConfig } from "../channel/context.ts";
-import { codeStamp, liveDeliveries } from "../channel/heartbeat.ts";
+import { liveDeliveries } from "../channel/heartbeat.ts";
 import { playbookRef } from "../channel/playbook.ts";
 import { isRecord, parseJson } from "../core/json.ts";
 import { daemonHealth } from "../daemon/client.ts";
@@ -29,9 +29,7 @@ export async function hookState(input: HookInput, paths: Paths): Promise<HookSta
     config,
     sessionId,
     playbook: playbookRef(config, path),
-    isDeliveryLive: sessionId
-      ? liveDeliveries(paths, { sessionId, stamp: codeStamp() }).length > 0
-      : undefined,
+    isDeliveryLive: sessionId ? liveDeliveries(paths, { sessionId }).length > 0 : undefined,
   };
 }
 

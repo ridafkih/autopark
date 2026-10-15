@@ -1,32 +1,27 @@
 import { errorMessage } from "../core/errors.ts";
-import { parseJson } from "../core/json.ts";
-import { toLoggedTransition } from "../core/transition-codec.ts";
-import type { StdioMcp } from "./mcp.ts";
-import { channelContent, channelMeta } from "./meta.ts";
-import { inScope, type DeliveryScope } from "./scope.ts";
+import type { DeliveryFormat } from "./deliver.ts";
+import { freshDelivery, type Deliver } from "./fresh.ts";
 import { LogTailer } from "./tail.ts";
 
 export interface RelayOptions {
   logPath: string;
-  scope: DeliveryScope;
-  isEnabled: boolean;
+  sessionId: string | null;
+  cwd: string;
+  format: DeliveryFormat;
+  emit: (delivery: NonNullable<Awaited<ReturnType<Deliver>>>) => void;
   log: (message: string) => void;
+  deliver?: Deliver;
 }
 
 export class ChannelRelay {
   private tailer: LogTailer | null = null;
+  private pending: string[] = [];
+  private draining: Promise<void> | null = null;
 
-  constructor(
-    private readonly mcp: StdioMcp,
-    private readonly options: RelayOptions,
-  ) {}
+  constructor(private readonly options: RelayOptions) {}
 
   start() {
-    if (!this.options.isEnabled) {
-      this.options.log("delivery.channel is false; staying silent");
-      return;
-    }
-    this.tailer = new LogTailer(this.options.logPath, (line) => this.forward(line));
+    this.tailer = new LogTailer(this.options.logPath, (line) => this.enqueue(line));
     this.tailer.start();
   }
 
@@ -34,20 +29,34 @@ export class ChannelRelay {
     this.tailer?.stop();
   }
 
-  private forward(line: string) {
+  poll() {
+    this.tailer?.poll();
+  }
+
+  async idle() {
+    await this.draining;
+  }
+
+  private enqueue(line: string) {
+    this.pending.push(line);
+    this.draining ??= this.drain();
+  }
+
+  private async drain() {
+    while (this.pending.length > 0) {
+      const batch = this.pending.splice(0);
+      for (const line of batch) await this.forward(line);
+    }
+    this.draining = null;
+  }
+
+  private async forward(line: string) {
+    const { sessionId, cwd, format, deliver = freshDelivery } = this.options;
     try {
-      const transition = toLoggedTransition(parseJson(line));
-      if (!transition) {
-        this.options.log("skipping bad line: not a transition");
-        return;
-      }
-      if (!inScope(transition, this.options.scope)) return;
-      this.mcp.notify("notifications/claude/channel", {
-        content: channelContent(transition),
-        meta: channelMeta(transition),
-      });
+      const delivery = await deliver({ line, sessionId, cwd, format });
+      if (delivery) this.options.emit(delivery);
     } catch (error) {
-      this.options.log(`skipping bad line: ${errorMessage(error)}`);
+      this.options.log(`skipping a transition: ${errorMessage(error)}`);
     }
   }
 }

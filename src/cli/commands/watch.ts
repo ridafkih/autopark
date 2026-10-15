@@ -1,37 +1,10 @@
 import { cwdConfig } from "../../channel/context.ts";
-import {
-  codeStamp,
-  liveDeliveries,
-  removeHeartbeat,
-  writeHeartbeat,
-} from "../../channel/heartbeat.ts";
-import { monitorLine } from "../../channel/meta.ts";
-import {
-  deliveryScope,
-  inScope,
-  monitorShouldEmit,
-  type DeliveryScope,
-} from "../../channel/scope.ts";
-import { LogTailer } from "../../channel/tail.ts";
-import type { Config } from "../../config/schema.ts";
-import type { Paths } from "../../daemon/paths.ts";
-import { errorMessage } from "../../core/errors.ts";
+import { removeHeartbeat, writeHeartbeat } from "../../channel/heartbeat.ts";
+import { ChannelRelay } from "../../channel/relay.ts";
 import { sessionIdFrom } from "../../core/session.ts";
-import { parseLoggedTransition } from "../../core/transition-codec.ts";
 import type { Invocation } from "./types.ts";
 
 const PARENT_CHECK_MS = 5000;
-
-function printInScope(line: string, scope: DeliveryScope) {
-  const transition = parseLoggedTransition(line);
-  try {
-    if (transition && inScope(transition, scope)) {
-      process.stdout.write(`${monitorLine(transition)}\n`);
-    }
-  } catch (error) {
-    process.stderr.write(`autopark watch: skipped a transition: ${errorMessage(error)}\n`);
-  }
-}
 
 function untilOrphaned() {
   return new Promise<void>((resolve) => {
@@ -48,47 +21,27 @@ function untilOrphaned() {
   });
 }
 
-const isChannelLive = (paths: Paths, sessionId: string | null) =>
-  sessionId !== null &&
-  liveDeliveries(paths, { sessionId, stamp: codeStamp() }).some(
-    (heartbeat) => heartbeat.kind === "channel",
-  );
-
-export const FALLBACK_FLAG = "--fallback";
-
-function deliveryOf(paths: Paths, config: Config | null, argv: string[]) {
-  const mode = argv.includes(FALLBACK_FLAG) ? "auto" : (config?.delivery.monitor ?? "auto");
-  const isChannelEnabled = config?.delivery.channel ?? true;
+export async function watchTransitions({ paths }: Invocation) {
+  const cwd = process.cwd();
+  const { config } = await cwdConfig(cwd);
   const sessionId = sessionIdFrom(process.env);
-  const shouldEmit = () =>
-    monitorShouldEmit(mode, isChannelEnabled, mode === "auto" && isChannelLive(paths, sessionId));
-  return { mode, sessionId, shouldEmit };
-}
-
-function forwardLine(line: string, scope: DeliveryScope, delivery: ReturnType<typeof deliveryOf>) {
-  if (delivery.shouldEmit()) {
-    printInScope(line, scope);
-    return;
-  }
-  if (delivery.mode === "auto") {
-    process.stderr.write("autopark watch: a live channel delivered this transition\n");
-  }
-}
-
-export async function watchTransitions({ argv, paths }: Invocation) {
-  const stamp = codeStamp();
-  const { config } = await cwdConfig(process.cwd());
-  const delivery = deliveryOf(paths, config, argv);
-  const { mode, sessionId } = delivery;
-  const scope = deliveryScope(config?.repos ?? [], sessionId, paths.db);
-  const tailer = new LogTailer(paths.log, (line) => forwardLine(line, scope, delivery));
-  tailer.start();
-  if (sessionId && mode !== "off") {
-    const heartbeat = { kind: "monitor" as const, pid: process.pid, sessionId, stamp };
+  const relay = new ChannelRelay({
+    logPath: paths.log,
+    sessionId,
+    cwd,
+    format: "monitor",
+    emit: (delivery) => {
+      if (delivery.format === "monitor") process.stdout.write(`${delivery.text}\n`);
+    },
+    log: (message) => process.stderr.write(`autopark watch: ${message}\n`),
+  });
+  relay.start();
+  if (sessionId && config?.delivery.monitor !== "off") {
+    const heartbeat = { kind: "monitor" as const, pid: process.pid, sessionId };
     writeHeartbeat(paths, { ...heartbeat, startedAt: Date.now() });
   }
-  process.stderr.write(`autopark watch: tailing ${paths.log} (monitor=${mode})\n`);
+  process.stderr.write(`autopark watch: tailing ${paths.log}\n`);
   await untilOrphaned();
-  tailer.stop();
+  relay.stop();
   removeHeartbeat(paths, "monitor", process.pid);
 }

@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import {
   actionItemsFor,
   actionLines,
@@ -38,12 +37,9 @@ type StopConfig = ReturnType<typeof configOrDefaults>["hooks"]["stop"];
 const DAEMON_DOWN =
   "autopark: the daemon is not running, so tracked PR state may be stale; start it with `autopark daemon start`.";
 
-const WATCH_COMMAND = `"${resolve(import.meta.dir, "../..")}/bin/autopark" watch --fallback`;
-
 export const DELIVERY_DOWN = [
-  "autopark cannot wake this session: no channel or monitor running current autopark code is delivering this session's PR events,",
-  "so approval requests, failed checks and nudges reach you only when a turn ends.",
-  `Start the monitor now with the Monitor tool at its longest timeout and re-arm it each time it expires: ${WATCH_COMMAND}`,
+  "autopark's channel is not running for this session, so approval requests, failed checks and nudges reach it only when a turn ends.",
+  "Ask the user once to reconnect the autopark MCP server with /mcp.",
 ].join(" ");
 
 const nudgeMark = (views: TrackedView[]) =>
