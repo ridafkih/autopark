@@ -9,6 +9,7 @@ export interface HookState {
   sessionId: string | null;
   playbook: string;
   now: number;
+  isDeliveryLive?: boolean;
 }
 
 export const configOrDefaults = (config: Config | null) => config ?? defaultConfig(["owner/repo"]);

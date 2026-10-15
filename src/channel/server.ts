@@ -5,6 +5,7 @@ import { resolvePaths } from "../daemon/paths.ts";
 import { cwdConfig } from "./context.ts";
 import { StdioMcp } from "./mcp.ts";
 import { playbookRef } from "./playbook.ts";
+import { codeStamp, removeHeartbeat, writeHeartbeat } from "./heartbeat.ts";
 import { ChannelRelay } from "./relay.ts";
 import { deliveryScope } from "./scope.ts";
 
@@ -25,19 +26,29 @@ export function channelInstructions(playbook: string) {
 }
 
 async function main() {
+  const stamp = codeStamp();
   const { config, path } = await cwdConfig(process.cwd());
   const instructions = channelInstructions(playbookRef(config, path));
   const paths = resolvePaths();
+  const sessionId = sessionIdFrom(process.env);
   const relayOptions = {
     logPath: paths.log,
-    scope: deliveryScope(config?.repos ?? [], sessionIdFrom(process.env), paths.db),
+    scope: deliveryScope(config?.repos ?? [], sessionId, paths.db),
     isEnabled: config?.delivery.channel ?? true,
     log,
+  };
+  const announce = () => {
+    if (!relayOptions.isEnabled || !sessionId) return;
+    const heartbeat = { kind: "channel" as const, pid: process.pid, sessionId, stamp };
+    writeHeartbeat(paths, { ...heartbeat, startedAt: Date.now() });
   };
   const mcp = new StdioMcp(
     { name: "autopark", version: VERSION, instructions },
     (text) => process.stdout.write(text),
-    () => relay.start(),
+    () => {
+      relay.start();
+      announce();
+    },
   );
   const relay = new ChannelRelay(mcp, relayOptions);
   process.on("uncaughtException", (error) => log(`error: ${error.message}`));
@@ -46,6 +57,7 @@ async function main() {
   process.stdin.on("data", (chunk: string) => mcp.feed(chunk));
   process.stdin.on("end", () => {
     relay.stop();
+    removeHeartbeat(paths, "channel", process.pid);
     process.exit(0);
   });
 }

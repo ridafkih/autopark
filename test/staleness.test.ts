@@ -7,7 +7,7 @@ import { PENDING_GRACE_MS, stalenessOf, type Freshness } from "../src/core/stale
 import { actionLines, actionableItems } from "../src/core/stop.ts";
 import { pullRequestKey } from "../src/core/types.ts";
 import { Store } from "../src/daemon/store.ts";
-import { readViews } from "../src/hooks/run.ts";
+import { readViews } from "../src/hooks/views.ts";
 import { greptile } from "../src/reviewers/greptile.ts";
 import { config, REPO, snapshot } from "./fixtures/build.ts";
 

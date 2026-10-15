@@ -1,7 +1,10 @@
+import { resolve } from "node:path";
 import {
   actionItemsFor,
+  actionLines,
   decideStop,
   isHeld,
+  STOP_HEADER,
   viewsInScope,
   type StopDecision,
   type TrackedView,
@@ -35,6 +38,14 @@ type StopConfig = ReturnType<typeof configOrDefaults>["hooks"]["stop"];
 const DAEMON_DOWN =
   "autopark: the daemon is not running, so tracked PR state may be stale; start it with `autopark daemon start`.";
 
+const WATCH_COMMAND = `"${resolve(import.meta.dir, "../..")}/bin/autopark" watch --fallback`;
+
+export const DELIVERY_DOWN = [
+  "autopark cannot wake this session: no channel or monitor running current autopark code is delivering this session's PR events,",
+  "so approval requests, failed checks and nudges reach you only when a turn ends.",
+  `Start the monitor now with the Monitor tool (persistent: true, command: ${WATCH_COMMAND}).`,
+].join(" ");
+
 const nudgeMark = (views: TrackedView[]) =>
   Math.max(0, ...views.map((view) => view.nudge?.lastNudgeAt ?? 0));
 
@@ -56,6 +67,43 @@ function blockOutput({ state, decision, views, config, when }: BlockContext) {
   return { output: { decision: "block", reason }, brief: memory };
 }
 
+function deliveryDownOutput({
+  state,
+  scoped: views,
+  config,
+  when,
+  mark,
+}: EarlyContext): StopHookResult {
+  const brief = priorBriefOf(state);
+  if (state.stopHookActive && state.priorBlocks >= config.maxBlocks) {
+    return { output: { systemMessage: DELIVERY_DOWN }, blocks: 0, mark, brief };
+  }
+  const items = views.flatMap((view) => actionItemsFor(view, config, when));
+  const lines = items.length > 0 ? [STOP_HEADER, ...actionLines(items)] : [];
+  const blocks = state.stopHookActive ? state.priorBlocks + 1 : 1;
+  const reason = [DELIVERY_DOWN, ...lines].join("\n");
+  return { output: { decision: "block", reason }, blocks, mark, brief: FORGOTTEN };
+}
+
+interface EarlyContext {
+  state: StopHookState;
+  scoped: TrackedView[];
+  config: StopConfig;
+  when: ReviewRequestTiming;
+  mark: number;
+}
+
+function earlyOutput({ state, scoped, config, when, mark }: EarlyContext): StopHookResult | null {
+  if (scoped.length === 0) return { output: null, blocks: 0, mark, brief: FORGOTTEN };
+  if (!state.health) {
+    return { output: { systemMessage: DAEMON_DOWN }, blocks: 0, mark, brief: priorBriefOf(state) };
+  }
+  if (state.isDeliveryLive === false) {
+    return deliveryDownOutput({ state, scoped, config, when, mark });
+  }
+  return null;
+}
+
 export function stopHook(state: StopHookState): StopHookResult {
   const {
     hooks: { stop: config },
@@ -65,11 +113,9 @@ export function stopHook(state: StopHookState): StopHookResult {
   const scope = { sessionId: state.sessionId, repos: state.config?.repos ?? [] };
   const scoped = viewsInScope(state.views, config.scope, scope).filter((view) => !isHeld(view));
   const mark = nudgeMark(scoped);
-  if (scoped.length === 0) return { output: null, blocks: 0, mark, brief: FORGOTTEN };
+  const early = earlyOutput({ state, scoped, config, when, mark });
+  if (early) return early;
   const prior = priorBriefOf(state);
-  if (!state.health) {
-    return { output: { systemMessage: DAEMON_DOWN }, blocks: 0, mark, brief: prior };
-  }
   const decision = decideStop({
     items: scoped.flatMap((view) => actionItemsFor(view, config, when)),
     stopHookActive: state.stopHookActive,

@@ -15,6 +15,7 @@ export function resolvePaths(home = homeDir()) {
     daemonLog: join(home, "daemon.log"),
     projects: join(home, "projects.json"),
     stopState: join(home, "stop-hook.json"),
+    deliveries: join(home, "deliveries"),
   };
 }
 

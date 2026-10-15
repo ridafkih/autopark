@@ -7,7 +7,7 @@ import { startDaemon } from "../src/daemon/daemon.ts";
 import { ReplaySource } from "../src/sources/replay.ts";
 import { config, snapshot } from "./fixtures/build.ts";
 import { FakeGitHub } from "./fixtures/fake-github.ts";
-import { RecordingRunner } from "./fixtures/harness.ts";
+import { markChannelLive, RecordingRunner } from "./fixtures/harness.ts";
 import { ImmediateClock } from "./fixtures/immediate-clock.ts";
 import { parseJson, stringAt, valueAt } from "../src/core/json.ts";
 
@@ -89,6 +89,7 @@ function transitionLine(id: number, repo: string) {
 test("stop hook blocks on a conflict up to the cap, then lets go", async () => {
   const { home, project } = setup();
   await bootWithConflict(home);
+  markChannelLive(home, "s1");
   const stop = async (isActive: boolean) => {
     const stdin = JSON.stringify({
       session_id: "s1",

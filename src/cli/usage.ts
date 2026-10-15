@@ -15,7 +15,8 @@ export const USAGE = `autopark <command>
   unhold <pr|all>                         release a hold; "all" releases every hold
   daemon run|start|stop|status|install [--print]|uninstall   (run/start/install accept --config <path>, repeatable)
   hook session-start|stop                 Claude Code hook entry points (read hook JSON on stdin)
-  watch                                   print transitions as they happen (plugin monitor)
+  watch [--fallback]                      print transitions as they happen (plugin monitor);
+                                          --fallback emits whenever no live channel delivers
   ship-context                            project settings for the /ship skill
 
 <pr> is owner/repo#123, a PR URL, or 123 / #123 inside a configured repo.`;
