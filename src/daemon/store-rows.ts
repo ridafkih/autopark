@@ -12,6 +12,7 @@ import {
   valueAt,
 } from "../core/json.ts";
 import type { NudgeState } from "../core/nudge.ts";
+import { isRecomputeFailure, type RecomputeFailure } from "../core/staleness.ts";
 import type { Evaluation } from "../core/types.ts";
 import { isEvaluation } from "./evaluation-guard.ts";
 
@@ -28,6 +29,10 @@ export interface PullRequestRecord {
   evaluation: Evaluation | null;
   nudge: NudgeState | null;
   updatedAt: number;
+  eventAt: number | null;
+  evaluatedAt: number | null;
+  staleSince: number | null;
+  failure: RecomputeFailure | null;
 }
 
 export const SCHEMA = `
@@ -36,7 +41,8 @@ CREATE INDEX IF NOT EXISTS deliveries_received ON deliveries(received_at);
 CREATE TABLE IF NOT EXISTS prs (
   key TEXT PRIMARY KEY, repo TEXT NOT NULL, number INTEGER NOT NULL, tracked INTEGER NOT NULL,
   source TEXT NOT NULL, session_id TEXT, auto_merge INTEGER, review_requested_head TEXT,
-  merge_attempt_head TEXT, evaluation TEXT, updated_at INTEGER NOT NULL, nudge TEXT
+  merge_attempt_head TEXT, evaluation TEXT, updated_at INTEGER NOT NULL, nudge TEXT,
+  event_at INTEGER, evaluated_at INTEGER, stale_since INTEGER, failure TEXT
 );
 CREATE TABLE IF NOT EXISTS holds (target TEXT PRIMARY KEY, until INTEGER NOT NULL, reason TEXT, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS transitions (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, key TEXT NOT NULL, kind TEXT NOT NULL, json TEXT NOT NULL);
@@ -72,6 +78,12 @@ function parseNudge(text: string | undefined) {
   if (!text) return null;
   const value = parseJson(text);
   return isNudgeState(value) ? value : null;
+}
+
+function parseFailure(text: string | undefined) {
+  if (!text) return null;
+  const value = parseJson(text);
+  return isRecomputeFailure(value) ? value : null;
 }
 
 export function toHold(row: unknown): Hold {
@@ -110,5 +122,9 @@ export function toRecord(row: unknown): PullRequestRecord {
     evaluation: parseEvaluation(stringAt(row, "evaluation")),
     nudge: parseNudge(stringAt(row, "nudge")),
     updatedAt: numberAt(row, "updated_at") ?? 0,
+    eventAt: numberAt(row, "event_at") ?? null,
+    evaluatedAt: numberAt(row, "evaluated_at") ?? null,
+    staleSince: numberAt(row, "stale_since") ?? null,
+    failure: parseFailure(stringAt(row, "failure")),
   };
 }

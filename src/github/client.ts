@@ -10,7 +10,15 @@ import {
   valueAt,
   type JsonRecord,
 } from "../core/json.ts";
+import { systemClock } from "../daemon/clock.ts";
+import { RequestGate } from "./gate.ts";
 import { PULL_REQUEST_SNAPSHOT_QUERY, SEARCH_QUERY, VIEWER_QUERY } from "./query.ts";
+import {
+  hintFrom,
+  isExhausted,
+  isRateLimitedGraphqlError,
+  isRateLimitedResponse,
+} from "./rate-limit.ts";
 import { normalizePullRequest } from "./snapshot.ts";
 import type { GitHub, MergeMethod } from "./types.ts";
 
@@ -20,6 +28,7 @@ interface GitHubHttpOptions {
   token?: () => Promise<string>;
   fetch?: FetchFunction;
   apiUrl?: string;
+  gate?: RequestGate;
 }
 
 interface GitHubRequestInit extends RequestInit {
@@ -29,6 +38,8 @@ interface GitHubRequestInit extends RequestInit {
 const DEFAULT_API_URL = "https://api.github.com";
 const STACK_MERGE_API_VERSION = "2026-03-10";
 const MAX_SEARCH_PAGES = 5;
+const REQUEST_TIMEOUT_MS = 60_000;
+const GRAPHQL_PATH = "/graphql";
 
 export async function resolveToken(): Promise<string> {
   const fromEnvironment = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
@@ -72,11 +83,18 @@ function candidateFrom(repo: string, node: JsonRecord): Candidate[] {
 export class GitHubHttp implements GitHub {
   lastCost: number | null = null;
   private token: string | null = null;
+  private readonly gate: RequestGate;
 
-  constructor(private readonly options: GitHubHttpOptions = {}) {}
+  constructor(private readonly options: GitHubHttpOptions = {}) {
+    this.gate = options.gate ?? new RequestGate({ clock: systemClock });
+  }
+
+  pause() {
+    return this.gate.pause();
+  }
 
   async graphql(query: string, variables: Record<string, unknown>): Promise<unknown> {
-    const response = await this.request("/graphql", {
+    const response = await this.request(GRAPHQL_PATH, {
       method: "POST",
       body: JSON.stringify({ query, variables }),
     });
@@ -132,11 +150,17 @@ export class GitHubHttp implements GitHub {
     return this.token;
   }
 
-  private async request(path: string, options: GitHubRequestInit = {}): Promise<unknown> {
+  private request(path: string, options: GitHubRequestInit = {}): Promise<unknown> {
+    const kind = path === GRAPHQL_PATH ? "graphql" : "rest";
+    return this.gate.run(kind, () => this.send(path, options));
+  }
+
+  private async send(path: string, options: GitHubRequestInit): Promise<unknown> {
     const { apiVersion, ...init } = options;
     const send = this.options.fetch ?? ((url, requestInit) => fetch(url, requestInit));
     const response = await send(`${this.options.apiUrl ?? DEFAULT_API_URL}${path}`, {
       ...init,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         authorization: `Bearer ${await this.authorization()}`,
         accept: "application/vnd.github+json",
@@ -147,12 +171,23 @@ export class GitHubHttp implements GitHub {
     });
     const text = await response.text();
     const json = text ? parseJson(text) : null;
-    if (!response.ok) {
-      const method = init.method ?? "GET";
-      const detail = stringAt(json, "message") ?? text;
-      throw new Error(`GitHub ${method} ${path} -> ${response.status}: ${detail}`);
-    }
+    const failure = `GitHub ${init.method ?? "GET"} ${path} -> ${response.status}`;
+    const detail = stringAt(json, "message") ?? text;
+    this.watchRateLimit(response, json, `${failure}: ${detail}`);
+    if (!response.ok) throw new Error(`${failure}: ${detail}`);
     return json;
+  }
+
+  private watchRateLimit(response: Response, json: unknown, failure: string) {
+    const hint = hintFrom(response.headers);
+    if (isRateLimitedResponse(response, failure)) throw this.gate.limit(hint, failure);
+    const limited = arrayAt(json, "errors").filter(isRateLimitedGraphqlError);
+    if (limited.length > 0) {
+      const messages = limited.map((error) => stringAt(error, "message") ?? "").join("; ");
+      throw this.gate.limit(hint, `GraphQL: ${messages}`);
+    }
+    if (isExhausted(response.headers)) this.gate.limit(hint, "the rate limit quota is spent");
+    else this.gate.succeeded();
   }
 
   private async searchPages(

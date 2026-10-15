@@ -1,7 +1,9 @@
 import type { PullRequestRecord } from "../daemon/store.ts";
-import { formatDuration, formatRemaining } from "./duration.ts";
+import type { GitHubPause } from "../github/gate.ts";
+import { formatClockTime, formatDuration, formatRemaining } from "./duration.ts";
 import { formatPullRequest, pullRequestUrl } from "./format.ts";
 import { activeHold, type Hold, type HoldView } from "./hold.ts";
+import { stalenessOf, type RecomputeFailure, type Staleness } from "./staleness.ts";
 import type { Evaluation, Reason } from "./types.ts";
 
 export interface PullRequestSummary {
@@ -24,6 +26,8 @@ export interface PullRequestSummary {
   nudges: number;
   nextNudgeAt: number | null;
   hold: HoldView | null;
+  stale?: Staleness | null;
+  failure?: RecomputeFailure | null;
 }
 
 export interface SummaryContext {
@@ -81,6 +85,8 @@ export function summarize(record: PullRequestRecord, context: SummaryContext): P
     nudges: record.nudge?.count ?? 0,
     nextNudgeAt: context.nextNudgeAt ?? null,
     hold: activeHold(record.key, context.holds, context.now),
+    stale: stalenessOf(record, context.now),
+    failure: record.failure,
   };
 }
 
@@ -103,6 +109,21 @@ function stuckLine(summary: PullRequestSummary, now: number) {
   return [`  stuck ${stuck}${nudged}${next}`];
 }
 
+const MAX_ERROR_LENGTH = 200;
+
+function staleLines({ stale, failure }: PullRequestSummary, now: number) {
+  const staleness = stale ? [`  stale:${stale.kind} ${formatDuration(stale.ageMs)}`] : [];
+  if (!failure) return staleness;
+  const ago = formatDuration(now - failure.at);
+  const message = failure.message.slice(0, MAX_ERROR_LENGTH);
+  return [...staleness, `  last error ${ago} ago: ${message}`];
+}
+
+export const pauseLine = (pause: GitHubPause) => {
+  const until = formatClockTime(pause.until);
+  return `GitHub paused until ${until} (${pause.reason})`;
+};
+
 function summaryLines(summary: PullRequestSummary, now: number) {
   const flags = [summary.mergeableNow ? "mergeable now" : "", summary.autoMerge ? "auto-merge" : ""]
     .filter((flag) => flag !== "")
@@ -113,13 +134,19 @@ function summaryLines(summary: PullRequestSummary, now: number) {
   return [
     heading.trimEnd(),
     ...holdLine(summary.hold, now),
+    ...staleLines(summary, now),
     ...stuckLine(summary, now),
     ...reasons,
   ];
 }
 
-export function formatSummaries(summaries: PullRequestSummary[], daemonLine = "", now = 0) {
-  const header = daemonLine ? [daemonLine] : [];
+export function formatSummaries(
+  summaries: PullRequestSummary[],
+  daemonLine = "",
+  now = 0,
+  pause: GitHubPause | null = null,
+) {
+  const header = [...(daemonLine ? [daemonLine] : []), ...(pause ? [pauseLine(pause)] : [])];
   const emptyNotice = summaries.length === 0 ? ["No tracked PRs."] : [];
   const lines = summaries.flatMap((summary) => summaryLines(summary, now));
   return [...header, ...emptyNotice, ...lines].join("\n");

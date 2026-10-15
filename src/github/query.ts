@@ -1,3 +1,5 @@
+const GITHUB_ACTIONS_APP_ID = 15368;
+
 export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: String!, $name: String!, $number: Int!) {
   rateLimit { cost remaining }
   repository(owner: $owner, name: $name) {
@@ -16,7 +18,7 @@ export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: St
         ... on CheckRun { name status conclusion detailsUrl startedAt isRequired(pullRequestNumber: $number) checkSuite { app { slug } workflowRun { event workflow { name } } } }
         ... on StatusContext { context state targetUrl isRequired(pullRequestNumber: $number) }
       } } }
-      checkSuites(first: 50) { nodes { app { slug } workflowRun { event workflow { name } } checkRuns(first: 100, filterBy: { checkType: LATEST }) { nodes {
+      checkSuites(first: 30, filterBy: { appId: ${GITHUB_ACTIONS_APP_ID} }) { nodes { app { slug } workflowRun { event workflow { name } } checkRuns(first: 60, filterBy: { checkType: LATEST }) { nodes {
         name status conclusion detailsUrl startedAt isRequired(pullRequestNumber: $number)
       } } } } } } }
     }

@@ -6,14 +6,26 @@ export interface SchedulerOptions {
   retryMs: () => number[];
   maxRetries: () => number;
   sleep: (durationMs: number) => Promise<void>;
+  deferral?: (error: unknown) => number | null;
   work: (key: string) => Promise<void>;
   log: (message: string) => void;
+}
+
+interface Wait {
+  delayMs: number;
+  isDeferred: boolean;
+}
+
+interface Waiting {
+  token: object;
+  isDeferred: boolean;
 }
 
 export class CoalescingScheduler {
   private readonly active = new Map<string, Promise<void>>();
   private readonly dirty = new Set<string>();
   private readonly failures = new Map<string, number>();
+  private readonly waiting = new Map<string, Waiting>();
 
   constructor(private readonly options: SchedulerOptions) {}
 
@@ -26,6 +38,7 @@ export class CoalescingScheduler {
       this.dirty.add(key);
       return;
     }
+    if (this.waiting.get(key)?.isDeferred) return;
     this.active.set(key, this.run(key));
   }
 
@@ -41,30 +54,35 @@ export class CoalescingScheduler {
 
   private async drain(key: string): Promise<void> {
     this.dirty.delete(key);
-    const retryInMs = await this.attempt(key);
-    if (this.dirty.has(key)) {
+    const wait = await this.attempt(key);
+    if (this.dirty.has(key) && !wait?.isDeferred) {
       await this.drain(key);
       return;
     }
+    this.dirty.delete(key);
     this.active.delete(key);
-    if (retryInMs !== null) void this.retryLater(key, retryInMs);
+    if (wait) void this.wake(key, wait);
   }
 
-  private async attempt(key: string): Promise<number | null> {
+  private async attempt(key: string): Promise<Wait | null> {
     try {
       await this.options.work(key);
       this.failures.delete(key);
+      this.waiting.delete(key);
       return null;
     } catch (error) {
+      const deferMs = this.options.deferral?.(error) ?? null;
+      if (deferMs !== null) return { delayMs: deferMs, isDeferred: true };
       return this.recordFailure(key, errorMessage(error));
     }
   }
 
-  private recordFailure(key: string, message: string) {
+  private recordFailure(key: string, message: string): Wait | null {
     const retries = this.failures.get(key) ?? 0;
     const maxRetries = this.options.maxRetries();
     if (retries >= maxRetries) {
       this.failures.delete(key);
+      this.waiting.delete(key);
       this.options.log(
         `recompute ${key} failed: ${message}; giving up after ${maxRetries} retries`,
       );
@@ -74,11 +92,15 @@ export class CoalescingScheduler {
     const delayMs = delays[Math.min(retries, delays.length - 1)] ?? 0;
     this.failures.set(key, retries + 1);
     this.options.log(`recompute ${key} failed: ${message}; retrying in ${formatDuration(delayMs)}`);
-    return delayMs;
+    return { delayMs, isDeferred: false };
   }
 
-  private async retryLater(key: string, delayMs: number) {
+  private async wake(key: string, { delayMs, isDeferred }: Wait) {
+    const token = {};
+    this.waiting.set(key, { token, isDeferred });
     await this.options.sleep(delayMs);
-    if (this.failures.has(key)) this.schedule(key);
+    if (this.waiting.get(key)?.token !== token) return;
+    this.waiting.delete(key);
+    this.schedule(key);
   }
 }

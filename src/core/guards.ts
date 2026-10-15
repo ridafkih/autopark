@@ -10,6 +10,7 @@ import {
   isRecord,
   isString,
 } from "./json.ts";
+import { FAILURE_KINDS, isRecomputeFailure } from "./staleness.ts";
 import type { PullRequestSummary } from "./summary.ts";
 import { REASON_CODES, type Reason } from "./types.ts";
 
@@ -35,6 +36,20 @@ const hasNudgeFields = (value: Record<string, unknown>) =>
   [value.blockedSince, value.nextNudgeAt].every(isNullableNumber) &&
   isHoldView(value.hold);
 
+const isStaleKind = memberOf([...FAILURE_KINDS, "pending"] as const);
+
+const optional =
+  (isPresentValid: (value: unknown) => boolean) =>
+  (value: unknown): boolean =>
+    value === undefined || value === null || isPresentValid(value);
+
+const isStaleness = optional(
+  (value) =>
+    isRecord(value) && isStaleKind(value.kind) && isNumber(value.since) && isNumber(value.ageMs),
+);
+
+const isFailure = optional(isRecomputeFailure);
+
 export const isPullRequestSummary = (value: unknown): value is PullRequestSummary =>
   isRecord(value) &&
   hasStrings(value, ["pr", "repo", "title", "url", "state"]) &&
@@ -43,4 +58,6 @@ export const isPullRequestSummary = (value: unknown): value is PullRequestSummar
   isNullableBoolean(value.autoMerge) &&
   [value.head, value.sessionId, value.reviewRequestedHead].every(isNullableString) &&
   isArrayOf(value.reasons, isReason) &&
-  hasNudgeFields(value);
+  hasNudgeFields(value) &&
+  isStaleness(value.stale) &&
+  isFailure(value.failure);

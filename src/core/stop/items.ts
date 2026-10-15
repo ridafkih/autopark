@@ -2,7 +2,9 @@ import type { Config } from "../../config/schema.ts";
 import { isApprovalRequestDue } from "../approval-request.ts";
 import { formatPullRequest, formatScore } from "../format.ts";
 import type { HoldView } from "../hold.ts";
+import { formatDuration } from "../duration.ts";
 import { nudgeKindsOf, type NudgeState } from "../nudge.ts";
+import type { Staleness } from "../staleness.ts";
 import {
   pullRequestKey,
   type Evaluation,
@@ -16,6 +18,7 @@ export interface TrackedView {
   reviewRequestedHead: string | null;
   nudge?: NudgeState | null;
   hold?: HoldView | null;
+  stale?: Staleness | null;
 }
 
 export type ActionKind =
@@ -23,17 +26,19 @@ export type ActionKind =
   | "failed_checks"
   | "review_findings"
   | "review_not_requested"
-  | "nudged";
+  | "nudged"
+  | "stale";
 
 export interface ActionItem {
   repo: string;
   number: number;
   kind: ActionKind;
   codes: string[];
+  fingerprint?: string[];
 }
 
 type StopConfig = Config["hooks"]["stop"];
-type ItemDraft = Pick<ActionItem, "kind" | "codes">;
+type ItemDraft = Pick<ActionItem, "kind" | "codes" | "fingerprint">;
 
 interface ItemContext {
   evaluation: Evaluation;
@@ -94,18 +99,23 @@ function nudgedItem({ evaluation, view }: ItemContext): ItemDraft[] {
   return [{ kind: "nudged", codes: [`nudged:${kinds || "ready"}`] }];
 }
 
+function staleItem({ stale }: TrackedView): ItemDraft[] {
+  if (!stale) return [];
+  const code = `stale:${stale.kind}`;
+  const age = formatDuration(stale.ageMs);
+  return [{ kind: "stale", codes: [`${code} ${age}`], fingerprint: [code, String(stale.since)] }];
+}
+
 export function actionItemsFor(view: TrackedView, config: StopConfig): ActionItem[] {
   const { evaluation } = view;
   if (evaluation.state !== "OPEN") return [];
   const context: ItemContext = { evaluation, view, config };
   const drafts = ITEM_BUILDERS.map((build) => build(context)).filter(isPresent);
   const items = drafts.length > 0 ? drafts : nudgedItem(context);
-  return items.map(({ kind, codes }) => ({
-    repo: evaluation.repo,
-    number: evaluation.number,
-    kind,
-    codes,
-  }));
+  const locator = { repo: evaluation.repo, number: evaluation.number };
+  return [...items, ...staleItem(view)].map((draft): ActionItem =>
+    Object.assign({}, locator, draft),
+  );
 }
 
 export function actionLines(items: ActionItem[]): string[] {

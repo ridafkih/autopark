@@ -17,7 +17,13 @@ export function fingerprintOf(views: TrackedView[], config: StopConfig) {
   const lines = views
     .flatMap((view) =>
       actionItemsFor(view, config).map((item) =>
-        [item.repo, item.number, view.evaluation.headSha, item.kind, ...item.codes].join("\t"),
+        [
+          item.repo,
+          item.number,
+          view.evaluation.headSha,
+          item.kind,
+          ...(item.fingerprint ?? item.codes),
+        ].join("\t"),
       ),
     )
     .toSorted();

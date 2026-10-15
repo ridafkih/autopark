@@ -2,6 +2,7 @@ import type { Config } from "../config/schema.ts";
 import { errorMessage } from "../core/errors.ts";
 import { shortSha } from "../core/format.ts";
 import type { Evaluation, Transition } from "../core/types.ts";
+import { isRateLimitError } from "../github/rate-limit.ts";
 import type { GitHub } from "../github/types.ts";
 import type { RepoEntry } from "./config-set.ts";
 import type { TransitionEmitter } from "./emitter.ts";
@@ -91,6 +92,10 @@ export async function autoMergeIfReady(
     await runMerge(attempt, evaluation, config, dependencies);
     await emitter.emit(mergeSucceeded(attempt, config), evaluation, entry);
   } catch (error) {
+    if (isRateLimitError(error)) {
+      store.setMergeAttempt(key, null);
+      throw error;
+    }
     await emitter.emit(mergeFailed(attempt, config, errorMessage(error)), evaluation, entry);
   }
 }

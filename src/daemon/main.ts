@@ -1,10 +1,14 @@
 import { parseArgs } from "node:util";
 import { errorMessage } from "../core/errors.ts";
 import { GitHubHttp } from "../github/client.ts";
+import { RequestGate } from "../github/gate.ts";
+import { systemClock } from "./clock.ts";
 import { ConfigSet } from "./config-set.ts";
 import { logToStderr, startDaemon } from "./daemon.ts";
 import { resolvePaths } from "./paths.ts";
 import { readProjects } from "./projects.ts";
+
+const GRAPHQL_SPACING_MS = 1000;
 
 export async function runDaemon(argv: string[]) {
   const { values } = parseArgs({
@@ -18,7 +22,12 @@ export async function runDaemon(argv: string[]) {
     throw new Error("no configs: run `autopark init` in a repo or pass --config");
   }
   const configs = await ConfigSet.load(configPaths);
-  const daemon = await startDaemon({ configs, github: new GitHubHttp() });
+  const gate = new RequestGate({
+    clock: systemClock,
+    graphqlSpacingMs: GRAPHQL_SPACING_MS,
+    log: logToStderr,
+  });
+  const daemon = await startDaemon({ configs, github: new GitHubHttp({ gate }) });
   const repos = configs.repos().join(", ");
   logToStderr(`watching ${repos} via ${daemon.source.name}; control ${paths.socket}`);
   const shutdown = async () => {

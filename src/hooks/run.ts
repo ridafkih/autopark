@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
 import { cwdConfig } from "../channel/context.ts";
 import { playbookRef } from "../channel/playbook.ts";
-import { activeHold } from "../core/hold.ts";
+import { activeHold, type Hold } from "../core/hold.ts";
 import { isRecord, parseJson } from "../core/json.ts";
+import { stalenessOf, unevaluated } from "../core/staleness.ts";
 import type { TrackedView } from "../core/stop.ts";
 import { daemonHealth } from "../daemon/client.ts";
 import { resolvePaths, type Paths } from "../daemon/paths.ts";
-import { Store } from "../daemon/store.ts";
+import { Store, type PullRequestRecord } from "../daemon/store.ts";
 import { sessionStartContext } from "./session-start.ts";
 import type { HookState } from "./state.ts";
 import { readStopState, writeStopState } from "./stop-state.ts";
@@ -18,24 +19,28 @@ export interface HookInput {
   stop_hook_active?: unknown;
 }
 
+function viewOf(record: PullRequestRecord, holds: Hold[], now: number): TrackedView[] {
+  const stale = stalenessOf(record, now);
+  if (!record.evaluation && !stale) return [];
+  return [
+    {
+      evaluation: record.evaluation ?? unevaluated(record.repo, record.number),
+      sessionId: record.sessionId,
+      reviewRequestedHead: record.reviewRequestedHead,
+      nudge: record.nudge,
+      hold: activeHold(record.key, holds, now),
+      stale,
+    },
+  ];
+}
+
 export function readViews(db: string, now: number): TrackedView[] {
   if (!existsSync(db)) return [];
   const store = new Store(db, { readonly: true });
   try {
     const holds = store.listHolds();
-    return store.listPullRequests({ trackedOnly: true }).flatMap((record) =>
-      record.evaluation
-        ? [
-            {
-              evaluation: record.evaluation,
-              sessionId: record.sessionId,
-              reviewRequestedHead: record.reviewRequestedHead,
-              nudge: record.nudge,
-              hold: activeHold(record.key, holds, now),
-            },
-          ]
-        : [],
-    );
+    const records = store.listPullRequests({ trackedOnly: true });
+    return records.flatMap((record) => viewOf(record, holds, now));
   } finally {
     store.close();
   }

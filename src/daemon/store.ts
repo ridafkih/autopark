@@ -6,7 +6,16 @@ import { numberAt, parseJson, stringAt } from "../core/json.ts";
 import type { NudgeState } from "../core/nudge.ts";
 import { toTransition } from "../core/transition-codec.ts";
 import { pullRequestKey, type Evaluation, type Transition } from "../core/types.ts";
+import type { FailureKind } from "../core/staleness.ts";
 import { SCHEMA, toHold, toRecord, toSqlBoolean, type PullRequestRecord } from "./store-rows.ts";
+import {
+  addMissingColumns,
+  MARK_EVENT_SQL,
+  RECORD_FAILURE_SQL,
+  SAVE_EVALUATION_SQL,
+  TRACK_SQL,
+  UPSERT_HOLD,
+} from "./store-sql.ts";
 
 export type { PullRequestRecord } from "./store-rows.ts";
 
@@ -23,12 +32,6 @@ export interface TrackRequest {
   now: number;
 }
 
-const TRACK_SQL = `INSERT INTO prs (key, repo, number, tracked, source, session_id, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET tracked = 1,
-           source = CASE WHEN prs.source = 'explicit' THEN 'explicit' ELSE excluded.source END,
-           session_id = COALESCE(excluded.session_id, prs.session_id),
-           updated_at = excluded.updated_at`;
-
 function toStoredTransition(row: unknown): StoredTransition {
   const id = numberAt(row, "id");
   const storedAt = numberAt(row, "at");
@@ -37,18 +40,6 @@ function toStoredTransition(row: unknown): StoredTransition {
     throw new Error("malformed transitions row");
   }
   return Object.assign(transition, { id, at: storedAt });
-}
-
-const UPSERT_HOLD = `INSERT INTO holds (target, until, reason, created_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(target) DO UPDATE SET until = excluded.until, reason = excluded.reason,
-           created_at = excluded.created_at`;
-
-function addMissingColumns(database: Database) {
-  const columns = database
-    .query("PRAGMA table_info(prs)")
-    .all()
-    .map((row) => stringAt(row, "name"));
-  if (!columns.includes("nudge")) database.run("ALTER TABLE prs ADD COLUMN nudge TEXT");
 }
 
 function openDatabase(path: string, isReadonly: boolean) {
@@ -112,10 +103,17 @@ export class Store {
     this.db.query("UPDATE prs SET merge_attempt_head = ? WHERE key = ?").run(head, key);
   }
 
-  saveEvaluation(key: string, evaluation: Evaluation, now: number) {
-    this.db
-      .query("UPDATE prs SET evaluation = ?, updated_at = ? WHERE key = ?")
-      .run(JSON.stringify(evaluation), now, key);
+  saveEvaluation(key: string, evaluation: Evaluation, now: number, fetchedAt = now) {
+    this.db.query(SAVE_EVALUATION_SQL).run(JSON.stringify(evaluation), now, fetchedAt, key);
+  }
+
+  markEvent(key: string, now: number) {
+    this.db.query(MARK_EVENT_SQL).run(now, key);
+  }
+
+  recordFailure(key: string, failure: { kind: FailureKind; message: string }, now: number) {
+    const json = JSON.stringify({ ...failure, at: now });
+    this.db.query(RECORD_FAILURE_SQL).run(json, now, key);
   }
 
   saveNudge(key: string, state: NudgeState | null) {

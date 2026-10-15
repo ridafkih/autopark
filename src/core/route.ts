@@ -7,10 +7,16 @@ export interface PullRequestIndex {
   byBaseRef(repo: string, ref: string): number[];
 }
 
+export interface Lifecycle {
+  number: number;
+  change: "merged" | "closed" | "reopened";
+}
+
 export interface RouteResult {
   repo: string | null;
   pullRequests: number[];
   candidates: Candidate[];
+  lifecycle: Lifecycle | null;
 }
 
 interface Routed {
@@ -113,6 +119,16 @@ function routerFor(event: string): Router | null {
   }
 }
 
+function lifecycleOf(event: string, payload: unknown): Lifecycle | null {
+  const action = stringAt(payload, "action");
+  const number = numberAt(payload, "pull_request", "number");
+  if (event !== "pull_request" || number === undefined) return null;
+  if (action === "reopened") return { number, change: "reopened" };
+  if (action !== "closed") return null;
+  const isMerged = valueAt(payload, "pull_request", "merged") === true;
+  return { number, change: isMerged ? "merged" : "closed" };
+}
+
 export function route(event: string, payload: unknown, index: PullRequestIndex): RouteResult {
   const repo = stringAt(payload, "repository", "full_name")?.toLowerCase() ?? null;
   const router = routerFor(event);
@@ -121,5 +137,6 @@ export function route(event: string, payload: unknown, index: PullRequestIndex):
     repo,
     pullRequests: [...new Set(result?.pullRequests)],
     candidates: result?.candidates ?? [],
+    lifecycle: repo ? lifecycleOf(event, payload) : null,
   };
 }

@@ -35,3 +35,8 @@ export function formatDuration(durationMs: number) {
 
 export const formatRemaining = (durationMs: number) =>
   formatDuration(Math.ceil(durationMs / MS_PER_MINUTE) * MS_PER_MINUTE);
+
+const CLOCK_TIME_LENGTH = 5;
+
+export const formatClockTime = (epochMs: number) =>
+  new Date(epochMs).toTimeString().slice(0, CLOCK_TIME_LENGTH);

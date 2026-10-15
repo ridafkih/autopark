@@ -23,8 +23,10 @@ export async function showStatus({ argv, paths }: Invocation) {
     .filter(matchesSession(values.session))
     .filter(matchesRepo(values.repo));
   if (values.json) {
-    print(JSON.stringify({ daemon: report.daemon, prs: pullRequests }, null, 2));
+    print(
+      JSON.stringify({ daemon: report.daemon, github: report.github, prs: pullRequests }, null, 2),
+    );
     return;
   }
-  print(formatSummaries(pullRequests, report.daemon, Date.now()));
+  print(formatSummaries(pullRequests, report.daemon, Date.now(), report.github));
 }

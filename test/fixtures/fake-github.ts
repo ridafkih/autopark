@@ -1,5 +1,6 @@
 import type { Candidate } from "../../src/core/track.ts";
 import { pullRequestKey, type Snapshot } from "../../src/core/types.ts";
+import type { GitHubPause } from "../../src/github/gate.ts";
 import type { GitHub } from "../../src/github/types.ts";
 
 interface MergeCall {
@@ -17,7 +18,13 @@ export class FakeGitHub implements GitHub {
   readonly searches: Array<{ repo: string; author: string | null }> = [];
   readonly merges: MergeCall[] = [];
   mergeError: string | null = null;
+  readonly failures: Error[] = [];
+  paused: GitHubPause | null = null;
   login = "octo";
+
+  pause() {
+    return this.paused;
+  }
 
   set(snapshot: Snapshot) {
     this.snapshots.set(pullRequestKey(snapshot.repo, snapshot.number), snapshot);
@@ -40,6 +47,8 @@ export class FakeGitHub implements GitHub {
   async fetchPullRequest(repo: string, number: number) {
     const key = pullRequestKey(repo, number);
     this.reads.set(key, (this.reads.get(key) ?? 0) + 1);
+    const failure = this.failures.shift();
+    if (failure) throw failure;
     const snapshot = this.nextScripted(key) ?? this.snapshots.get(key);
     if (!snapshot) throw new Error(`no fake PR ${key}`);
     return structuredClone(snapshot);

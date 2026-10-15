@@ -48,7 +48,8 @@ const priorBriefOf = (state: StopHookState) => state.priorBrief ?? FORGOTTEN;
 
 function blockOutput({ state, decision, views, config }: BlockContext) {
   const prior = priorBriefOf(state);
-  const { isBrief, memory } = briefing(fingerprintOf(views, config), prior, config.maxBriefs);
+  const maxBriefs = views.some((view) => view.stale) ? 0 : config.maxBriefs;
+  const { isBrief, memory } = briefing(fingerprintOf(views, config), prior, maxBriefs);
   const reason = isBrief ? BRIEF_REASON : decision.reason;
   return { output: { decision: "block", reason }, brief: memory };
 }

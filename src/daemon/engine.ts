@@ -1,10 +1,8 @@
-import { evaluate } from "../core/evaluate.ts";
-import { route } from "../core/route.ts";
-import { diff } from "../core/transitions.ts";
+import { route, type Lifecycle } from "../core/route.ts";
 import { pullRequestKey } from "../core/types.ts";
+import { isRateLimitError } from "../github/rate-limit.ts";
 import type { GitHub } from "../github/types.ts";
 import type { Delivery } from "../sources/types.ts";
-import { autoMergeIfReady } from "./auto-merge.ts";
 import { AutoTracker } from "./auto-tracker.ts";
 import type { Clock } from "./clock.ts";
 import type { ConfigSet } from "./config-set.ts";
@@ -13,8 +11,8 @@ import type { TransitionSink } from "./log.ts";
 import { Nudger } from "./nudger.ts";
 import { pullRequestIndex } from "./pull-request-index.ts";
 import type { CommandRunner } from "./runner.ts";
+import { closeFromEvent, recompute, type RecomputeDependencies } from "./recompute.ts";
 import { CoalescingScheduler } from "./scheduler.ts";
-import { fetchSettled } from "./settle.ts";
 import type { PullRequestRecord, Store } from "./store.ts";
 
 export interface EngineDependencies {
@@ -41,6 +39,7 @@ const DELIVERY_TTL_MS = 7 * 24 * 3600 * 1000;
 const PRUNE_EVERY_DELIVERIES = 500;
 const RECOMPUTE_RETRY_MS = [30_000, 60_000, 120_000, 300_000, 600_000];
 const RECOMPUTE_MAX_RETRIES = 12;
+const MIN_RATE_LIMIT_WAIT_MS = 1000;
 
 export class Engine {
   readonly nudges: Nudger;
@@ -49,18 +48,21 @@ export class Engine {
   private readonly scheduler: CoalescingScheduler;
   private readonly tracker: AutoTracker;
   private readonly emitter: TransitionEmitter;
+  private readonly recomputing: RecomputeDependencies;
   private deliveriesSincePrune = 0;
 
   constructor(private readonly dependencies: EngineDependencies) {
     this.log = dependencies.log ?? (() => {});
     this.emitter = new TransitionEmitter({ ...dependencies, log: this.log });
     this.nudges = new Nudger({ ...dependencies, emitter: this.emitter, log: this.log });
+    this.recomputing = { ...dependencies, emitter: this.emitter, nudges: this.nudges };
     this.scheduler = new CoalescingScheduler({
       debounceMs: () => dependencies.configs.daemon.debounceMs,
       retryMs: () => RECOMPUTE_RETRY_MS,
       maxRetries: () => RECOMPUTE_MAX_RETRIES,
       sleep: (durationMs) => dependencies.clock.sleep(durationMs),
-      work: (key) => this.recompute(key),
+      deferral: (error) => this.rateLimitWait(error),
+      work: (key) => recompute(this.recomputing, key),
       log: this.log,
     });
     this.tracker = new AutoTracker({
@@ -83,11 +85,12 @@ export class Engine {
     const entry = repo ? configs.get(repo) : undefined;
     if (!repo || !entry) return { accepted: true, scheduled: [] };
     for (const candidate of routed.candidates) await this.tracker.consider(candidate, entry);
-    const scheduled = routed.pullRequests
-      .map((number) => pullRequestKey(repo, number))
-      .filter((key) => store.getPullRequest(key)?.tracked);
-    for (const key of scheduled) this.schedule(key);
-    return { accepted: true, scheduled };
+    if (routed.lifecycle) await this.applyLifecycle(repo, routed.lifecycle);
+    return { accepted: true, scheduled: this.scheduleEvent(repo, routed.pullRequests, now) };
+  }
+
+  githubPause() {
+    return this.dependencies.github.pause?.() ?? null;
   }
 
   resync(reason: string): Promise<void> {
@@ -165,20 +168,33 @@ export class Engine {
     for (const record of store.listPullRequests({ trackedOnly: true })) this.schedule(record.key);
   }
 
-  private async recompute(key: string) {
-    const { store, configs, clock } = this.dependencies;
+  private scheduleEvent(repo: string, numbers: number[], now: number) {
+    const { store } = this.dependencies;
+    const scheduled = numbers
+      .map((number) => pullRequestKey(repo, number))
+      .filter((key) => store.getPullRequest(key)?.tracked);
+    for (const key of scheduled) {
+      store.markEvent(key, now);
+      this.schedule(key);
+    }
+    return scheduled;
+  }
+
+  private async applyLifecycle(repo: string, { number, change }: Lifecycle) {
+    const { store } = this.dependencies;
+    const key = pullRequestKey(repo, number);
+    if (change !== "reopened") {
+      await closeFromEvent(this.recomputing, key, change === "merged" ? "MERGED" : "CLOSED");
+      return;
+    }
     const record = store.getPullRequest(key);
-    const entry = record?.tracked ? configs.get(record.repo) : undefined;
-    if (!record || !entry) return;
-    const settled = await fetchSettled(this.dependencies, record, entry.config.daemon.backoffMs);
-    const previous = store.getPullRequest(key)?.evaluation ?? null;
-    const next = evaluate(settled.snapshot, entry.config, entry.parsers, previous);
-    const transitions = diff(previous, next, { mergeabilityExhausted: settled.exhausted });
-    store.saveEvaluation(key, next, clock.now());
-    this.nudges.observe(key, previous, next);
-    for (const transition of transitions) await this.emitter.emit(transition, next, entry);
-    await this.nudges.askForApprovalOnce(key, next, entry);
-    await autoMergeIfReady(key, next, entry, { ...this.dependencies, emitter: this.emitter });
-    if (next.state !== "OPEN") store.setTracked(key, false);
+    if (record && !record.tracked && record.evaluation?.state === "CLOSED") {
+      store.setTracked(key, true);
+    }
+  }
+
+  private rateLimitWait(error: unknown) {
+    if (!isRateLimitError(error)) return null;
+    return Math.max(MIN_RATE_LIMIT_WAIT_MS, error.resumeAt - this.dependencies.clock.now());
   }
 }

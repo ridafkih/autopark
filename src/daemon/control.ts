@@ -124,7 +124,7 @@ async function respond(engine: Engine, health: () => Health, request: Request) {
   const path = new URL(request.url).pathname;
   if (request.method === "GET" && path === "/health") return json(health());
   if (request.method === "GET" && path === "/status") {
-    return json({ prs: engine.nudges.summaries(engine.status()) });
+    return json({ prs: engine.nudges.summaries(engine.status()), github: engine.githubPause() });
   }
   const handler = request.method === "POST" ? POST_ROUTES.get(path) : undefined;
   if (!handler) return json(NOT_FOUND, 404);

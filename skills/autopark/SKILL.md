@@ -52,3 +52,5 @@ A project can replace this playbook by setting `delivery.playbook` in `.autopark
 ## Stop hook codes
 
 The Stop hook lists one line per PR, such as `#15951 checks:Merge Ready, threads:2, greptile:4/5`. Act on each code with the matching row above: `conflict` is `conflicted`, `checks:<names>` is `checks_failed`, `threads:<n>` is `threads_open`, `<reviewer>:<score>` is `review_scored` below threshold on head, `approval_needed` is `approval_needed`, and `nudged:<reasons>` is `nudge`.
+
+`stale:<why> <age>` means autopark could not refresh this PR for `<age>`, so the other codes on the line may be out of date: `rate_limited` (GitHub rate limit; the daemon resumes on its own when the limit resets), `error` (the last refresh failed; `autopark status` shows the error) or `pending` (an event has waited longer than two minutes). Check that PR's live state yourself once before acting on its other codes, and don't poll GitHub in a loop.
