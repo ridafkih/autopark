@@ -1,4 +1,5 @@
 import type { Config } from "../config/schema.ts";
+import type { ReviewRequestTiming } from "./approval-request.ts";
 import { actionItemsFor, actionLines } from "./stop/items.ts";
 import type { ActionItem, TrackedView } from "./stop/items.ts";
 
@@ -10,6 +11,10 @@ type StopConfig = Config["hooks"]["stop"];
 export interface ScopeContext {
   sessionId: string | null;
   repos: string[];
+}
+
+export interface ItemScope extends ScopeContext {
+  when?: ReviewRequestTiming;
 }
 
 export interface StopDecision {
@@ -41,10 +46,10 @@ export function viewsInScope(
 
 export const isHeld = (view: TrackedView) => view.hold !== null && view.hold !== undefined;
 
-export const actionableItems = (views: TrackedView[], config: StopConfig, context: ScopeContext) =>
+export const actionableItems = (views: TrackedView[], config: StopConfig, context: ItemScope) =>
   viewsInScope(views, config.scope, context)
     .filter((view) => !isHeld(view))
-    .flatMap((view) => actionItemsFor(view, config));
+    .flatMap((view) => actionItemsFor(view, config, context.when));
 
 export const STOP_HEADER =
   "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work.";

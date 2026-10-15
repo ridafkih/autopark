@@ -13,6 +13,7 @@ import {
 } from "../core/json.ts";
 import type { NudgeState } from "../core/nudge.ts";
 import { isRecomputeFailure, type RecomputeFailure } from "../core/staleness.ts";
+import type { ReviewRequest } from "../core/approval-request.ts";
 import type { Evaluation } from "../core/types.ts";
 import { isEvaluation } from "./evaluation-guard.ts";
 
@@ -25,6 +26,7 @@ export interface PullRequestRecord {
   sessionId: string | null;
   autoMerge: boolean | null;
   reviewRequestedHead: string | null;
+  reviewRequestedReady: boolean | null;
   mergeAttemptHead: string | null;
   evaluation: Evaluation | null;
   nudge: NudgeState | null;
@@ -42,7 +44,8 @@ CREATE TABLE IF NOT EXISTS prs (
   key TEXT PRIMARY KEY, repo TEXT NOT NULL, number INTEGER NOT NULL, tracked INTEGER NOT NULL,
   source TEXT NOT NULL, session_id TEXT, auto_merge INTEGER, review_requested_head TEXT,
   merge_attempt_head TEXT, evaluation TEXT, updated_at INTEGER NOT NULL, nudge TEXT,
-  event_at INTEGER, evaluated_at INTEGER, stale_since INTEGER, failure TEXT
+  event_at INTEGER, evaluated_at INTEGER, stale_since INTEGER, failure TEXT,
+  review_requested_ready INTEGER
 );
 CREATE TABLE IF NOT EXISTS holds (target TEXT PRIMARY KEY, until INTEGER NOT NULL, reason TEXT, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS transitions (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, key TEXT NOT NULL, kind TEXT NOT NULL, json TEXT NOT NULL);
@@ -118,6 +121,7 @@ export function toRecord(row: unknown): PullRequestRecord {
     sessionId: stringAt(row, "session_id") ?? null,
     autoMerge: fromSqlBoolean(valueAt(row, "auto_merge")),
     reviewRequestedHead: stringAt(row, "review_requested_head") ?? null,
+    reviewRequestedReady: fromSqlBoolean(valueAt(row, "review_requested_ready")),
     mergeAttemptHead: stringAt(row, "merge_attempt_head") ?? null,
     evaluation: parseEvaluation(stringAt(row, "evaluation")),
     nudge: parseNudge(stringAt(row, "nudge")),
@@ -128,3 +132,8 @@ export function toRecord(row: unknown): PullRequestRecord {
     failure: parseFailure(stringAt(row, "failure")),
   };
 }
+
+export const reviewRequestOf = (record: PullRequestRecord | null): ReviewRequest => ({
+  head: record?.reviewRequestedHead ?? null,
+  ready: record?.reviewRequestedReady ?? null,
+});

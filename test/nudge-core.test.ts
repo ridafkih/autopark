@@ -64,7 +64,7 @@ describe("next nudge", () => {
     ["a recent head pushes it out", fresh({ headMovedAt: 7 * MINUTE }), null, 17 * MINUTE],
     ["a hold pushes it to the hold's end", fresh(), 45 * MINUTE, 45 * MINUTE],
   ])("%s", (label, state, heldUntil, expected) => {
-    expect(nextNudgeAt(state, blocked, nudgeConfig, { heldUntil, requestedHead: null })).toBe(
+    expect(nextNudgeAt(state, blocked, nudgeConfig, { heldUntil, canAskForApproval: true })).toBe(
       expected,
     );
   });
@@ -77,7 +77,7 @@ describe("next nudge", () => {
     expect(
       nextNudgeAt(fresh(), evaluated(changes), nudgeConfig, {
         heldUntil: null,
-        requestedHead: null,
+        canAskForApproval: true,
       }),
     ).toBeNull();
   });

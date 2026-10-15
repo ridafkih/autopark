@@ -1,8 +1,9 @@
+import { canAskForApproval } from "../core/approval-request.ts";
 import { activeHold, type Hold } from "../core/hold.ts";
 import { nextNudgeAt, type NudgeState } from "../core/nudge.ts";
 import type { Evaluation } from "../core/types.ts";
 import type { ConfigSet, RepoEntry } from "./config-set.ts";
-import type { PullRequestRecord } from "./store.ts";
+import { reviewRequestOf, type PullRequestRecord } from "./store.ts";
 
 export interface NudgeRecord extends PullRequestRecord {
   evaluation: Evaluation;
@@ -29,7 +30,12 @@ function dueNudge(record: NudgeRecord, { holds, configs, now }: PlanInput): DueN
   const entry = configs.get(record.repo);
   if (!entry) return [];
   const heldUntil = activeHold(record.key, holds, now)?.until ?? null;
-  const timing = { heldUntil, requestedHead: record.reviewRequestedHead };
+  const request = reviewRequestOf(record);
+  const when = entry.config.reviewRequest.when;
+  const timing = {
+    heldUntil,
+    canAskForApproval: canAskForApproval(record.evaluation, request, when),
+  };
   const dueAt = nextNudgeAt(record.nudge, record.evaluation, entry.config.nudge, timing);
   return dueAt === null ? [] : [{ record, entry, dueAt }];
 }

@@ -1,3 +1,4 @@
+import type { ReviewRequestTiming } from "../../src/core/approval-request.ts";
 import { evaluate } from "../../src/core/evaluate.ts";
 import { actionableItems, type TrackedView } from "../../src/core/stop.ts";
 import type { Snapshot } from "../../src/core/types.ts";
@@ -25,7 +26,8 @@ export const view = (
 export const kindsFor = (
   trackedView: TrackedView,
   hookConfig: StopConfig = stopConfig.hooks.stop,
+  when: ReviewRequestTiming = "open",
 ) =>
-  actionableItems([trackedView], hookConfig, { sessionId: "s1", repos: [] }).map(
+  actionableItems([trackedView], hookConfig, { sessionId: "s1", repos: [], when }).map(
     (item) => item.kind,
   );

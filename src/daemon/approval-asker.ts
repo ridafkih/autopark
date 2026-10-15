@@ -2,7 +2,7 @@ import { approvalNeededTransition, isApprovalRequestDue } from "../core/approval
 import type { Evaluation } from "../core/types.ts";
 import type { RepoEntry } from "./config-set.ts";
 import type { TransitionEmitter } from "./emitter.ts";
-import type { Store } from "./store.ts";
+import { reviewRequestOf, type Store } from "./store.ts";
 
 export interface ApprovalAskerDependencies {
   store: Store;
@@ -15,8 +15,10 @@ export async function requestApprovalOnce(
   evaluation: Evaluation,
   entry: RepoEntry,
 ) {
-  const requestedHead = store.getPullRequest(key)?.reviewRequestedHead ?? null;
-  if (!isApprovalRequestDue(evaluation, requestedHead)) return;
-  if (store.hasTransition(key, "approval_needed")) return;
-  await emitter.emit(approvalNeededTransition(evaluation, entry.config), evaluation, entry);
+  const request = reviewRequestOf(store.getPullRequest(key));
+  if (!isApprovalRequestDue(evaluation, request, entry.config.reviewRequest.when)) return;
+  const flag = request.head === null ? null : "requestedEarly";
+  if (store.hasTransition(key, "approval_needed", flag)) return;
+  const transition = approvalNeededTransition(evaluation, entry.config, request);
+  await emitter.emit(transition, evaluation, entry);
 }

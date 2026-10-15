@@ -19,6 +19,12 @@ export const SAVE_EVALUATION_SQL = `UPDATE prs SET evaluation = ?1, updated_at =
            stale_since = CASE WHEN event_at > ?3 THEN event_at ELSE NULL END
          WHERE key = ?4`;
 
+export const SET_REVIEW_REQUESTED_SQL = `UPDATE prs SET review_requested_head = ?, review_requested_ready = ?
+         WHERE key = ?`;
+
+export const FLAGGED_TRANSITION_SQL = `SELECT 1 FROM transitions
+         WHERE key = ? AND kind = ? AND json_extract(json, ?) = 1 LIMIT 1`;
+
 export const RECORD_FAILURE_SQL = `UPDATE prs SET failure = ?1, stale_since = COALESCE(stale_since, ?2)
          WHERE key = ?3`;
 
@@ -28,6 +34,7 @@ const ADDED_COLUMNS = [
   ["evaluated_at", "INTEGER"],
   ["stale_since", "INTEGER"],
   ["failure", "TEXT"],
+  ["review_requested_ready", "INTEGER"],
 ] as const;
 
 export function addMissingColumns(database: Database) {

@@ -94,7 +94,8 @@ const POST_ROUTES = new Map<string, PostHandler>([
     (engine, body) => {
       const { repo, number } = pullRequestArgs(body);
       const head = typeof body.head === "string" ? body.head : undefined;
-      return { head: engine.markReviewRequested(repo, number, head) };
+      const ready = typeof body.ready === "boolean" ? body.ready : undefined;
+      return { head: engine.markReviewRequested(repo, number, head, ready) };
     },
   ],
   [

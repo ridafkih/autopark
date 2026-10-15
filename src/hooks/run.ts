@@ -27,6 +27,7 @@ function viewOf(record: PullRequestRecord, holds: Hold[], now: number): TrackedV
       evaluation: record.evaluation ?? unevaluated(record.repo, record.number),
       sessionId: record.sessionId,
       reviewRequestedHead: record.reviewRequestedHead,
+      reviewRequestedReady: record.reviewRequestedReady,
       nudge: record.nudge,
       hold: activeHold(record.key, holds, now),
       stale,

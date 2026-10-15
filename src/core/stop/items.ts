@@ -1,5 +1,9 @@
 import type { Config } from "../../config/schema.ts";
-import { isApprovalRequestDue } from "../approval-request.ts";
+import {
+  isApprovalRequestDue,
+  isEarlyRequest,
+  type ReviewRequestTiming,
+} from "../approval-request.ts";
 import { formatPullRequest, formatScore } from "../format.ts";
 import type { HoldView } from "../hold.ts";
 import { formatDuration } from "../duration.ts";
@@ -16,6 +20,7 @@ export interface TrackedView {
   evaluation: Evaluation;
   sessionId: string | null;
   reviewRequestedHead: string | null;
+  reviewRequestedReady?: boolean | null;
   nudge?: NudgeState | null;
   hold?: HoldView | null;
   stale?: Staleness | null;
@@ -44,6 +49,7 @@ interface ItemContext {
   evaluation: Evaluation;
   view: TrackedView;
   config: StopConfig;
+  when: ReviewRequestTiming;
 }
 
 type ItemBuilder = (context: ItemContext) => ItemDraft | null;
@@ -77,10 +83,14 @@ const reviewFindingsItem: ItemBuilder = ({ evaluation, config }) => {
   return codes.length > 0 ? { kind: "review_findings", codes } : null;
 };
 
-const reviewNotRequestedItem: ItemBuilder = ({ evaluation, view, config }) => {
-  const isEarly = config.blockOnHeadMovedWithoutReview || evaluation.awaitingHuman;
-  if (!isEarly || !isApprovalRequestDue(evaluation, view.reviewRequestedHead)) return null;
-  return { kind: "review_not_requested", codes: ["approval_needed"] };
+const reviewNotRequestedItem: ItemBuilder = ({ evaluation, view, config, when }) => {
+  const request = { head: view.reviewRequestedHead, ready: view.reviewRequestedReady ?? null };
+  const isBlocking = config.blockOnHeadMovedWithoutReview || evaluation.awaitingHuman;
+  if (!isBlocking || !isApprovalRequestDue(evaluation, request, when)) return null;
+  const code = isEarlyRequest(request, when)
+    ? "approval_needed:requested_early"
+    : "approval_needed";
+  return { kind: "review_not_requested", codes: [code] };
 };
 
 const ITEM_BUILDERS: ItemBuilder[] = [
@@ -106,10 +116,14 @@ function staleItem({ stale }: TrackedView): ItemDraft[] {
   return [{ kind: "stale", codes: [`${code} ${age}`], fingerprint: [code, String(stale.since)] }];
 }
 
-export function actionItemsFor(view: TrackedView, config: StopConfig): ActionItem[] {
+export function actionItemsFor(
+  view: TrackedView,
+  config: StopConfig,
+  when: ReviewRequestTiming = "open",
+): ActionItem[] {
   const { evaluation } = view;
   if (evaluation.state !== "OPEN") return [];
-  const context: ItemContext = { evaluation, view, config };
+  const context: ItemContext = { evaluation, view, config, when };
   const drafts = ITEM_BUILDERS.map((build) => build(context)).filter(isPresent);
   const items = drafts.length > 0 ? drafts : nudgedItem(context);
   const locator = { repo: evaluation.repo, number: evaluation.number };

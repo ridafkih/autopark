@@ -102,6 +102,11 @@ export const reviewRequestSection = objectSchema({
     description:
       "Text handed to Claude to request review with its own tools; {repo} {number} {url} {title} {head} are substituted",
   }),
+  when: enumSchema(["open", "ready"] as const, {
+    default: "open",
+    description:
+      "When to ask for approval: open asks as soon as the PR is open; ready waits until it is reviewable (out of draft, checks green, reviewers met, no open threads or conflict) and re-asks once if an earlier request was made before then",
+  }),
 });
 
 export const standardsSection = objectSchema({

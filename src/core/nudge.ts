@@ -59,32 +59,29 @@ export const markNudged = (state: NudgeState, now: number, next: string): NudgeS
 const isWaitingOnRequestedApproval = (kind: NudgeKind) =>
   kind === "awaiting_human" || APPROVAL_CODES.has(kind);
 
-export function shouldNudge(
-  evaluation: Evaluation,
-  config: NudgeConfig,
-  requestedHead: string | null = null,
-) {
+export function shouldNudge(evaluation: Evaluation, config: NudgeConfig, canAskForApproval = true) {
   if (evaluation.state !== "OPEN") return false;
   if (evaluation.ready) return config.nudgeReadyUnmerged;
   const kinds = nudgeKindsOf(evaluation);
   if (kinds.includes("draft") && !config.kinds.includes("draft")) return false;
-  const actionable =
-    requestedHead === null ? kinds : kinds.filter((kind) => !isWaitingOnRequestedApproval(kind));
+  const actionable = canAskForApproval
+    ? kinds
+    : kinds.filter((kind) => !isWaitingOnRequestedApproval(kind));
   return actionable.some((kind) => config.kinds.includes(kind));
 }
 
 export interface NudgeTiming {
   heldUntil: number | null;
-  requestedHead: string | null;
+  canAskForApproval: boolean;
 }
 
 export function nextNudgeAt(
   state: NudgeState,
   evaluation: Evaluation,
   config: NudgeConfig,
-  { heldUntil, requestedHead }: NudgeTiming,
+  { heldUntil, canAskForApproval }: NudgeTiming,
 ): number | null {
-  if (!shouldNudge(evaluation, config, requestedHead)) return null;
+  if (!shouldNudge(evaluation, config, canAskForApproval)) return null;
   const scheduled =
     state.lastNudgeAt === null ? state.since + config.after : state.lastNudgeAt + config.every;
   const quietUntil =

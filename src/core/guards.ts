@@ -50,6 +50,14 @@ const isStaleness = optional(
 
 const isFailure = optional(isRecomputeFailure);
 
+const isReviewRequestTiming = optional(memberOf(["open", "ready"] as const));
+
+const hasOptionalFields = (value: Record<string, unknown>) =>
+  isStaleness(value.stale) &&
+  isFailure(value.failure) &&
+  optional(isBoolean)(value.reviewRequestedReady) &&
+  isReviewRequestTiming(value.reviewRequestWhen);
+
 export const isPullRequestSummary = (value: unknown): value is PullRequestSummary =>
   isRecord(value) &&
   hasStrings(value, ["pr", "repo", "title", "url", "state"]) &&
@@ -59,5 +67,4 @@ export const isPullRequestSummary = (value: unknown): value is PullRequestSummar
   [value.head, value.sessionId, value.reviewRequestedHead].every(isNullableString) &&
   isArrayOf(value.reasons, isReason) &&
   hasNudgeFields(value) &&
-  isStaleness(value.stale) &&
-  isFailure(value.failure);
+  hasOptionalFields(value);

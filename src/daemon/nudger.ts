@@ -17,7 +17,7 @@ import type { ConfigSet, RepoEntry } from "./config-set.ts";
 import type { TransitionEmitter } from "./emitter.ts";
 import { nextWake, planNudges, type DueNudge, type PlanInput } from "./nudge-plan.ts";
 import { SingleTimer } from "./single-timer.ts";
-import type { PullRequestRecord, Store } from "./store.ts";
+import { reviewRequestOf, type PullRequestRecord, type Store } from "./store.ts";
 
 export interface NudgerDependencies {
   store: Store;
@@ -85,7 +85,11 @@ export class Nudger {
     const dues = new Map(planNudges(input).map((due) => [due.record.key, due.dueAt]));
     const context = { now: input.now, holds: input.holds };
     return records.map((record) =>
-      summarize(record, { ...context, nextNudgeAt: dues.get(record.key) ?? null }),
+      summarize(record, {
+        ...context,
+        nextNudgeAt: dues.get(record.key) ?? null,
+        when: input.configs.get(record.repo)?.config.reviewRequest.when,
+      }),
     );
   }
 
@@ -117,10 +121,10 @@ export class Nudger {
   private async nudge({ record, entry }: DueNudge, now: number) {
     const { store, emitter } = this.dependencies;
     const { evaluation, nudge } = record;
-    const requestedHead = record.reviewRequestedHead;
-    const input = { evaluation, state: nudge, config: entry.config, now, requestedHead };
+    const request = reviewRequestOf(record);
+    const input = { evaluation, state: nudge, config: entry.config, now, request };
     const transition = nudgeTransition(input);
-    const next = nextStep(evaluation, entry.config, requestedHead);
+    const next = nextStep(evaluation, entry.config, request);
     store.saveNudge(record.key, markNudged(nudge, now, next));
     await emitter.emit(transition, evaluation, entry);
   }
@@ -147,7 +151,7 @@ export class Nudger {
       evaluation,
       hold,
       entry.config,
-      record.reviewRequestedHead,
+      reviewRequestOf(record),
     );
     await emitter.emit(transition, evaluation, entry);
   }

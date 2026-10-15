@@ -1,3 +1,8 @@
+import {
+  approvalRequestStatus,
+  type ReviewRequest,
+  type ReviewRequestTiming,
+} from "../../core/approval-request.ts";
 import { formatPullRequest, listOrNone, shortSha } from "../../core/format.ts";
 import type { Evaluation, FailedCheck, ReviewerEvaluation } from "../../core/types.ts";
 
@@ -46,7 +51,21 @@ function formatThreads({ threadsOpen, approvals }: Evaluation) {
   return `threads open ${threadsOpen}; approvals on head ${onHead}; stale ${stale}`;
 }
 
-export function formatCheckReport(evaluation: Evaluation, cost: CheckCost) {
+export interface RecordedRequest extends ReviewRequest {
+  when: ReviewRequestTiming;
+}
+
+function formatRequest(evaluation: Evaluation, request: RecordedRequest | null) {
+  if (!request) return [];
+  const status = approvalRequestStatus(request, request.when, evaluation.reasons);
+  return status === null ? [] : [status];
+}
+
+export function formatCheckReport(
+  evaluation: Evaluation,
+  cost: CheckCost,
+  request: RecordedRequest | null = null,
+) {
   return [
     `${formatPullRequest(evaluation)} ${evaluation.title}`,
     formatHead(evaluation, cost),
@@ -54,6 +73,7 @@ export function formatCheckReport(evaluation: Evaluation, cost: CheckCost) {
     formatChecks(evaluation),
     ...evaluation.reviewers.map(formatReviewer),
     formatThreads(evaluation),
+    ...formatRequest(evaluation, request),
     ...evaluation.reasons.map((reason) => `  - ${reason.code}: ${reason.detail}`),
   ].join("\n");
 }

@@ -35,6 +35,22 @@ describe("/ship context", () => {
     expect(text).toContain("- Daemon: running (gh-webhook-forward connected)");
   });
 
+  test("tells /ship to wait for a reviewable PR when reviewRequest.when is ready", () => {
+    const projectConfig = config({
+      reviewRequest: { instruction: "Ask for {url}", when: "ready" },
+    });
+    const text = shipContext({
+      config: projectConfig,
+      configPath: "/repo/.autopark.yaml",
+      root: "/repo",
+      health,
+      exists,
+    });
+    expect(text).toContain(
+      "- Review request: instruction (shown by `autopark request-review`), once the PR is reviewable (out of draft, checks green, reviewers met, no open threads); not before",
+    );
+  });
+
   test("works without a config", () => {
     const text = shipContext({
       config: null,

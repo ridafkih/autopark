@@ -79,7 +79,7 @@ export function sessionStartContext(state: HookState): string | null {
   if (!state.config && scoped.length === 0) return null;
   const items = scoped
     .filter((view) => !isHeld(view))
-    .flatMap((view) => actionItemsFor(view, config.hooks.stop));
+    .flatMap((view) => actionItemsFor(view, config.hooks.stop, config.reviewRequest.when));
   const actionable = actionLines(items);
   return [
     daemonLine(state.health),

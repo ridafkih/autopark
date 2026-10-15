@@ -49,7 +49,9 @@ function reviewLine({ reviewRequest }: Config) {
   const kind = reviewKind(reviewRequest);
   if (!kind) return "- Review request: none configured; ask the user who reviews";
   const verb = reviewRequest.instruction ? "shown" : "run";
-  return `- Review request: ${kind} (${verb} by \`autopark request-review\`)`;
+  const line = `- Review request: ${kind} (${verb} by \`autopark request-review\`)`;
+  if (reviewRequest.when === "open") return line;
+  return `${line}, once the PR is reviewable (out of draft, checks green, reviewers met, no open threads); not before`;
 }
 
 function autoMergeLine({ autoMerge }: Config) {

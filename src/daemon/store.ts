@@ -10,14 +10,17 @@ import type { FailureKind } from "../core/staleness.ts";
 import { SCHEMA, toHold, toRecord, toSqlBoolean, type PullRequestRecord } from "./store-rows.ts";
 import {
   addMissingColumns,
+  FLAGGED_TRANSITION_SQL,
   MARK_EVENT_SQL,
   RECORD_FAILURE_SQL,
   SAVE_EVALUATION_SQL,
+  SET_REVIEW_REQUESTED_SQL,
   TRACK_SQL,
   UPSERT_HOLD,
 } from "./store-sql.ts";
 
 export type { PullRequestRecord } from "./store-rows.ts";
+export { reviewRequestOf } from "./store-rows.ts";
 
 export interface StoredTransition extends Transition {
   id: number;
@@ -95,8 +98,9 @@ export class Store {
     this.db.query("UPDATE prs SET auto_merge = ? WHERE key = ?").run(toSqlBoolean(enabled), key);
   }
 
-  setReviewRequested(key: string, head: string | null) {
-    this.db.query("UPDATE prs SET review_requested_head = ? WHERE key = ?").run(head, key);
+  setReviewRequested(key: string, head: string | null, ready: boolean | null = null) {
+    const readiness = head === null ? null : toSqlBoolean(ready);
+    this.db.query(SET_REVIEW_REQUESTED_SQL).run(head, readiness, key);
   }
 
   setMergeAttempt(key: string, head: string | null) {
@@ -150,7 +154,11 @@ export class Store {
     return id;
   }
 
-  hasTransition(key: string, kind: string) {
+  hasTransition(key: string, kind: string, dataFlag: string | null = null) {
+    if (dataFlag !== null) {
+      const flagged = this.db.query(FLAGGED_TRANSITION_SQL);
+      return flagged.get(key, kind, `$.data.${dataFlag}`) !== null;
+    }
     const select = "SELECT 1 FROM transitions WHERE key = ? AND kind = ? LIMIT 1";
     return this.db.query(select).get(key, kind) !== null;
   }

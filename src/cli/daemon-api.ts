@@ -5,7 +5,10 @@ import { summarize, type PullRequestSummary } from "../core/summary.ts";
 import { controlFetch, daemonHealth } from "../daemon/client.ts";
 import type { Paths } from "../daemon/paths.ts";
 import type { GitHubPause } from "../github/gate.ts";
-import { Store } from "../daemon/store.ts";
+import { Store, type PullRequestRecord } from "../daemon/store.ts";
+import type { Hold } from "../core/hold.ts";
+import type { PullRequestLocator } from "../core/types.ts";
+import { configFor } from "./project.ts";
 import { CliError } from "./output.ts";
 
 export interface StatusReport {
@@ -51,22 +54,32 @@ export function withOfflineStore<Result>(paths: Paths, use: (store: Store) => Re
   }
 }
 
-function lastKnownStatus(paths: Paths): StatusReport {
-  if (!existsSync(paths.db)) {
-    return { daemon: "daemon: not running (no state yet)", github: null, pullRequests: [] };
-  }
+function readLastKnown(paths: Paths) {
   const store = new Store(paths.db, { readonly: true });
   try {
-    const records = store.listPullRequests({ trackedOnly: true });
-    const context = { now: Date.now(), holds: store.listHolds() };
-    return {
-      daemon: "daemon: not running (last known state)",
-      github: null,
-      pullRequests: records.map((record) => summarize(record, context)),
-    };
+    return { records: store.listPullRequests({ trackedOnly: true }), holds: store.listHolds() };
   } finally {
     store.close();
   }
+}
+
+async function summarizeOffline(record: PullRequestRecord, paths: Paths, holds: Hold[]) {
+  const { config } = await configFor(record.repo, paths);
+  return summarize(record, { now: Date.now(), holds, when: config.reviewRequest.when });
+}
+
+async function lastKnownStatus(paths: Paths): Promise<StatusReport> {
+  if (!existsSync(paths.db)) {
+    return { daemon: "daemon: not running (no state yet)", github: null, pullRequests: [] };
+  }
+  const { records, holds } = readLastKnown(paths);
+  return {
+    daemon: "daemon: not running (last known state)",
+    github: null,
+    pullRequests: await Promise.all(
+      records.map((record) => summarizeOffline(record, paths, holds)),
+    ),
+  };
 }
 
 export async function loadStatus(paths: Paths): Promise<StatusReport> {
@@ -79,4 +92,12 @@ export async function loadStatus(paths: Paths): Promise<StatusReport> {
     github: reply?.github ?? null,
     pullRequests: reply?.prs ?? [],
   };
+}
+
+export async function trackedSummary(paths: Paths, ref: PullRequestLocator) {
+  const { pullRequests } = await loadStatus(paths);
+  return pullRequests.find(
+    (candidate) =>
+      candidate.repo.toLowerCase() === ref.repo.toLowerCase() && candidate.number === ref.number,
+  );
 }

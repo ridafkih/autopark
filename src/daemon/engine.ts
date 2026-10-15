@@ -119,10 +119,11 @@ export class Engine {
     this.schedule(key);
   }
 
-  markReviewRequested(repo: string, number: number, head?: string) {
+  markReviewRequested(repo: string, number: number, head?: string, isReady?: boolean) {
     const record = this.requireTracked(repo, number);
     const sha = head ?? record.evaluation?.headSha ?? null;
-    this.dependencies.store.setReviewRequested(record.key, sha);
+    const ready = isReady ?? record.evaluation?.awaitingHuman ?? false;
+    this.dependencies.store.setReviewRequested(record.key, sha, ready);
     return sha;
   }
 

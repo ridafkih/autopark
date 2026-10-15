@@ -33,7 +33,7 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 | `review_scored` | a reviewer bot scored (`bot`, `score`, `reviewed_head`, `on_head`, `meets_threshold`) |
 | `threads_open` | unresolved thread count changed (`count`) |
 | `approved_on_head` / `approval_stale` | approvals on the current head / only on older commits |
-| `approval_needed` | sent once per PR when it needs a human approval and none was requested, without waiting for checks (`instruction`, `re_request_review`, `next`) |
+| `approval_needed` | sent once per PR when it needs a human approval and none was requested, without waiting for checks, or with `reviewRequest.when: ready` once it is reviewable; also once more when the recorded request was made before the PR was reviewable (`instruction`, `re_request_review`, `next`, `requested_early`) |
 | `awaiting_human` | everything green except human approval |
 | `ready` / `not_ready` | readiness flipped (`reasons`, `mergeable_now`) |
 | `merge_attempted` | auto-merge ran (`ok`, `method`, `error`) |

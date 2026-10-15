@@ -1,5 +1,6 @@
 import type { PullRequestRecord } from "../daemon/store.ts";
 import type { GitHubPause } from "../github/gate.ts";
+import { approvalRequestStatus, type ReviewRequestTiming } from "./approval-request.ts";
 import { formatClockTime, formatDuration, formatRemaining } from "./duration.ts";
 import { formatPullRequest, pullRequestUrl } from "./format.ts";
 import { activeHold, type Hold, type HoldView } from "./hold.ts";
@@ -21,6 +22,8 @@ export interface PullRequestSummary {
   autoMerge: boolean | null;
   sessionId: string | null;
   reviewRequestedHead: string | null;
+  reviewRequestedReady?: boolean | null;
+  reviewRequestWhen?: ReviewRequestTiming;
   updatedAt: number;
   blockedSince: number | null;
   nudges: number;
@@ -34,6 +37,7 @@ export interface SummaryContext {
   now: number;
   holds: Hold[];
   nextNudgeAt?: number | null;
+  when?: ReviewRequestTiming;
 }
 
 export function stateLabel(evaluation: Evaluation) {
@@ -80,6 +84,8 @@ export function summarize(record: PullRequestRecord, context: SummaryContext): P
     autoMerge: record.autoMerge,
     sessionId: record.sessionId,
     reviewRequestedHead: record.reviewRequestedHead,
+    reviewRequestedReady: record.reviewRequestedReady,
+    reviewRequestWhen: context.when ?? "open",
     updatedAt: record.updatedAt,
     blockedSince: blockedSince(record),
     nudges: record.nudge?.count ?? 0,
@@ -109,6 +115,16 @@ function stuckLine(summary: PullRequestSummary, now: number) {
   return [`  stuck ${stuck}${nudged}${next}`];
 }
 
+function approvalLine(summary: PullRequestSummary) {
+  const request = {
+    head: summary.reviewRequestedHead,
+    ready: summary.reviewRequestedReady ?? null,
+  };
+  const when = summary.reviewRequestWhen ?? "open";
+  const status = approvalRequestStatus(request, when, summary.reasons);
+  return status === null ? [] : [`  ${status}`];
+}
+
 const MAX_ERROR_LENGTH = 200;
 
 function staleLines({ stale, failure }: PullRequestSummary, now: number) {
@@ -136,6 +152,7 @@ function summaryLines(summary: PullRequestSummary, now: number) {
     ...holdLine(summary.hold, now),
     ...staleLines(summary, now),
     ...stuckLine(summary, now),
+    ...approvalLine(summary),
     ...reasons,
   ];
 }
