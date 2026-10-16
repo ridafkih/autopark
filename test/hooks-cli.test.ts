@@ -86,7 +86,7 @@ function transitionLine(id: number, repo: string) {
   return `${JSON.stringify(transition)}\n`;
 }
 
-test("stop hook blocks on a conflict up to the cap, then lets go", async () => {
+test("stop hook reports a conflict once, then lets the session stop", async () => {
   const { home, project } = setup();
   await bootWithConflict(home);
   markChannelLive(home, "s1");
@@ -98,17 +98,13 @@ test("stop hook blocks on a conflict up to the cap, then lets go", async () => {
       hook_event_name: "Stop",
     });
     const result = await run(["hook", "stop"], { home, cwd: project, stdin });
-    return parseJson(result.stdout);
+    return result.stdout ? parseJson(result.stdout) : null;
   };
-  const outputs: unknown[] = [];
-  for (const isActive of [false, true, true, true]) outputs.push(await stop(isActive));
-  const decisions = outputs.slice(0, 3).map((output) => stringAt(output, "decision"));
-  expect(decisions).toEqual(["block", "block", "block"]);
-  expect(stringAt(outputs[0], "reason")).toEndWith("\n#7 conflict");
-  expect(stringAt(outputs[1], "reason")).toBe("No change since last check.");
-  expect(outputs[3]).toEqual({
-    systemMessage: expect.stringContaining("stopped blocking after 3"),
-  });
+  const first = await stop(false);
+  expect(stringAt(first, "decision")).toBe("block");
+  expect(stringAt(first, "reason")).toEndWith("\n#7 conflict");
+  expect(await stop(true)).toBeNull();
+  expect(await stop(false)).toBeNull();
   const other = await run(["hook", "stop"], {
     home,
     cwd: project,

@@ -101,7 +101,7 @@ autopark acme/widgets#412 nudge head=8a71d0b: A declined tool call or a quiet co
 
 A declined tool call or a quiet conversation does not pause PR work. Only an explicit hold does, and it expires on its own.
 
-When Claude tries to stop while a tracked pull request still needs work, the Stop hook keeps it going with one line of codes per PR (`#412 conflict, checks:build, threads:2`); if nothing has changed since its last check it says only `No change since last check.`, and repeats the full list every 10 brief replies (`hooks.stop.maxBriefs`).
+When Claude tries to stop while a tracked pull request still needs work, the Stop hook keeps it going with one line of codes per PR (`#412 conflict, checks:build, threads:2`). It reports each set of codes once: while the PRs, heads and codes stay the same as its last report, it lets the session stop silently, and it speaks again only when something changes.
 
 You can also keep an eye on things yourself.
 

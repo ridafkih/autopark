@@ -7,16 +7,15 @@ import { STOP_HEADER, type TrackedView } from "../src/core/stop.ts";
 import type { Snapshot } from "../src/core/types.ts";
 import { resolvePaths } from "../src/daemon/paths.ts";
 import { stopOutput } from "../src/hooks/run.ts";
-import { check, config, greptileComment, HEAD, HEAD2 } from "./fixtures/build.ts";
+import { check, greptileComment, HEAD, HEAD2 } from "./fixtures/build.ts";
 import { hookState, view } from "./fixtures/hook-state.ts";
 
-const BRIEF = "No change since last check.";
 const MINUTE = 60_000;
 
 const conflict: Partial<Snapshot> = { mergeable: "CONFLICTING" };
 const failing: Partial<Snapshot> = { checks: [check("build", "fail"), check("gate", "pass")] };
 
-function stopper(overrides: { config?: ReturnType<typeof config> } = {}) {
+function stopper(overrides: Partial<Parameters<typeof hookState>[0]> = {}) {
   const paths = resolvePaths(mkdtempSync(join(tmpdir(), "apl-brief-")));
   return (views: TrackedView[], sessionId = "s1") => {
     const state = hookState({ views, sessionId, ...overrides });
@@ -30,10 +29,9 @@ const reasonOf = (output: unknown) => stringAt(output, "reason");
 const isFull = (output: unknown) =>
   stringAt(output, "decision") === "block" && reasonOf(output)?.startsWith(STOP_HEADER) === true;
 
-const isBrief = (output: unknown) =>
-  stringAt(output, "decision") === "block" && reasonOf(output) === BRIEF;
+const isSilent = (output: unknown) => output === null;
 
-describe("Stop hook brief mode", () => {
+describe("Stop hook reports each change once", () => {
   test("the first call prints the full list", () => {
     const stop = stopper();
     const output = stop([view(conflict)]);
@@ -41,10 +39,10 @@ describe("Stop hook brief mode", () => {
     expect(reasonOf(output)).toEndWith("\n#7 conflict");
   });
 
-  test("an identical second call is one brief line that still blocks", () => {
+  test("an identical second call lets the session stop silently", () => {
     const stop = stopper();
     stop([view(conflict)]);
-    expect(stop([view(conflict)])).toEqual({ decision: "block", reason: BRIEF });
+    expect(stop([view(conflict)])).toBeNull();
   });
 
   test("a repeated nudge alone is no change", () => {
@@ -58,7 +56,7 @@ describe("Stop hook brief mode", () => {
       reviewRequestedHead: HEAD,
       nudge: { ...nudge, count: 2 },
     };
-    expect(isBrief(stop([again]))).toBe(true);
+    expect(isSilent(stop([again]))).toBe(true);
   });
 
   test("a changed score prints the full list again", () => {
@@ -71,7 +69,7 @@ describe("Stop hook brief mode", () => {
     const stop = stopper();
     stop([view(conflict)]);
     expect(isFull(stop([view({ ...conflict, ...failing })]))).toBe(true);
-    expect(isBrief(stop([view({ ...conflict, ...failing })]))).toBe(true);
+    expect(isSilent(stop([view({ ...conflict, ...failing })]))).toBe(true);
   });
 
   test("a new PR prints the full list again", () => {
@@ -96,18 +94,11 @@ describe("Stop hook brief mode", () => {
     expect(isFull(stop([view({ ...failing, headSha: HEAD2 })]))).toBe(true);
   });
 
-  test("the full list returns after the default 10 brief calls", () => {
+  test("an unchanged state stays silent however many times the session stops", () => {
     const stop = stopper();
     const outputs = Array.from({ length: 13 }, () => stop([view(conflict)]));
-    const shapes = outputs.map((output): string => (isFull(output) ? "full" : "brief"));
-    expect(shapes).toEqual(["full", ...Array.from({ length: 10 }, () => "brief"), "full", "brief"]);
-  });
-
-  test("hooks.stop.maxBriefs sets how many brief calls come between full ones", () => {
-    const stop = stopper({ config: config({ hooks: { stop: { maxBriefs: 2 } } }) });
-    const outputs = Array.from({ length: 5 }, () => stop([view(conflict)]));
-    const shapes = outputs.map((output): string => (isFull(output) ? "full" : "brief"));
-    expect(shapes).toEqual(["full", "brief", "brief", "full", "brief"]);
+    const shapes = outputs.map((output): string => (isFull(output) ? "full" : "silent"));
+    expect(shapes).toEqual(["full", ...Array.from({ length: 12 }, () => "silent")]);
   });
 
   test("sessions are isolated from each other", () => {
@@ -115,8 +106,8 @@ describe("Stop hook brief mode", () => {
     const views = [view(conflict, "s1"), view(conflict, "s2")];
     expect(isFull(stop(views, "s1"))).toBe(true);
     expect(isFull(stop(views, "s2"))).toBe(true);
-    expect(isBrief(stop(views, "s1"))).toBe(true);
-    expect(isBrief(stop(views, "s2"))).toBe(true);
+    expect(isSilent(stop(views, "s1"))).toBe(true);
+    expect(isSilent(stop(views, "s2"))).toBe(true);
   });
 
   test("a hold keeps the PR out of the hook, and releasing it prints the full list", () => {

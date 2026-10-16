@@ -10,7 +10,6 @@ import { hookState, view } from "./fixtures/hook-state.ts";
 import { stopConfig, view as stopView } from "./fixtures/stop-views.ts";
 
 const MINUTE = 60_000;
-const BRIEF = "No change since last check.";
 const scope = { sessionId: "s1", repos: [] };
 
 const rateLimited = { kind: "rate_limited" as const, since: 0, ageMs: 12 * MINUTE };
@@ -52,22 +51,20 @@ describe("stale PRs in the stop hook", () => {
     expect(actionLines(items)).toEqual(["#7 conflict, stale:error 2m"]);
   });
 
-  test("the stop hook never says no change while a PR is stale", () => {
+  test("a stale spell is reported once, not on every stop", () => {
     const stop = stopper();
     const stale = { ...view({}), stale: rateLimited };
     const first = stop([stale]);
     expect(stringAt(first, "reason")).toStartWith(STOP_HEADER);
     expect(stringAt(first, "reason")).toEndWith("#7 stale:rate_limited 12m");
-    const again = stop([{ ...stale, stale: { ...rateLimited, ageMs: 13 * MINUTE } }]);
-    expect(stringAt(again, "reason")).not.toBe(BRIEF);
-    expect(stringAt(again, "reason")).toEndWith("#7 stale:rate_limited 13m");
+    expect(stop([{ ...stale, stale: { ...rateLimited, ageMs: 13 * MINUTE } }])).toBeNull();
   });
 
   test("a PR turning stale changes the fingerprint", () => {
     const stop = stopper();
     const conflict = view({ mergeable: "CONFLICTING" });
     stop([conflict]);
-    expect(stringAt(stop([conflict]), "reason")).toBe(BRIEF);
+    expect(stop([conflict])).toBeNull();
     const turned = stop([{ ...conflict, stale: rateLimited }]);
     expect(stringAt(turned, "reason")).toEndWith("#7 conflict, stale:rate_limited 12m");
     expect(stringAt(stop([conflict]), "reason")).toStartWith(STOP_HEADER);

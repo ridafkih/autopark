@@ -10,13 +10,7 @@ import {
 } from "../core/stop.ts";
 import type { ReviewRequestTiming } from "../core/approval-request.ts";
 import { configOrDefaults, type HookState } from "./state.ts";
-import {
-  BRIEF_REASON,
-  briefing,
-  fingerprintOf,
-  FORGOTTEN,
-  type BriefMemory,
-} from "./stop-brief.ts";
+import { fingerprintOf, FORGOTTEN, type BriefMemory } from "./stop-brief.ts";
 
 export interface StopHookState extends HookState {
   stopHookActive: boolean;
@@ -55,12 +49,15 @@ interface BlockContext {
 
 const priorBriefOf = (state: StopHookState) => state.priorBrief ?? FORGOTTEN;
 
+function onceOutput(state: StopHookState, fingerprint: string, output: object, blocks: number) {
+  const brief = { fingerprint };
+  if (fingerprint === priorBriefOf(state).fingerprint) return { output: null, blocks: 0, brief };
+  return { output, blocks, brief };
+}
+
 function blockOutput({ state, decision, views, config, when }: BlockContext) {
-  const prior = priorBriefOf(state);
-  const maxBriefs = views.some((view) => view.stale) ? 0 : config.maxBriefs;
-  const { isBrief, memory } = briefing(fingerprintOf(views, config, when), prior, maxBriefs);
-  const reason = isBrief ? BRIEF_REASON : decision.reason;
-  return { output: { decision: "block", reason }, brief: memory };
+  const output = { decision: "block", reason: decision.reason };
+  return onceOutput(state, fingerprintOf(views, config, when), output, decision.blocks);
 }
 
 function deliveryDownOutput({
@@ -78,7 +75,8 @@ function deliveryDownOutput({
   const lines = items.length > 0 ? [STOP_HEADER, ...actionLines(items)] : [];
   const blocks = state.stopHookActive ? state.priorBlocks + 1 : 1;
   const reason = [DELIVERY_DOWN, ...lines].join("\n");
-  return { output: { decision: "block", reason }, blocks, mark, brief: FORGOTTEN };
+  const fingerprint = `delivery_down\n${fingerprintOf(views, config, when)}`;
+  return { ...onceOutput(state, fingerprint, { decision: "block", reason }, blocks), mark };
 }
 
 interface EarlyContext {
@@ -120,7 +118,7 @@ export function stopHook(state: StopHookState): StopHookResult {
   });
   const { blocks, systemMessage } = decision;
   if (decision.decision === "block") {
-    return { ...blockOutput({ state, decision, views: scoped, config, when }), blocks, mark };
+    return { ...blockOutput({ state, decision, views: scoped, config, when }), mark };
   }
   if (systemMessage) return { output: { systemMessage }, blocks, mark, brief: prior };
   return { output: null, blocks, mark, brief: FORGOTTEN };

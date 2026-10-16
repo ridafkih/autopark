@@ -41,11 +41,12 @@ describe("Stop hook when nothing can wake the session", () => {
     );
   });
 
-  test("is never answered with a no-change brief", () => {
+  test("is reported once until something changes", () => {
     const state = { ...hookState({ isDeliveryLive: false }), ...fresh };
     const first = stopHook(state);
-    const second = stopHook({ ...state, priorBrief: first.brief });
-    expect(stringAt(second.output, "reason")).toBe(DELIVERY_DOWN);
+    expect(stopHook({ ...state, priorBrief: first.brief }).output).toBeNull();
+    const live = stopHook({ ...state, isDeliveryLive: true, priorBrief: first.brief });
+    expect(live.output).toBeNull();
   });
 
   test("lets go with a message at the continuation cap", () => {

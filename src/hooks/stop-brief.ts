@@ -7,12 +7,9 @@ type StopConfig = Config["hooks"]["stop"];
 
 export interface BriefMemory {
   fingerprint: string | null;
-  briefs: number;
 }
 
-export const BRIEF_REASON = "No change since last check.";
-
-export const FORGOTTEN: BriefMemory = { fingerprint: null, briefs: 0 };
+export const FORGOTTEN: BriefMemory = { fingerprint: null };
 
 export function fingerprintOf(views: TrackedView[], config: StopConfig, when: ReviewRequestTiming) {
   const lines = views
@@ -29,10 +26,4 @@ export function fingerprintOf(views: TrackedView[], config: StopConfig, when: Re
     )
     .toSorted();
   return createHash("sha256").update(lines.join("\n")).digest("hex");
-}
-
-export function briefing(fingerprint: string, prior: BriefMemory, maxBriefs: number) {
-  const isBrief = fingerprint === prior.fingerprint && prior.briefs < maxBriefs;
-  const memory: BriefMemory = { fingerprint, briefs: isBrief ? prior.briefs + 1 : 0 };
-  return { isBrief, memory };
 }

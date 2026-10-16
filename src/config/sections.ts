@@ -141,7 +141,6 @@ export const hooksSection = objectSchema({
     enabled: booleanSchema({ default: true }),
     scope: enumSchema(["session", "repo", "all"] as const, { default: "session" }),
     maxBlocks: numberSchema({ default: 3, min: 1, max: 8, int: true }),
-    maxBriefs: numberSchema({ default: 10, min: 0, max: 100, int: true }),
     blockOnConflict: booleanSchema({ default: true }),
     blockOnFailedChecks: booleanSchema({ default: true }),
     blockOnReviewFindings: booleanSchema({ default: true }),

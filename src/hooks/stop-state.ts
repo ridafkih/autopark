@@ -14,11 +14,10 @@ const MAX_REMEMBERED_SESSIONS = 200;
 
 const toBriefMemory = (record: JsonRecord): BriefMemory => ({
   fingerprint: isString(record.fingerprint) ? record.fingerprint : null,
-  briefs: isNumber(record.briefs) ? record.briefs : 0,
 });
 
 function toStopEntry(value: unknown): StopEntry | null {
-  if (isNumber(value)) return { blocks: value, mark: 0, fingerprint: null, briefs: 0 };
+  if (isNumber(value)) return { blocks: value, mark: 0, fingerprint: null };
   if (isRecord(value) && isNumber(value.blocks) && isNumber(value.mark)) {
     return { blocks: value.blocks, mark: value.mark, ...toBriefMemory(value) };
   }
