@@ -10,7 +10,13 @@ import {
 } from "../core/stop.ts";
 import type { ReviewRequestTiming } from "../core/approval-request.ts";
 import { configOrDefaults, type HookState } from "./state.ts";
-import { fingerprintOf, FORGOTTEN, type BriefMemory } from "./stop-brief.ts";
+import {
+  fingerprintOfLines,
+  FORGOTTEN,
+  isRepeat,
+  linesOf,
+  type BriefMemory,
+} from "./stop-brief.ts";
 
 export interface StopHookState extends HookState {
   stopHookActive: boolean;
@@ -49,15 +55,15 @@ interface BlockContext {
 
 const priorBriefOf = (state: StopHookState) => state.priorBrief ?? FORGOTTEN;
 
-function onceOutput(state: StopHookState, fingerprint: string, output: object, blocks: number) {
-  const brief = { fingerprint };
-  if (fingerprint === priorBriefOf(state).fingerprint) return { output: null, blocks: 0, brief };
+function onceOutput(state: StopHookState, lines: string[], output: object, blocks: number) {
+  const brief = { fingerprint: fingerprintOfLines(lines), lines };
+  if (isRepeat(lines, priorBriefOf(state))) return { output: null, blocks: 0, brief };
   return { output, blocks, brief };
 }
 
 function blockOutput({ state, decision, views, config, when }: BlockContext) {
   const output = { decision: "block", reason: decision.reason };
-  return onceOutput(state, fingerprintOf(views, config, when), output, decision.blocks);
+  return onceOutput(state, linesOf(views, config, when), output, decision.blocks);
 }
 
 function deliveryDownOutput({
@@ -75,8 +81,8 @@ function deliveryDownOutput({
   const lines = items.length > 0 ? [STOP_HEADER, ...actionLines(items)] : [];
   const blocks = state.stopHookActive ? state.priorBlocks + 1 : 1;
   const reason = [DELIVERY_DOWN, ...lines].join("\n");
-  const fingerprint = `delivery_down\n${fingerprintOf(views, config, when)}`;
-  return { ...onceOutput(state, fingerprint, { decision: "block", reason }, blocks), mark };
+  const reported = ["delivery_down", ...linesOf(views, config, when)];
+  return { ...onceOutput(state, reported, { decision: "block", reason }, blocks), mark };
 }
 
 interface EarlyContext {

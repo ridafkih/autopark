@@ -12,9 +12,12 @@ type StopState = Record<string, StopEntry>;
 
 const MAX_REMEMBERED_SESSIONS = 200;
 
-const toBriefMemory = (record: JsonRecord): BriefMemory => ({
-  fingerprint: isString(record.fingerprint) ? record.fingerprint : null,
-});
+const toBriefMemory = (record: JsonRecord): BriefMemory => {
+  const fingerprint = isString(record.fingerprint) ? record.fingerprint : null;
+  const { lines } = record;
+  if (!Array.isArray(lines) || !lines.every(isString)) return { fingerprint };
+  return { fingerprint, lines };
+};
 
 function toStopEntry(value: unknown): StopEntry | null {
   if (isNumber(value)) return { blocks: value, mark: 0, fingerprint: null };

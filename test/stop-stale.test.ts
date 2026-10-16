@@ -60,13 +60,13 @@ describe("stale PRs in the stop hook", () => {
     expect(stop([{ ...stale, stale: { ...rateLimited, ageMs: 13 * MINUTE } }])).toBeNull();
   });
 
-  test("a PR turning stale changes the fingerprint", () => {
+  test("a PR turning stale is reported, and its spell ending is not", () => {
     const stop = stopper();
     const conflict = view({ mergeable: "CONFLICTING" });
     stop([conflict]);
     expect(stop([conflict])).toBeNull();
     const turned = stop([{ ...conflict, stale: rateLimited }]);
     expect(stringAt(turned, "reason")).toEndWith("#7 conflict, stale:rate_limited 12m");
-    expect(stringAt(stop([conflict]), "reason")).toStartWith(STOP_HEADER);
+    expect(stop([conflict])).toBeNull();
   });
 });

@@ -80,12 +80,33 @@ describe("Stop hook reports each change once", () => {
     expect(reasonOf(output)).toContain("\n#8 conflict");
   });
 
-  test("a resolved item prints the full list again", () => {
+  test("a resolved item alone lets the session stop silently", () => {
     const stop = stopper();
     stop([view({ ...conflict, ...failing })]);
-    const output = stop([view(conflict)]);
+    expect(isSilent(stop([view(conflict)]))).toBe(true);
+  });
+
+  test("a PR leaving the list alone lets the session stop silently", () => {
+    const stop = stopper();
+    stop([view(conflict), view({ ...conflict, number: 8 })]);
+    expect(isSilent(stop([view(conflict)]))).toBe(true);
+  });
+
+  test("a new item after the list shrank prints the full list again", () => {
+    const stop = stopper();
+    stop([view(conflict), view({ ...conflict, number: 8 })]);
+    stop([view(conflict)]);
+    const output = stop([view(conflict), view({ ...failing, number: 9 })]);
     expect(isFull(output)).toBe(true);
-    expect(reasonOf(output)).not.toContain("checks:");
+    expect(reasonOf(output)).toContain("\n#9 checks:");
+    expect(reasonOf(output)).not.toContain("#8");
+  });
+
+  test("an item that returns after leaving the list is reported again", () => {
+    const stop = stopper();
+    stop([view({ ...conflict, ...failing })]);
+    stop([view(conflict)]);
+    expect(isFull(stop([view({ ...conflict, ...failing })]))).toBe(true);
   });
 
   test("a new head prints the full list again", () => {
