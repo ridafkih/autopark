@@ -29,6 +29,19 @@ export const needsApproval = (evaluation: Evaluation) =>
   !evaluation.isDraft &&
   evaluation.reasons.some((reason) => APPROVAL_CODES.has(reason.code));
 
+const NOT_REVIEWABLE: ReadonlySet<string> = new Set<ReasonCode>([
+  "draft",
+  "conflict",
+  "review_missing",
+  "review_stale",
+  "review_below_threshold",
+  "threads_open",
+  "changes_requested",
+]);
+
+export const isReviewableForRequest = (isOpen: boolean, reasons: Evaluation["reasons"]) =>
+  isOpen && !reasons.some((reason) => NOT_REVIEWABLE.has(reason.code));
+
 const isReviewable = (evaluation: Evaluation) =>
   evaluation.state === "OPEN" && evaluation.awaitingHuman;
 

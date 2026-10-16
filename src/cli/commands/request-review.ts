@@ -1,4 +1,8 @@
-import { isEarlyRequest, type ReviewRequestTiming } from "../../core/approval-request.ts";
+import {
+  isEarlyRequest,
+  isReviewableForRequest,
+  type ReviewRequestTiming,
+} from "../../core/approval-request.ts";
 import { formatPullRequest, shortSha } from "../../core/format.ts";
 import { fillTemplate } from "../../core/template.ts";
 import { pullRequestKey } from "../../core/types.ts";
@@ -22,12 +26,13 @@ interface ReviewTarget {
 async function reviewTarget(ref: PullRequestRef, paths: Paths): Promise<ReviewTarget> {
   const summary = await trackedSummary(paths, ref);
   if (summary?.head) {
-    const { head, title, url, awaitingHuman } = summary;
-    return { head, title, url, ready: awaitingHuman };
+    const { head, title, url, state, reasons } = summary;
+    const isOpen = state !== "merged" && state !== "closed";
+    return { head, title, url, ready: isReviewableForRequest(isOpen, reasons) };
   }
   const { evaluation } = await fetchEvaluation(ref, paths);
-  const { headSha, title, url, state, awaitingHuman } = evaluation;
-  return { head: headSha, title, url, ready: state === "OPEN" && awaitingHuman };
+  const { headSha, title, url, state, reasons } = evaluation;
+  return { head: headSha, title, url, ready: isReviewableForRequest(state === "OPEN", reasons) };
 }
 
 async function runReviewCommand(command: string, ref: PullRequestRef, target: ReviewTarget) {
