@@ -1,6 +1,6 @@
 import { formatDuration, formatRemaining } from "../core/duration.ts";
 import { formatPullRequest } from "../core/format.ts";
-import { PAUSE_RULE } from "../core/nudge-message.ts";
+import { AUDIENCE_RULE, PAUSE_RULE } from "../core/nudge-message.ts";
 import {
   actionItemsFor,
   actionLines,
@@ -85,6 +85,6 @@ export function sessionStartContext(state: HookState): string | null {
     daemonLine(state.health),
     ...trackedLines(scoped, state.now),
     ...(actionable.length > 0 ? ["Actionable now:", ...actionable] : []),
-    `React to autopark events using ${state.playbook}. ${PAUSE_RULE}`,
+    `React to autopark events using ${state.playbook}. ${PAUSE_RULE} ${AUDIENCE_RULE}`,
   ].join("\n");
 }

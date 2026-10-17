@@ -62,7 +62,7 @@ describe("decideStop", () => {
   test("block reason states the pause rule once, then one line of codes per PR", () => {
     const decision = decideStop(input(items, false, 0));
     expect(decision.reason).toBe(
-      "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work.\n#7 conflict",
+      "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work. This list is for you, not the user: don't reply to it with a status report.\n#7 conflict",
     );
   });
 

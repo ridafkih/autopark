@@ -37,7 +37,7 @@ describe("Stop hook when nothing can wake the session", () => {
     const views = [view({ mergeable: "CONFLICTING" })];
     const result = stopHook({ ...hookState({ isDeliveryLive: false, views }), ...fresh });
     expect(stringAt(result.output, "reason")).toBe(
-      `${DELIVERY_DOWN}\nAct on these PRs per the autopark playbook; only \`autopark hold\` pauses PR work.\n#7 conflict`,
+      `${DELIVERY_DOWN}\nAct on these PRs per the autopark playbook; only \`autopark hold\` pauses PR work. This list is for you, not the user: don't reply to it with a status report.\n#7 conflict`,
     );
   });
 

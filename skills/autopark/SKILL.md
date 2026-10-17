@@ -17,6 +17,10 @@ Events are facts computed by the local daemon from GitHub's current state, not r
 
 A project can replace this playbook by setting `delivery.playbook` in `.autopark.yaml`; when it does, the channel instructions and hooks point at that file instead.
 
+## Events and nudges are for you, not the user
+
+They exist to close the loop on PR work, not to keep the user up to date. Act on them without narrating them: don't send the user a message, or end a turn with a status report, because an event or nudge arrived. When nothing changed for the user, end the turn with no reply. Message the user only when a PR is ready to merge (`ready`), needs a decision only they can make, or you are blocked on them.
+
 ## Ground rules
 
 - Act on PRs this session is driving (`autopark status --session ${CLAUDE_SESSION_ID}`). For any other PR, mention the event only if the user would care.
@@ -46,7 +50,7 @@ A project can replace this playbook by setting `delivery.playbook` in `.autopark
 | `mergeability_unknown` | GitHub did not compute mergeability during the backoff. Run `autopark check <pr>` once; if it is still unknown, wait for the next event. |
 | `merge_attempted` | If `ok` is false, read `error`. "Base branch was modified" or "head out of date": merge the base and push. Missing review: request it. Otherwise tell the user. |
 | `merged`, `closed` | Stop working on the PR. Remove its worktree, then report the outcome in one line. |
-| `nudge` | The PR has been stuck on the same `reasons` for `blocked_for` and nothing moved it. Do the `next` step now, using the rows above for each code. When `re_request_review` is true, approval is due: it was never requested for this PR, or (with `when: ready`) the only request was made before the PR was reviewable. Carry out the `instruction` once, then run `autopark request-review <pr>`. With `when: ready`, `re_request_review` stays false until the PR is reviewable, so don't ask early. Never re-ask approval after a request made while reviewable, even when the head moves. A nudge on `checks_pending` means confirm the checks are actually running and rerun any that are stuck. `escalated` means it has been stuck past the project's limit: act first, then tell the user in one line. Nudges repeat until the PR is ready, merged or held. |
+| `nudge` | The PR has been stuck on the same `reasons` for `blocked_for` and nothing moved it. Do the `next` step now, using the rows above for each code. When `re_request_review` is true, approval is due: it was never requested for this PR, or (with `when: ready`) the only request was made before the PR was reviewable. Carry out the `instruction` once, then run `autopark request-review <pr>`. With `when: ready`, `re_request_review` stays false until the PR is reviewable, so don't ask early. Never re-ask approval after a request made while reviewable, even when the head moves. A nudge on `checks_pending` means confirm the checks are actually running and rerun any that are stuck. `escalated` means it has been stuck past the project's limit: act first, and tell the user only if the PR is blocked on them. Nudges repeat until the PR is ready, merged or held. |
 | `hold_expired` | The hold on this PR (or on every PR, `scope` all) has ended. Resume work immediately on what the reason lists. |
 
 ## Stop hook codes

@@ -1,4 +1,4 @@
-import { PAUSE_RULE } from "../core/nudge-message.ts";
+import { AUDIENCE_RULE, PAUSE_RULE } from "../core/nudge-message.ts";
 import { sessionIdFrom } from "../core/session.ts";
 import { VERSION } from "../daemon/client.ts";
 import { resolvePaths, type Paths } from "../daemon/paths.ts";
@@ -21,6 +21,7 @@ export function channelInstructions(playbook: string) {
     "Pending checks or reviews need no action, and GitHub never needs to be polled: the next event arrives on its own.",
     "A stuck PR is re-announced as a `nudge` until it is ready, merged or held.",
     PAUSE_RULE,
+    AUDIENCE_RULE,
   ].join(" ");
 }
 

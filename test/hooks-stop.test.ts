@@ -21,7 +21,7 @@ const fresh: Continuation = { stopHookActive: false, priorBlocks: 0 };
 const allow: Expectation = { output: null, blocks: 0 };
 const conflicted = [view({ mergeable: "CONFLICTING" })];
 const BLOCK_REASON =
-  "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work.\n#7 conflict";
+  "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work. This list is for you, not the user: don't reply to it with a status report.\n#7 conflict";
 
 describe("Stop hook", () => {
   test.each<Row>([

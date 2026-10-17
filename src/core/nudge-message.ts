@@ -14,6 +14,9 @@ import type { Evaluation, NudgeKind, Transition, TransitionKind } from "./types.
 export const PAUSE_RULE =
   "A declined tool call or a quiet conversation does not pause PR work. Only `autopark hold` does.";
 
+export const AUDIENCE_RULE =
+  "These reminders are for the agent, to close the loop: act on them without relaying them to the user, and message the user only when a PR is ready to merge or needs their decision.";
+
 const NEXT_STEPS: Record<NudgeKind, string> = {
   draft: "mark it ready for review once the work is done",
   conflict: "merge the base in, resolve, push",

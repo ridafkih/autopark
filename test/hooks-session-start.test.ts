@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { PAUSE_RULE } from "../src/core/nudge-message.ts";
+import { AUDIENCE_RULE, PAUSE_RULE } from "../src/core/nudge-message.ts";
 import { sessionStartContext } from "../src/hooks/session-start.ts";
 import type { HookState } from "../src/hooks/state.ts";
 import { config } from "./fixtures/build.ts";
@@ -12,7 +12,7 @@ describe("SessionStart context", () => {
         "autopark daemon is running (pid 99, gh-webhook-forward connected).",
         "Tracked PRs:",
         "- acme/widgets#7 [ready] Tidy the widget loader",
-        `React to autopark events using ${PLAYBOOK}. ${PAUSE_RULE}`,
+        `React to autopark events using ${PLAYBOOK}. ${PAUSE_RULE} ${AUDIENCE_RULE}`,
       ].join("\n"),
     );
   });

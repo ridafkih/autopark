@@ -52,7 +52,7 @@ export const actionableItems = (views: TrackedView[], config: StopConfig, contex
     .flatMap((view) => actionItemsFor(view, config, context.when));
 
 export const STOP_HEADER =
-  "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work.";
+  "Act on these PRs per the autopark playbook; only `autopark hold` pauses PR work. This list is for you, not the user: don't reply to it with a status report.";
 
 export function decideStop({
   items,
