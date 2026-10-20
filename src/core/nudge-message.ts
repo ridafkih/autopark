@@ -15,7 +15,7 @@ export const PAUSE_RULE =
   "A declined tool call or a quiet conversation does not pause PR work. Only `autopark hold` does.";
 
 export const AUDIENCE_RULE =
-  "These reminders are for the agent, to close the loop: act on them without relaying them to the user, and message the user only when a PR is ready to merge or needs their decision.";
+  "These reminders are for the agent, to close the loop: act on them without relaying them to the user, and message the user only when a PR needs their decision or you are blocked on them.";
 
 const NEXT_STEPS: Record<NudgeKind, string> = {
   draft: "mark it ready for review once the work is done",
@@ -43,7 +43,7 @@ function otherSteps(evaluation: Evaluation) {
 
 function stepFor(evaluation: Evaluation, config: Config, request: ReviewRequest): ReviewStep {
   if (evaluation.ready) {
-    return { text: "tell the user it is ready to merge", instruction: null, isRequested: false };
+    return { text: "nothing; it waits for a human to merge", instruction: null, isRequested: false };
   }
   const others = otherSteps(evaluation);
   if (!isApprovalRequestDue(evaluation, request, config.reviewRequest.when)) {

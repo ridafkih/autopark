@@ -19,7 +19,7 @@ A project can replace this playbook by setting `delivery.playbook` in `.autopark
 
 ## Events and nudges are for you, not the user
 
-They exist to close the loop on PR work, not to keep the user up to date. Act on them without narrating them: don't send the user a message, or end a turn with a status report, because an event or nudge arrived. When nothing changed for the user, end the turn with no reply. Message the user only when a PR is ready to merge (`ready`), needs a decision only they can make, or you are blocked on them.
+They exist to close the loop on PR work, not to keep the user up to date. Act on them without narrating them: don't send the user a message, or end a turn with a status report, because an event or nudge arrived. When nothing changed for the user, end the turn with no reply. Message the user only when a PR needs a decision only they can make, or you are blocked on them. A PR becoming ready is not one of those.
 
 ## Ground rules
 
@@ -44,7 +44,7 @@ They exist to close the loop on PR work, not to keep the user up to date. Act on
 | `approval_stale` | The only approvals are on older commits and GitHub no longer counts them. If approval was never requested for this PR, do what `approval_needed` says; otherwise wait. |
 | `awaiting_human` | Everything is green except human approval: the PR is reviewable. If approval was never requested for this PR, or (with `when: ready`) the only request was made before it was reviewable, do what `approval_needed` says. `autopark status` shows "requested early (draft/not reviewable); will re-ask when reviewable" for such a request. Then end the turn. |
 | `approved_on_head` | Nothing; `ready` follows if every rule passes. |
-| `ready` | Tell the user once, with the link, whether it is mergeable now (`mergeable_now`), and anything still pending a human. Then wait. Do not merge unless asked. |
+| `ready` | Nothing. Don't message anyone about it; the PR waits for a human to merge. Do not merge unless asked. |
 | `not_ready` | Read `reasons`. Act only on actionable codes (`conflict`, `checks_failed`, `review_below_threshold`, `threads_open`, `changes_requested`) using the rows above. Other codes are waits. |
 | `conflict_resolved`, `checks_passed` | Nothing. |
 | `mergeability_unknown` | GitHub did not compute mergeability during the backoff. Run `autopark check <pr>` once; if it is still unknown, wait for the next event. |
