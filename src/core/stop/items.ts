@@ -123,11 +123,8 @@ export function actionItemsFor(
   when: ReviewRequestTiming = "open",
 ): ActionItem[] {
   const { evaluation } = view;
-  if (evaluation.state !== "OPEN") return [];
+  if (evaluation.state !== "OPEN" || isQueued(evaluation)) return [];
   const locator = { repo: evaluation.repo, number: evaluation.number };
-  if (isQueued(evaluation)) {
-    return staleItem(view).map((draft): ActionItem => Object.assign({}, locator, draft));
-  }
   const context: ItemContext = { evaluation, view, config, when };
   const drafts = ITEM_BUILDERS.map((build) => build(context)).filter(isPresent);
   const items = drafts.length > 0 ? drafts : nudgedItem(context);
