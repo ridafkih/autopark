@@ -4,6 +4,7 @@ import {
   type ReviewRequestTiming,
 } from "../../core/approval-request.ts";
 import { formatPullRequest, listOrNone, shortSha } from "../../core/format.ts";
+import { describeQueuePosition } from "../../core/merge-queue.ts";
 import type { Evaluation, FailedCheck, ReviewerEvaluation } from "../../core/types.ts";
 
 const DISPLAY_SHA_LENGTH = 10;
@@ -24,6 +25,12 @@ function formatHead(evaluation: Evaluation, { cost, reads }: CheckCost) {
 
 const formatReadiness = (evaluation: Evaluation) =>
   `ready ${evaluation.ready}  mergeable now ${evaluation.mergeableNow}  awaiting human ${evaluation.awaitingHuman}`;
+
+function formatQueue({ mergeQueue }: Evaluation) {
+  if (!mergeQueue) return "merge queue: not queued";
+  const enqueued = mergeQueue.enqueuedAt ? `, enqueued ${mergeQueue.enqueuedAt}` : "";
+  return `merge queue: ${describeQueuePosition(mergeQueue)}${enqueued}`;
+}
 
 const formatFailure = (check: FailedCheck) => {
   const marker = check.required ? "*" : "";
@@ -70,6 +77,7 @@ export function formatCheckReport(
     `${formatPullRequest(evaluation)} ${evaluation.title}`,
     formatHead(evaluation, cost),
     formatReadiness(evaluation),
+    formatQueue(evaluation),
     formatChecks(evaluation),
     ...evaluation.reviewers.map(formatReviewer),
     formatThreads(evaluation),
