@@ -62,6 +62,17 @@ export interface PullRequestComment {
   updatedAt: string;
 }
 
+export interface MergeQueueEntry {
+  state: string;
+  position: number | null;
+  enqueuedAt: string | null;
+}
+
+export interface MergeQueueRemoval {
+  reason: string | null;
+  at: string | null;
+}
+
 export interface Snapshot {
   repo: string;
   number: number;
@@ -81,6 +92,8 @@ export interface Snapshot {
   reviewDecision: string | null;
   threads: ReviewThread[];
   comments: PullRequestComment[];
+  mergeQueue: MergeQueueEntry | null;
+  queueRemoval: MergeQueueRemoval | null;
 }
 
 export interface ReviewerResult {
