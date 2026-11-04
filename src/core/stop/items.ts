@@ -7,6 +7,7 @@ import {
 import { formatPullRequest, formatScore } from "../format.ts";
 import type { HoldView } from "../hold.ts";
 import { formatDuration } from "../duration.ts";
+import { isQueued } from "../merge-queue.ts";
 import { nudgeKindsOf, type NudgeState } from "../nudge.ts";
 import type { Staleness } from "../staleness.ts";
 import {
@@ -123,10 +124,13 @@ export function actionItemsFor(
 ): ActionItem[] {
   const { evaluation } = view;
   if (evaluation.state !== "OPEN") return [];
+  const locator = { repo: evaluation.repo, number: evaluation.number };
+  if (isQueued(evaluation)) {
+    return staleItem(view).map((draft): ActionItem => Object.assign({}, locator, draft));
+  }
   const context: ItemContext = { evaluation, view, config, when };
   const drafts = ITEM_BUILDERS.map((build) => build(context)).filter(isPresent);
   const items = drafts.length > 0 ? drafts : nudgedItem(context);
-  const locator = { repo: evaluation.repo, number: evaluation.number };
   return [...items, ...staleItem(view)].map((draft): ActionItem =>
     Object.assign({}, locator, draft),
   );

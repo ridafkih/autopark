@@ -54,6 +54,7 @@ export function evaluate(
     parsers,
   );
   const isReady = reasons.length === 0;
+  const isQueued = snapshot.mergeQueue !== null;
   const areGatesPassing = checks.gates.every((gate) => gate.outcome === "pass");
   const lastKnownMergeable =
     snapshot.mergeable === "UNKNOWN"
@@ -70,7 +71,10 @@ export function evaluate(
     approvals,
     reasons,
     ready: isReady,
-    mergeableNow: isReady && areGatesPassing && MERGE_NOW_STATES.has(snapshot.mergeStateStatus),
-    awaitingHuman: isAwaitingHuman(reasons),
+    mergeableNow:
+      !isQueued && isReady && areGatesPassing && MERGE_NOW_STATES.has(snapshot.mergeStateStatus),
+    awaitingHuman: !isQueued && isAwaitingHuman(reasons),
+    mergeQueue: snapshot.mergeQueue,
+    queueRemoval: snapshot.queueRemoval,
   };
 }

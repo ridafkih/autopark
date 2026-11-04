@@ -36,6 +36,8 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 | `approval_needed` | sent once per PR when it needs a human approval and none was requested, without waiting for checks, or with `reviewRequest.when: ready` once it is reviewable; also once more when the recorded request was made before the PR was reviewable (`instruction`, `re_request_review`, `next`, `requested_early`) |
 | `awaiting_human` | everything green except human approval |
 | `ready` / `not_ready` | readiness flipped (`reasons`, `mergeable_now`) |
+| `queued` | the PR entered GitHub's merge queue (`state`, `position`, `enqueued_at`); while queued, `ready`, `not_ready`, `awaiting_human`, `mergeability_unknown` and nudges are held back |
+| `dequeued` | the PR left the merge queue without merging (`reason`: GitHub's removal reason, when it gave one; `last_state`) |
 | `merge_attempted` | auto-merge ran (`ok`, `method`, `error`) |
 | `nudge` | still blocked; re-sent on a timer, not on change (`reasons`, `kinds`, `since`, `blocked_for`, `blocked_for_ms`, `count`, `escalated`, `re_request_review`, `instruction`, `next`) |
 | `hold_expired` | a hold on this PR or on every PR ended; work resumes (`hold_reason`, `held_until`, `scope`, `reasons`) |

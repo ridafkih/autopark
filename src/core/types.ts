@@ -15,6 +15,8 @@ export const TRANSITION_KINDS = [
   "not_ready",
   "merged",
   "closed",
+  "queued",
+  "dequeued",
   "merge_attempted",
   "nudge",
   "hold_expired",
@@ -190,6 +192,8 @@ export interface Evaluation {
   ready: boolean;
   mergeableNow: boolean;
   awaitingHuman: boolean;
+  mergeQueue?: MergeQueueEntry | null;
+  queueRemoval?: MergeQueueRemoval | null;
 }
 
 export interface Transition {
