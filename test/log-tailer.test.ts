@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { appendFileSync, mkdtempSync, truncateSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, renameSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LogTailer } from "../src/channel/tail.ts";
@@ -41,6 +41,18 @@ describe("log tailer", () => {
     appendFileSync(tail.path, '{"id":9}\n');
     tail.tailer.poll();
     expect(tail.lines).toEqual(['{"id":9}']);
+  });
+
+  test("a file that briefly cannot be read is not read again from the start", () => {
+    const tail = tailFile('{"id":1}\n{"id":2}\n');
+    tail.tailer.start();
+    const aside = `${tail.path}.aside`;
+    renameSync(tail.path, aside);
+    tail.tailer.poll();
+    renameSync(aside, tail.path);
+    appendFileSync(tail.path, '{"id":3}\n');
+    tail.tailer.poll();
+    expect(tail.lines).toEqual(['{"id":3}']);
   });
 
   test("a missing file is picked up once it appears", () => {

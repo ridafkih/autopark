@@ -1,13 +1,4 @@
-import {
-  closeSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readSync,
-  statSync,
-  watch,
-  type FSWatcher,
-} from "node:fs";
+import { closeSync, mkdirSync, openSync, readSync, statSync, watch, type FSWatcher } from "node:fs";
 import { basename, dirname } from "node:path";
 
 interface TailOptions {
@@ -41,7 +32,7 @@ export class LogTailer {
   ) {}
 
   start() {
-    this.offset = this.size();
+    this.offset = this.size() ?? 0;
     if (this.options.watch === false) return;
     const directory = dirname(this.path);
     mkdirSync(directory, { recursive: true });
@@ -54,6 +45,7 @@ export class LogTailer {
 
   poll() {
     const size = this.size();
+    if (size === null) return;
     if (size < this.offset) {
       this.offset = 0;
       this.partial = "";
@@ -72,6 +64,10 @@ export class LogTailer {
   }
 
   private size() {
-    return existsSync(this.path) ? statSync(this.path).size : 0;
+    try {
+      return statSync(this.path).size;
+    } catch {
+      return null;
+    }
   }
 }
