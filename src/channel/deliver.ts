@@ -77,18 +77,34 @@ export async function deliveriesFor(
   return collapseBursts(live).map((transition) => toDelivery(transition, request.format));
 }
 
+function linesOf(value: Record<string, unknown>) {
+  const { lines, line } = value;
+  if (Array.isArray(lines) && lines.every(isString)) return lines;
+  return isString(line) ? [line] : null;
+}
+
 export function toDeliveryRequest(value: unknown): DeliveryRequest | null {
   if (!isRecord(value)) return null;
-  const { lines, sessionId, cwd, format } = value;
-  if (!Array.isArray(lines) || !lines.every(isString) || !isString(cwd)) return null;
+  const { sessionId, cwd, format } = value;
+  const lines = linesOf(value);
+  if (!lines || !isString(cwd)) return null;
   if (format !== "channel" && format !== "monitor") return null;
   return { lines, cwd, format, sessionId: isString(sessionId) ? sessionId : null };
 }
 
+const isSingleLineRequest = (value: unknown) => isRecord(value) && isString(value.line);
+
+function encode(value: unknown, deliveries: Delivery[]) {
+  if (!isSingleLineRequest(value)) return JSON.stringify(deliveries);
+  const [delivery] = deliveries;
+  return delivery ? JSON.stringify(delivery) : "";
+}
+
 async function main() {
-  const request = toDeliveryRequest(parseJson(await Bun.stdin.text()));
+  const value = parseJson(await Bun.stdin.text());
+  const request = toDeliveryRequest(value);
   const deliveries = request ? await deliveriesFor(request) : [];
-  process.stdout.write(JSON.stringify(deliveries));
+  process.stdout.write(encode(value, deliveries));
 }
 
 if (import.meta.main) await main();
