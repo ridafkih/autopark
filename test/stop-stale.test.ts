@@ -70,3 +70,24 @@ describe("stale PRs in the stop hook", () => {
     expect(stop([conflict])).toBeNull();
   });
 });
+
+const queuedView = (stale: TrackedView["stale"]): TrackedView =>
+  staleView({
+    ...stopView({
+      mergeQueue: { state: "AWAITING_CHECKS", position: 2, enqueuedAt: "2026-11-04T21:45:11Z" },
+    }),
+    reviewRequestedHead: null,
+    stale,
+  });
+
+describe("queued PRs in the stop hook", () => {
+  test.each([
+    ["pending", { kind: "pending" as const, since: 0, ageMs: 2 * MINUTE }],
+    ["error", { kind: "error" as const, since: 0, ageMs: 2 * MINUTE }],
+    ["rate_limited", rateLimited],
+  ])("a queued PR is never listed as stale:%s", (_kind, stale) => {
+    const views = [queuedView(stale)];
+    expect(actionableItems(views, stopConfig.hooks.stop, scope)).toEqual([]);
+    expect(stopper()(views)).toBeNull();
+  });
+});

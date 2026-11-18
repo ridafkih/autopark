@@ -1,6 +1,7 @@
 import { cwdConfig } from "../../channel/context.ts";
 import { removeHeartbeat, writeHeartbeat } from "../../channel/heartbeat.ts";
 import { ChannelRelay } from "../../channel/relay.ts";
+import { lastTransitionId } from "../../channel/state.ts";
 import { sessionIdFrom } from "../../core/session.ts";
 import type { Invocation } from "./types.ts";
 
@@ -30,6 +31,7 @@ export async function watchTransitions({ paths }: Invocation) {
     sessionId,
     cwd,
     format: "monitor",
+    after: lastTransitionId(paths.db),
     emit: (delivery) => {
       if (delivery.format === "monitor") process.stdout.write(`${delivery.text}\n`);
     },

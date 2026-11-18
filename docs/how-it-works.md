@@ -14,11 +14,11 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 - **Webhooks are only triggers.** The daemon never trusts payload contents. Every event leads to a fresh read of the PR's real state, and transitions come from the difference between the previous evaluation and the new one. A missed webhook therefore costs nothing once the next resync runs. Resyncs run on start, on wake from sleep, on every forwarder (re)connect, and on `POST /resync`.
 - **Mergeability is not evented by GitHub.** It is computed lazily after a read. A push to a base branch rechecks every tracked PR on that base. If GitHub still says `UNKNOWN`, the daemon re-reads with bounded backoff, and only after an event, never on a timer.
 - **Claude Code integration:**
-  - The **channel** (an MCP server with the `claude/channel` capability) pushes each transition into the session.
+  - The **channel** (an MCP server with the `claude/channel` capability) pushes each transition into the session. It delivers only transitions newer than the newest one stored when it started, only for PRs tracked with the session's id, folds a burst for one PR into its newest transition (`superseded` lists the folded kinds), and checks `approval_needed`, `nudge` and `hold_expired` against the PR's current state before delivering them.
   - The **plugin monitor** is the fallback. It tails the same log and prints one line per transition.
   - The **SessionStart hook** injects tracked PR status, oldest stuck first, any holds, and the daemon's health.
   - The **Stop hook** keeps Claude working only while something is actionable, including PRs awaiting a review request and PRs that have been nudged. Held PRs never block.
-- **Stuck PRs keep getting nudged.** Transitions only fire on change, so the daemon also keeps one timer for the next nudge due and re-announces every tracked PR that has been blocked by the same reasons for `nudge.after`, then every `nudge.every`, until it is ready, merged or held. No polling: the timer sleeps until the earliest nudge or hold expiry and is recomputed whenever a PR's state changes.
+- **Stuck PRs keep getting nudged.** Transitions only fire on change, so the daemon also keeps one timer for the next nudge due, re-reads the PR from GitHub when it fires, and re-announces every tracked PR that has been blocked by the same reasons for `nudge.after`, then every `nudge.every`, until it is ready, merged or held. No polling: the timer sleeps until the earliest nudge or hold expiry and is recomputed whenever a PR's state changes.
 - **Only a hold pauses PR work.** A declined tool call or a quiet conversation does not. `autopark hold` stores an expiring hold (default 30m, at most 4h), and `hold_expired` resumes work when it ends.
 
 ## Transitions
@@ -36,6 +36,8 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 | `approval_needed` | sent once per PR when it needs a human approval and none was requested, without waiting for checks, or with `reviewRequest.when: ready` once it is reviewable; also once more when the recorded request was made before the PR was reviewable (`instruction`, `re_request_review`, `next`, `requested_early`) |
 | `awaiting_human` | everything green except human approval |
 | `ready` / `not_ready` | readiness flipped (`reasons`, `mergeable_now`) |
+| `queued` | the PR entered GitHub's merge queue (`state`, `position`, `enqueued_at`); while queued, `ready`, `not_ready`, `awaiting_human`, `mergeability_unknown` and nudges are held back |
+| `dequeued` | the PR left the merge queue without merging (`reason`: GitHub's removal reason, when it gave one; `last_state`) |
 | `merge_attempted` | auto-merge ran (`ok`, `method`, `error`) |
 | `nudge` | still blocked; re-sent on a timer, not on change (`reasons`, `kinds`, `since`, `blocked_for`, `blocked_for_ms`, `count`, `escalated`, `re_request_review`, `instruction`, `next`) |
 | `hold_expired` | a hold on this PR or on every PR ended; work resumes (`hold_reason`, `held_until`, `scope`, `reasons`) |

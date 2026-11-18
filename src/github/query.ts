@@ -9,6 +9,8 @@ export const PULL_REQUEST_SNAPSHOT_QUERY = `query PullRequestSnapshot($owner: St
       author { login }
       labels(first: 50) { nodes { name } }
       mergeable mergeStateStatus reviewDecision
+      mergeQueueEntry { state position enqueuedAt }
+      queueRemovals: timelineItems(last: 1, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { ... on RemovedFromMergeQueueEvent { reason createdAt } } }
       latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { author { __typename login } state commit { oid } } }
       reviewThreads(first: 100) { nodes { id isResolved isOutdated path comments(first: 1) { nodes { author { login } url } } } }
       firstComments: comments(first: 25) { nodes { id author { login } body updatedAt } }

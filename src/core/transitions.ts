@@ -4,6 +4,7 @@ import {
   detectMergeabilityUnknown,
 } from "./transitions/branch.ts";
 import { detectChecksFailed, detectChecksPassed } from "./transitions/checks.ts";
+import { detectMergeQueue, outsideQueue } from "./transitions/queue.ts";
 import { diffContext, type Detector, type DiffOptions } from "./transitions/context.ts";
 import {
   detectApprovalStale,
@@ -41,17 +42,18 @@ const detectReadiness: Detector = ({ previous, next, emit }) => {
 };
 
 const OPEN_DETECTORS: Detector[] = [
+  detectMergeQueue,
   detectHeadMoved,
   detectConflict,
-  detectMergeabilityUnknown,
+  outsideQueue(detectMergeabilityUnknown, "next"),
   detectChecksFailed,
   detectChecksPassed,
   detectReviewScored,
   detectThreadsOpen,
   detectApprovedOnHead,
   detectApprovalStale,
-  detectAwaitingHuman,
-  detectReadiness,
+  outsideQueue(detectAwaitingHuman, "next"),
+  outsideQueue(detectReadiness, "either"),
 ];
 
 export function diff(

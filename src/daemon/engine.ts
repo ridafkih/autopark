@@ -54,7 +54,12 @@ export class Engine {
   constructor(private readonly dependencies: EngineDependencies) {
     this.log = dependencies.log ?? (() => {});
     this.emitter = new TransitionEmitter({ ...dependencies, log: this.log });
-    this.nudges = new Nudger({ ...dependencies, emitter: this.emitter, log: this.log });
+    this.nudges = new Nudger({
+      ...dependencies,
+      emitter: this.emitter,
+      log: this.log,
+      refresh: (key) => this.scheduler.settle(key),
+    });
     this.recomputing = { ...dependencies, emitter: this.emitter, nudges: this.nudges };
     this.scheduler = new CoalescingScheduler({
       debounceMs: () => dependencies.configs.daemon.debounceMs,

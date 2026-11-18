@@ -1,16 +1,20 @@
 import type { Config } from "../config/schema.ts";
 import { isRecord, isString, parseJson } from "../core/json.ts";
 import { parseLoggedTransition } from "../core/transition-codec.ts";
+import type { LoggedTransition } from "../core/types.ts";
 import { resolvePaths, type Paths } from "../daemon/paths.ts";
+import { collapseBursts } from "./collapse.ts";
 import { cwdConfig } from "./context.ts";
 import { liveDeliveries } from "./heartbeat.ts";
 import { channelContent, channelMeta, monitorLine } from "./meta.ts";
-import { deliveryScope, inScope, monitorShouldEmit } from "./scope.ts";
+import { inScope, monitorShouldEmit } from "./scope.ts";
+import { readCurrentState, recordOf } from "./state.ts";
+import { stillHolds } from "./still-holds.ts";
 
 export type DeliveryFormat = "channel" | "monitor";
 
 export interface DeliveryRequest {
-  line: string;
+  lines: string[];
   sessionId: string | null;
   cwd: string;
   format: DeliveryFormat;
@@ -19,6 +23,8 @@ export interface DeliveryRequest {
 export type Delivery =
   | { format: "channel"; content: string; meta: Record<string, string> }
   | { format: "monitor"; text: string };
+
+const DEFAULT_REVIEW_REQUEST_WHEN = "open";
 
 const isChannelLive = (paths: Paths, sessionId: string | null) =>
   sessionId !== null &&
@@ -32,33 +38,73 @@ function isSilenced(request: DeliveryRequest, config: Config | null, paths: Path
   return !monitorShouldEmit(mode, isChannelEnabled, isLive);
 }
 
-export async function deliveryFor(
+const parseLines = (lines: string[]) =>
+  lines.flatMap((line) => {
+    const transition = parseLoggedTransition(line);
+    return transition ? [transition] : [];
+  });
+
+function toDelivery(transition: LoggedTransition, format: DeliveryFormat): Delivery {
+  if (format === "monitor") return { format, text: monitorLine(transition) };
+  return { format, content: channelContent(transition), meta: channelMeta(transition) };
+}
+
+function liveTransitions(
+  transitions: LoggedTransition[],
+  request: DeliveryRequest,
+  config: Config | null,
+  paths: Paths,
+) {
+  const state = readCurrentState(paths.db, transitions, Date.now());
+  const sessionOf = (transition: LoggedTransition) =>
+    recordOf(state, transition)?.sessionId ?? null;
+  const scope = { repos: config?.repos ?? [], sessionId: request.sessionId, sessionOf };
+  const when = config?.reviewRequest.when ?? DEFAULT_REVIEW_REQUEST_WHEN;
+  return transitions.filter(
+    (transition) => inScope(transition, scope) && stillHolds(transition, state, when),
+  );
+}
+
+export async function deliveriesFor(
   request: DeliveryRequest,
   paths: Paths = resolvePaths(),
-): Promise<Delivery | null> {
-  const transition = parseLoggedTransition(request.line);
-  if (!transition) return null;
+): Promise<Delivery[]> {
+  const transitions = parseLines(request.lines);
+  if (transitions.length === 0) return [];
   const { config } = await cwdConfig(request.cwd);
-  if (isSilenced(request, config, paths)) return null;
-  const scope = deliveryScope(config?.repos ?? [], request.sessionId, paths.db);
-  if (!inScope(transition, scope)) return null;
-  if (request.format === "monitor") return { format: "monitor", text: monitorLine(transition) };
-  const meta = channelMeta(transition);
-  return { format: "channel", content: channelContent(transition), meta };
+  if (isSilenced(request, config, paths)) return [];
+  const live = liveTransitions(transitions, request, config, paths);
+  return collapseBursts(live).map((transition) => toDelivery(transition, request.format));
+}
+
+function linesOf(value: Record<string, unknown>) {
+  const { lines, line } = value;
+  if (Array.isArray(lines) && lines.every(isString)) return lines;
+  return isString(line) ? [line] : null;
 }
 
 export function toDeliveryRequest(value: unknown): DeliveryRequest | null {
   if (!isRecord(value)) return null;
-  const { line, sessionId, cwd, format } = value;
-  if (!isString(line) || !isString(cwd)) return null;
+  const { sessionId, cwd, format } = value;
+  const lines = linesOf(value);
+  if (!lines || !isString(cwd)) return null;
   if (format !== "channel" && format !== "monitor") return null;
-  return { line, cwd, format, sessionId: isString(sessionId) ? sessionId : null };
+  return { lines, cwd, format, sessionId: isString(sessionId) ? sessionId : null };
+}
+
+const isSingleLineRequest = (value: unknown) => isRecord(value) && isString(value.line);
+
+function encode(value: unknown, deliveries: Delivery[]) {
+  if (!isSingleLineRequest(value)) return JSON.stringify(deliveries);
+  const [delivery] = deliveries;
+  return delivery ? JSON.stringify(delivery) : "";
 }
 
 async function main() {
-  const request = toDeliveryRequest(parseJson(await Bun.stdin.text()));
-  const delivery = request ? await deliveryFor(request) : null;
-  if (delivery) process.stdout.write(JSON.stringify(delivery));
+  const value = parseJson(await Bun.stdin.text());
+  const request = toDeliveryRequest(value);
+  const deliveries = request ? await deliveriesFor(request) : [];
+  process.stdout.write(encode(value, deliveries));
 }
 
 if (import.meta.main) await main();

@@ -52,15 +52,25 @@ export function channelMeta(transition: LoggedTransition): Record<string, string
 
 const oneLine = (text: string) => text.replaceAll(/\s*\n\s*/gu, " ").trim();
 
+function burstNote(transition: LoggedTransition) {
+  const { superseded } = transition.data;
+  if (!Array.isArray(superseded) || superseded.length === 0) return "";
+  const kinds = superseded.map(String).join(", ");
+  return ` [newest of a burst; folded in: ${kinds}]`;
+}
+
+const reasonOf = (transition: LoggedTransition) =>
+  `${oneLine(transition.reason)}${burstNote(transition)}`;
+
 export function channelContent(transition: LoggedTransition) {
   const title = transition.title ? ` (${transition.title})` : "";
-  const reason = oneLine(transition.reason);
+  const reason = reasonOf(transition);
   return `${formatPullRequest(transition)} ${transition.kind}: ${reason}${title} ${transition.url}`;
 }
 
 export function monitorLine(transition: LoggedTransition) {
   const head = shortSha(transition.head ?? "");
-  const reason = oneLine(transition.reason);
+  const reason = reasonOf(transition);
   const label = formatPullRequest(transition);
   return `autopark ${label} ${transition.kind} head=${head}: ${reason} ${transition.url}`;
 }

@@ -4,7 +4,7 @@ import type { Delivery, DeliveryRequest } from "./deliver.ts";
 
 const ENTRY = resolve(import.meta.dir, "deliver.ts");
 
-export type Deliver = (request: DeliveryRequest) => Promise<Delivery | null>;
+export type Deliver = (request: DeliveryRequest) => Promise<Delivery[]>;
 
 function toDelivery(value: unknown): Delivery | null {
   if (!isRecord(value)) return null;
@@ -18,6 +18,14 @@ function toDelivery(value: unknown): Delivery | null {
     return { format: "channel", content: value.content, meta };
   }
   return null;
+}
+
+function toDeliveries(value: unknown): Delivery[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const delivery = toDelivery(entry);
+    return delivery ? [delivery] : [];
+  });
 }
 
 export const freshDelivery: Deliver = async (request) => {
@@ -34,5 +42,5 @@ export const freshDelivery: Deliver = async (request) => {
     subprocess.exited,
   ]);
   if (code !== 0) throw new Error(`delivery exited ${code}: ${stderr.trim()}`);
-  return stdout.trim() ? toDelivery(parseJson(stdout)) : null;
+  return toDeliveries(stdout.trim() ? parseJson(stdout) : []);
 };

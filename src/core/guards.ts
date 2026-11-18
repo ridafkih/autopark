@@ -52,7 +52,12 @@ const isFailure = optional(isRecomputeFailure);
 
 const isReviewRequestTiming = optional(memberOf(["open", "ready"] as const));
 
+const isQueueView = optional(
+  (value) => isRecord(value) && isString(value.state) && isNullableNumber(value.position),
+);
+
 const hasOptionalFields = (value: Record<string, unknown>) =>
+  isQueueView(value.mergeQueue) &&
   isStaleness(value.stale) &&
   isFailure(value.failure) &&
   optional(isBoolean)(value.reviewRequestedReady) &&

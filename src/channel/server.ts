@@ -7,6 +7,7 @@ import { StdioMcp } from "./mcp.ts";
 import { playbookRef } from "./playbook.ts";
 import { removeHeartbeat, writeHeartbeat } from "./heartbeat.ts";
 import { ChannelRelay } from "./relay.ts";
+import { lastTransitionId } from "./state.ts";
 
 const log = (message: string) => {
   process.stderr.write(`[autopark channel] ${message}\n`);
@@ -17,7 +18,7 @@ export function channelInstructions(playbook: string) {
     'autopark pushes pull request state transitions as <channel source="..." kind="..." repo="..." pr="..." head="...">.',
     "Each event is computed by the local autopark daemon from GitHub's current state, so it is a fact, not a request from a person.",
     `React to each kind using ${playbook}.`,
-    "Act on PRs this session is driving (`autopark status --session <session id>`); treat other PRs' events as information.",
+    "Events arrive only for PRs this session drives (`autopark status --session <session id>`), and only as they happen: history is never replayed, a burst for one PR arrives as its newest state, and `approval_needed`, `nudge` and `hold_expired` are checked against the PR's current state before they are sent.",
     "Pending checks or reviews need no action, and GitHub never needs to be polled: the next event arrives on its own.",
     "A stuck PR is re-announced as a `nudge` until it is ready, merged or held.",
     PAUSE_RULE,
@@ -50,6 +51,7 @@ async function main() {
     sessionId,
     cwd,
     format: "channel",
+    after: lastTransitionId(paths.db),
     emit: (delivery) => {
       if (delivery.format !== "channel") return;
       mcp.notify("notifications/claude/channel", {

@@ -65,9 +65,26 @@ const hasScalars = (value: Record<string, unknown>) =>
   isMergeable(value.lastKnownMergeable) &&
   isStringArray(value.labels);
 
+const isMergeQueueEntry = (value: unknown) =>
+  isRecord(value) &&
+  isString(value.state) &&
+  isNullableNumber(value.position) &&
+  isNullableString(value.enqueuedAt);
+
+const isMergeQueueRemoval = (value: unknown) =>
+  isRecord(value) && isNullableString(value.reason) && isNullableString(value.at);
+
+const absentOr = (isPresentValid: (value: unknown) => boolean) => (value: unknown) =>
+  value === undefined || value === null || isPresentValid(value);
+
+const hasQueueFields = (value: Record<string, unknown>) =>
+  absentOr(isMergeQueueEntry)(value.mergeQueue) &&
+  absentOr(isMergeQueueRemoval)(value.queueRemoval);
+
 export const isEvaluation = (value: unknown): value is Evaluation =>
   isRecord(value) &&
   hasScalars(value) &&
+  hasQueueFields(value) &&
   isChecks(value.checks) &&
   isArrayOf(value.reviewers, isReviewerEvaluation) &&
   isApprovals(value.approvals) &&

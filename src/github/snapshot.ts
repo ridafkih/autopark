@@ -10,6 +10,7 @@ import type {
   ReviewThread,
   Snapshot,
 } from "../core/types.ts";
+import { mergeQueueOf, queueRemovalOf } from "./merge-queue.ts";
 
 const PASS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
 const STATUS_PENDING = new Set(["PENDING", "EXPECTED"]);
@@ -206,5 +207,7 @@ export function normalizePullRequest(repo: string, node: JsonRecord): Snapshot {
     reviewDecision: stringAt(node, "reviewDecision") ?? null,
     threads: recordsAt(node, "reviewThreads", "nodes").map(normalizeThread),
     comments: uniqueComments(node),
+    mergeQueue: mergeQueueOf(node),
+    queueRemoval: queueRemovalOf(node),
   };
 }

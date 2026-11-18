@@ -1,5 +1,6 @@
 import { formatDuration, formatRemaining } from "../core/duration.ts";
 import { formatPullRequest } from "../core/format.ts";
+import { isQueued } from "../core/merge-queue.ts";
 import { AUDIENCE_RULE, PAUSE_RULE } from "../core/nudge-message.ts";
 import {
   actionItemsFor,
@@ -23,7 +24,9 @@ function daemonLine(health: Health | null) {
 }
 
 const stuckSince = ({ evaluation, nudge }: TrackedView) =>
-  evaluation.ready || evaluation.state !== "OPEN" || !nudge ? null : nudge.since;
+  evaluation.ready || evaluation.state !== "OPEN" || isQueued(evaluation) || !nudge
+    ? null
+    : nudge.since;
 
 function holdLines({ hold }: TrackedView, now: number) {
   if (!hold) return [];
@@ -46,7 +49,7 @@ function viewLines(view: TrackedView, now: number) {
   const { evaluation } = view;
   const heading = `- ${formatPullRequest(evaluation)} [${stateLabel(evaluation)}] ${evaluation.title}`;
   const status = [heading.trimEnd(), ...holdLines(view, now), ...stuckLines(view, now)];
-  if (evaluation.ready || evaluation.reasons.length === 0) return status;
+  if (evaluation.ready || isQueued(evaluation) || evaluation.reasons.length === 0) return status;
   const blocking = evaluation.reasons
     .slice(0, MAX_BLOCKING_REASONS)
     .map((reason) => `${reason.code}: ${reason.detail}`)

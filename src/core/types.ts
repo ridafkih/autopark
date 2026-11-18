@@ -15,6 +15,8 @@ export const TRANSITION_KINDS = [
   "not_ready",
   "merged",
   "closed",
+  "queued",
+  "dequeued",
   "merge_attempted",
   "nudge",
   "hold_expired",
@@ -62,6 +64,17 @@ export interface PullRequestComment {
   updatedAt: string;
 }
 
+export interface MergeQueueEntry {
+  state: string;
+  position: number | null;
+  enqueuedAt: string | null;
+}
+
+export interface MergeQueueRemoval {
+  reason: string | null;
+  at: string | null;
+}
+
 export interface Snapshot {
   repo: string;
   number: number;
@@ -81,6 +94,8 @@ export interface Snapshot {
   reviewDecision: string | null;
   threads: ReviewThread[];
   comments: PullRequestComment[];
+  mergeQueue: MergeQueueEntry | null;
+  queueRemoval: MergeQueueRemoval | null;
 }
 
 export interface ReviewerResult {
@@ -177,6 +192,8 @@ export interface Evaluation {
   ready: boolean;
   mergeableNow: boolean;
   awaitingHuman: boolean;
+  mergeQueue?: MergeQueueEntry | null;
+  queueRemoval?: MergeQueueRemoval | null;
 }
 
 export interface Transition {

@@ -4,8 +4,11 @@ import { approvalRequestStatus, type ReviewRequestTiming } from "./approval-requ
 import { formatClockTime, formatDuration, formatRemaining } from "./duration.ts";
 import { formatPullRequest, pullRequestUrl } from "./format.ts";
 import { activeHold, type Hold, type HoldView } from "./hold.ts";
+import { describeQueuePosition, isQueued } from "./merge-queue.ts";
 import { stalenessOf, type RecomputeFailure, type Staleness } from "./staleness.ts";
-import type { Evaluation, Reason } from "./types.ts";
+import type { Evaluation, MergeQueueEntry, Reason } from "./types.ts";
+
+export type QueueView = Pick<MergeQueueEntry, "state" | "position">;
 
 export interface PullRequestSummary {
   pr: string;
@@ -18,6 +21,7 @@ export interface PullRequestSummary {
   ready: boolean;
   mergeableNow: boolean;
   awaitingHuman: boolean;
+  mergeQueue?: QueueView | null;
   reasons: Reason[];
   autoMerge: boolean | null;
   sessionId: string | null;
@@ -42,6 +46,7 @@ export interface SummaryContext {
 
 export function stateLabel(evaluation: Evaluation) {
   if (evaluation.state !== "OPEN") return evaluation.state.toLowerCase();
+  if (isQueued(evaluation)) return "queued";
   if (evaluation.ready) return "ready";
   return evaluation.awaitingHuman ? "awaiting_human" : "not_ready";
 }
@@ -57,9 +62,11 @@ function evaluationSummary(record: PullRequestRecord) {
       ready: false,
       mergeableNow: false,
       awaitingHuman: false,
+      mergeQueue: null,
       reasons: [],
     };
   }
+  const entry = evaluation.mergeQueue;
   return {
     title: evaluation.title,
     url: evaluation.url,
@@ -68,12 +75,13 @@ function evaluationSummary(record: PullRequestRecord) {
     ready: evaluation.ready,
     mergeableNow: evaluation.mergeableNow,
     awaitingHuman: evaluation.awaitingHuman,
+    mergeQueue: entry ? { state: entry.state, position: entry.position } : null,
     reasons: evaluation.reasons,
   };
 }
 
 const blockedSince = ({ evaluation, nudge }: PullRequestRecord) =>
-  evaluation && !evaluation.ready && nudge ? nudge.since : null;
+  evaluation && !evaluation.ready && !isQueued(evaluation) && nudge ? nudge.since : null;
 
 export function summarize(record: PullRequestRecord, context: SummaryContext): PullRequestSummary {
   return {
@@ -141,7 +149,9 @@ export const pauseLine = (pause: GitHubPause) => {
 };
 
 function summaryLines(summary: PullRequestSummary, now: number) {
-  const flags = [summary.mergeableNow ? "mergeable now" : "", summary.autoMerge ? "auto-merge" : ""]
+  const queue = summary.mergeQueue ? `queue ${describeQueuePosition(summary.mergeQueue)}` : "";
+  const mergeable = summary.mergeableNow ? "mergeable now" : "";
+  const flags = [queue, mergeable, summary.autoMerge ? "auto-merge" : ""]
     .filter((flag) => flag !== "")
     .join(", ");
   const flagSuffix = flags ? ` (${flags})` : "";

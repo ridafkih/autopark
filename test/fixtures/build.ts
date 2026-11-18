@@ -80,6 +80,8 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     reviewDecision: null,
     threads: [],
     comments: [greptileComment(5, headSha)],
+    mergeQueue: null,
+    queueRemoval: null,
     ...overrides,
   };
 }

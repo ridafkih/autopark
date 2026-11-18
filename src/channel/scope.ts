@@ -1,5 +1,4 @@
 import type { LoggedTransition } from "../core/types.ts";
-import { storeSessionOf } from "./bindings.ts";
 
 export interface DeliveryScope {
   repos: string[];
@@ -8,17 +7,9 @@ export interface DeliveryScope {
 }
 
 export function inScope(transition: LoggedTransition, scope: DeliveryScope) {
+  if (scope.sessionId !== null) return scope.sessionOf(transition) === scope.sessionId;
   const repo = transition.repo.toLowerCase();
-  if (scope.repos.some((candidate) => candidate.toLowerCase() === repo)) return true;
-  return scope.sessionId !== null && scope.sessionOf(transition) === scope.sessionId;
-}
-
-export function deliveryScope(
-  repos: string[],
-  sessionId: string | null,
-  db: string,
-): DeliveryScope {
-  return { repos, sessionId, sessionOf: storeSessionOf(db) };
+  return scope.repos.some((candidate) => candidate.toLowerCase() === repo);
 }
 
 export function monitorShouldEmit(

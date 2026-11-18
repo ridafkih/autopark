@@ -1,5 +1,6 @@
 import type { Config } from "../config/schema.ts";
 import { APPROVAL_CODES } from "./approval-request.ts";
+import { isQueued } from "./merge-queue.ts";
 import { NUDGE_KINDS, type Evaluation, type NudgeKind } from "./types.ts";
 
 type NudgeConfig = Config["nudge"];
@@ -14,6 +15,7 @@ export interface NudgeState {
 }
 
 const READY_SIGNATURE = "ready";
+const QUEUED_SIGNATURE = "queued";
 
 const isNudgeKind = (value: string): value is NudgeKind =>
   NUDGE_KINDS.some((kind) => kind === value);
@@ -26,8 +28,10 @@ export function nudgeKindsOf(evaluation: Evaluation): NudgeKind[] {
   return [...new Set(kinds)];
 }
 
-const signatureOf = (evaluation: Evaluation) =>
-  evaluation.ready ? READY_SIGNATURE : nudgeKindsOf(evaluation).toSorted().join(",");
+function signatureOf(evaluation: Evaluation) {
+  if (isQueued(evaluation)) return QUEUED_SIGNATURE;
+  return evaluation.ready ? READY_SIGNATURE : nudgeKindsOf(evaluation).toSorted().join(",");
+}
 
 const headMovedAt = (
   state: NudgeState | null,
@@ -60,7 +64,7 @@ const isWaitingOnRequestedApproval = (kind: NudgeKind) =>
   kind === "awaiting_human" || APPROVAL_CODES.has(kind);
 
 export function shouldNudge(evaluation: Evaluation, config: NudgeConfig, canAskForApproval = true) {
-  if (evaluation.state !== "OPEN") return false;
+  if (evaluation.state !== "OPEN" || isQueued(evaluation)) return false;
   if (evaluation.ready) return config.nudgeReadyUnmerged;
   const kinds = nudgeKindsOf(evaluation);
   if (kinds.includes("draft") && !config.kinds.includes("draft")) return false;

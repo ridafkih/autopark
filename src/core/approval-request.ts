@@ -1,5 +1,6 @@
 import type { Config } from "../config/schema.ts";
 import { formatPullRequest, shortSha } from "./format.ts";
+import { isQueued } from "./merge-queue.ts";
 import { fillTemplate } from "./template.ts";
 import type { Evaluation, ReasonCode, Transition } from "./types.ts";
 
@@ -27,6 +28,7 @@ export const EARLY_REQUEST =
 export const needsApproval = (evaluation: Evaluation) =>
   evaluation.state === "OPEN" &&
   !evaluation.isDraft &&
+  !isQueued(evaluation) &&
   evaluation.reasons.some((reason) => APPROVAL_CODES.has(reason.code));
 
 const NOT_REVIEWABLE: ReadonlySet<string> = new Set<ReasonCode>([
