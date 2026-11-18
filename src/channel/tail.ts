@@ -1,5 +1,5 @@
 import { closeSync, mkdirSync, openSync, readSync, statSync, watch, type FSWatcher } from "node:fs";
-import { basename, dirname } from "node:path";
+import { dirname } from "node:path";
 
 interface TailOptions {
   watch?: boolean;
@@ -36,10 +36,7 @@ export class LogTailer {
     if (this.options.watch === false) return;
     const directory = dirname(this.path);
     mkdirSync(directory, { recursive: true });
-    const name = basename(this.path);
-    this.watcher = watch(directory, (_event, file) => {
-      if (!file || file === name) this.poll();
-    });
+    this.watcher = watch(directory, () => this.poll());
     this.timer = setInterval(() => this.poll(), this.options.safetyMs ?? DEFAULT_SAFETY_MS);
   }
 
