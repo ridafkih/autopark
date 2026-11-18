@@ -2,14 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { deliveryFor, type DeliveryRequest } from "../src/channel/deliver.ts";
+import { deliveriesFor, type DeliveryRequest } from "../src/channel/deliver.ts";
 import {
   liveDeliveries,
   removeHeartbeat,
   writeHeartbeat,
   type Heartbeat,
 } from "../src/channel/heartbeat.ts";
-import { ChannelRelay } from "../src/channel/relay.ts";
 import { resolvePaths } from "../src/daemon/paths.ts";
 import { Store } from "../src/daemon/store.ts";
 
@@ -48,18 +47,18 @@ const transitionLine = (number: number) =>
   JSON.stringify({
     id: number,
     ts: "",
-    kind: "approval_needed",
+    kind: "checks_failed",
     repo: "acme/widgets",
     number,
     head: "1".repeat(40),
-    reason: `needs approval ${number}`,
+    reason: `build failed ${number}`,
     data: {},
     title: "T",
     url: `https://github.com/acme/widgets/pull/${number}`,
   });
 
 const request = (cwd: string, changes: Partial<DeliveryRequest> = {}): DeliveryRequest => ({
-  line: transitionLine(7),
+  lines: [transitionLine(7)],
   sessionId: "s1",
   cwd,
   format: "channel",
@@ -88,66 +87,40 @@ describe("delivery heartbeats", () => {
 describe("each transition is decided against current state", () => {
   test("a PR the session drives is delivered with no config at all", async () => {
     const { paths, cwd } = project();
-    const delivery = await deliveryFor(request(cwd), paths);
-    expect(delivery).toMatchObject({
-      format: "channel",
-      meta: { pr: "7", kind: "approval_needed" },
-    });
+    const deliveries = await deliveriesFor(request(cwd), paths);
+    expect(deliveries).toMatchObject([
+      { format: "channel", meta: { pr: "7", kind: "checks_failed" } },
+    ]);
   });
 
   test("a config written after the channel started applies to the next transition", async () => {
     const { paths, cwd } = project();
-    const other = request(cwd, { line: transitionLine(8) });
-    expect(await deliveryFor(other, paths)).toBeNull();
+    writeConfig(cwd, "repos:\n  - acme/widgets\ndelivery:\n  channel: false\n");
+    expect(await deliveriesFor(request(cwd), paths)).toEqual([]);
     writeConfig(cwd, "repos:\n  - acme/widgets\n");
-    expect(await deliveryFor(other, paths)).toMatchObject({ meta: { pr: "8" } });
+    expect(await deliveriesFor(request(cwd), paths)).toMatchObject([{ meta: { pr: "7" } }]);
   });
 
-  test("turning the channel off in config silences it", async () => {
+  test("another session's PR never reaches this session, even in a configured repo", async () => {
     const { paths, cwd } = project();
-    writeConfig(cwd, "repos:\n  - acme/widgets\ndelivery:\n  channel: false\n");
-    expect(await deliveryFor(request(cwd), paths)).toBeNull();
+    writeConfig(cwd, "repos:\n  - acme/widgets\n");
+    const other = request(cwd, { lines: [transitionLine(8)] });
+    expect(await deliveriesFor(other, paths)).toEqual([]);
   });
 
   test("the monitor stands down only while a live channel delivers to its session", async () => {
     const { paths, cwd } = project();
     const monitor = request(cwd, { format: "monitor" });
-    expect(await deliveryFor(monitor, paths)).toEqual({
-      format: "monitor",
-      text: "autopark acme/widgets#7 approval_needed head=1111111: needs approval 7 https://github.com/acme/widgets/pull/7",
-    });
+    expect(await deliveriesFor(monitor, paths)).toEqual([
+      {
+        format: "monitor",
+        text: "autopark acme/widgets#7 checks_failed head=1111111: build failed 7 https://github.com/acme/widgets/pull/7",
+      },
+    ]);
     writeHeartbeat(paths, beat({ pid: process.pid }));
-    expect(await deliveryFor(monitor, paths)).toBeNull();
+    expect(await deliveriesFor(monitor, paths)).toEqual([]);
     removeHeartbeat(paths, "channel", process.pid);
     writeHeartbeat(paths, beat({ pid: process.pid, sessionId: "s2" }));
-    expect(await deliveryFor(monitor, paths)).not.toBeNull();
-  });
-});
-
-describe("relay", () => {
-  test("delivers in log order and keeps going after a failed transition", async () => {
-    const { paths, cwd } = project();
-    writeFileSync(paths.log, "");
-    const emitted: string[] = [];
-    const failures: string[] = [];
-    const relay = new ChannelRelay({
-      logPath: paths.log,
-      sessionId: "s1",
-      cwd,
-      format: "monitor",
-      emit: (delivery) => emitted.push(delivery.format === "monitor" ? delivery.text : ""),
-      log: (message) => failures.push(message),
-      deliver: async ({ line }) => {
-        if (line === "bad") throw new Error("boom");
-        return { format: "monitor", text: line };
-      },
-    });
-    relay.start();
-    cleanups.push(() => relay.stop());
-    writeFileSync(paths.log, "one\nbad\ntwo\n");
-    relay.poll();
-    await relay.idle();
-    expect(emitted).toEqual(["one", "two"]);
-    expect(failures).toEqual(["skipping a transition: boom"]);
+    expect(await deliveriesFor(monitor, paths)).not.toEqual([]);
   });
 });

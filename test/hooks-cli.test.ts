@@ -138,14 +138,14 @@ test("hooks never fail the session on bad input", async () => {
   });
 });
 
-test("watch prints one line per in-scope transition", async () => {
+test("watch without a session prints one line per transition in its config's repos", async () => {
   const { home, project } = setup("repos:\n  - acme/widgets\ndelivery:\n  monitor: always\n");
   mkdirSync(home, { recursive: true });
   const log = join(home, "transitions.jsonl");
   writeFileSync(log, "");
   const subprocess = Bun.spawn([process.execPath, CLI, "watch"], {
     cwd: project,
-    env: { ...process.env, AUTOPARK_HOME: home },
+    env: { ...process.env, AUTOPARK_HOME: home, CLAUDE_CODE_SESSION_ID: "", CLAUDE_SESSION_ID: "" },
     stdout: "pipe",
     stderr: "pipe",
   });

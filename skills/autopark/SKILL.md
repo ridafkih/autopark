@@ -23,9 +23,9 @@ They exist to close the loop on PR work, not to keep the user up to date. Act on
 
 ## Ground rules
 
-- Act on PRs this session is driving (`autopark status --session ${CLAUDE_SESSION_ID}`). For any other PR, mention the event only if the user would care.
+- Events arrive only for PRs this session is driving (`autopark status --session ${CLAUDE_SESSION_ID}`), and only as they happen. A PR another session drives never reaches you.
 - Work in the PR's worktree. If the head moved and you did not push it, run `git pull --ff-only` before changing anything.
-- If several events arrive together, act on the newest state. `autopark check <pr>` reads the PR once when you need the full picture; it is never a polling loop.
+- If several events arrive together, act on the newest state. A burst for one PR arrives as its newest transition, with the kinds it folded in listed in `superseded`. `autopark check <pr>` reads the PR once when you need the full picture; it is never a polling loop.
 - Pending checks, pending reviews and `mergeability_unknown` need no action. End the turn and let the next event arrive.
 - A head that is behind its base but has no conflict is fine. Merge the base in only to resolve a conflict or when a merge attempt fails because the head is out of date.
 - Never merge by hand unless the user asked. PRs opted into auto-merge are merged by the daemon.

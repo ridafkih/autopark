@@ -168,6 +168,11 @@ export class Store {
     return this.db.query(select).all(id, limit).map(toStoredTransition);
   }
 
+  lastTransitionId(): number {
+    const row: unknown = this.db.query("SELECT MAX(id) AS id FROM transitions").get();
+    return numberAt(row, "id") ?? 0;
+  }
+
   getMeta(key: string): string | null {
     const row: unknown = this.db.query("SELECT v FROM meta WHERE k = ?").get(key);
     return stringAt(row, "v") ?? null;

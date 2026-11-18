@@ -6,8 +6,8 @@ import { BASE_TRANSITION } from "./fixtures/transition.ts";
 describe("delivery scope", () => {
   test.each([
     { label: "no config and no session delivers nothing", repos: [], expected: false },
-    { label: "repo in config", repos: ["Acme/Widgets"], expected: true },
-    { label: "repo outside config", repos: ["acme/other"], expected: false },
+    { label: "no session, repo in config", repos: ["Acme/Widgets"], expected: true },
+    { label: "no session, repo outside config", repos: ["acme/other"], expected: false },
     {
       label: "no config, PR bound to this session",
       repos: [],
@@ -36,7 +36,13 @@ describe("delivery scope", () => {
       label: "repo in config, PR bound to another session",
       repos: ["acme/widgets"],
       session: ["s1", "s2"],
-      expected: true,
+      expected: false,
+    },
+    {
+      label: "repo in config, PR bound to no session",
+      repos: ["acme/widgets"],
+      session: ["s1", null],
+      expected: false,
     },
   ])("$label", ({ repos, session = [null, null], expected }) => {
     const [sessionId = null, boundTo = null] = session;
@@ -44,13 +50,13 @@ describe("delivery scope", () => {
     expect(inScope(BASE_TRANSITION, scope)).toBe(expected);
   });
 
-  test("the binding is looked up only when the session could match", () => {
+  test("without a session the binding is never looked up", () => {
     const lookups: string[] = [];
     const sessionOf = (transition: { repo: string }) => {
       lookups.push(transition.repo);
       return null;
     };
-    inScope(BASE_TRANSITION, { repos: ["acme/widgets"], sessionId: "s1", sessionOf });
+    inScope(BASE_TRANSITION, { repos: ["acme/widgets"], sessionId: null, sessionOf });
     inScope(BASE_TRANSITION, { repos: [], sessionId: null, sessionOf });
     expect(lookups).toEqual([]);
   });

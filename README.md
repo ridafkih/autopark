@@ -72,7 +72,9 @@ claude --dangerously-load-development-channels plugin:autopark@autopark
 
 The channel flag lets Autopark push events straight into your session. Without it, everything still works through the plugin's monitor, it's just a little less immediate.
 
-A session receives events for the repos listed in the `.autopark.yaml` it was started under, plus every PR tracked with its session id (`autopark track` picks that up from `CLAUDE_CODE_SESSION_ID`), so sessions in other projects stay quiet.
+A session receives events only for the PRs tracked with its session id (`autopark track` picks that up from `CLAUDE_CODE_SESSION_ID`, and `/autopark:ship` tracks the PRs it opens), so other sessions' PRs and PRs no session drives stay quiet. Only `autopark watch` run outside a Claude Code session falls back to every PR in the `.autopark.yaml` repos.
+
+Delivery is live only. A channel or monitor starts after the newest transition the daemon has stored and never replays older ones, even if the log is truncated or briefly unreadable. Transitions that arrive together for one PR are folded into the newest one, which lists the folded kinds in `superseded`. `approval_needed`, `nudge` and `hold_expired` are checked against the daemon's current state of the PR before delivery and dropped once they no longer hold (approved or already requested, merged, closed, held, or for a nudge, a new head or new blockers).
 
 ## Usage
 

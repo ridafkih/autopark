@@ -14,7 +14,7 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
 - **Webhooks are only triggers.** The daemon never trusts payload contents. Every event leads to a fresh read of the PR's real state, and transitions come from the difference between the previous evaluation and the new one. A missed webhook therefore costs nothing once the next resync runs. Resyncs run on start, on wake from sleep, on every forwarder (re)connect, and on `POST /resync`.
 - **Mergeability is not evented by GitHub.** It is computed lazily after a read. A push to a base branch rechecks every tracked PR on that base. If GitHub still says `UNKNOWN`, the daemon re-reads with bounded backoff, and only after an event, never on a timer.
 - **Claude Code integration:**
-  - The **channel** (an MCP server with the `claude/channel` capability) pushes each transition into the session.
+  - The **channel** (an MCP server with the `claude/channel` capability) pushes each transition into the session. It delivers only transitions newer than the newest one stored when it started, only for PRs tracked with the session's id, folds a burst for one PR into its newest transition (`superseded` lists the folded kinds), and checks `approval_needed`, `nudge` and `hold_expired` against the PR's current state before delivering them.
   - The **plugin monitor** is the fallback. It tails the same log and prints one line per transition.
   - The **SessionStart hook** injects tracked PR status, oldest stuck first, any holds, and the daemon's health.
   - The **Stop hook** keeps Claude working only while something is actionable, including PRs awaiting a review request and PRs that have been nudged. Held PRs never block.
