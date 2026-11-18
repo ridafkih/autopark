@@ -25,6 +25,7 @@ export interface NudgerDependencies {
   configs: ConfigSet;
   emitter: TransitionEmitter;
   log: (message: string) => void;
+  refresh: (key: string) => Promise<void>;
 }
 
 export class Nudger {
@@ -109,13 +110,27 @@ export class Nudger {
   private async tick() {
     try {
       await this.expireHolds();
-      const input = this.planInput();
-      const due = planNudges(input).filter((candidate) => candidate.dueAt <= input.now);
-      for (const candidate of due) await this.nudge(candidate, input.now);
+      for (const key of this.dueKeys()) await this.nudgeIfStillDue(key);
     } catch (error) {
       this.dependencies.log(`nudge failed: ${errorMessage(error)}`);
     }
     this.rearm();
+  }
+
+  private dueKeys() {
+    const input = this.planInput();
+    return planNudges(input)
+      .filter((candidate) => candidate.dueAt <= input.now)
+      .map((candidate) => candidate.record.key);
+  }
+
+  private async nudgeIfStillDue(key: string) {
+    await this.dependencies.refresh(key);
+    const input = this.planInput();
+    const due = planNudges(input).find(
+      (candidate) => candidate.record.key === key && candidate.dueAt <= input.now,
+    );
+    if (due) await this.nudge(due, input.now);
   }
 
   private async nudge({ record, entry }: DueNudge, now: number) {
@@ -138,15 +153,18 @@ export class Nudger {
     const remaining = store.listHolds();
     for (const record of this.trackedRecords()) {
       const ended = expired.find((hold) => isHoldFor(hold, record.key));
-      if (ended && !activeHold(record.key, remaining, now)) await this.announce(record, ended);
+      if (ended && !activeHold(record.key, remaining, now)) await this.announce(record.key, ended);
     }
   }
 
-  private async announce(record: PullRequestRecord, hold: Hold) {
-    const { configs, emitter } = this.dependencies;
-    const { evaluation } = record;
+  private async announce(key: string, hold: Hold) {
+    const { configs, emitter, store, refresh } = this.dependencies;
+    await refresh(key);
+    const record = store.getPullRequest(key);
+    const evaluation = record?.tracked ? record.evaluation : null;
+    if (!record || !evaluation) return;
     const entry = configs.get(record.repo);
-    if (!entry || evaluation?.state !== "OPEN") return;
+    if (!entry || evaluation.state !== "OPEN") return;
     const transition = holdExpiredTransition(
       evaluation,
       hold,

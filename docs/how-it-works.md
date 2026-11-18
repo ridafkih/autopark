@@ -18,7 +18,7 @@ GitHub ──webhook──▶ event source adapter ──delivery──▶ autop
   - The **plugin monitor** is the fallback. It tails the same log and prints one line per transition.
   - The **SessionStart hook** injects tracked PR status, oldest stuck first, any holds, and the daemon's health.
   - The **Stop hook** keeps Claude working only while something is actionable, including PRs awaiting a review request and PRs that have been nudged. Held PRs never block.
-- **Stuck PRs keep getting nudged.** Transitions only fire on change, so the daemon also keeps one timer for the next nudge due and re-announces every tracked PR that has been blocked by the same reasons for `nudge.after`, then every `nudge.every`, until it is ready, merged or held. No polling: the timer sleeps until the earliest nudge or hold expiry and is recomputed whenever a PR's state changes.
+- **Stuck PRs keep getting nudged.** Transitions only fire on change, so the daemon also keeps one timer for the next nudge due, re-reads the PR from GitHub when it fires, and re-announces every tracked PR that has been blocked by the same reasons for `nudge.after`, then every `nudge.every`, until it is ready, merged or held. No polling: the timer sleeps until the earliest nudge or hold expiry and is recomputed whenever a PR's state changes.
 - **Only a hold pauses PR work.** A declined tool call or a quiet conversation does not. `autopark hold` stores an expiring hold (default 30m, at most 4h), and `hold_expired` resumes work when it ends.
 
 ## Transitions

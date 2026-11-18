@@ -46,6 +46,11 @@ export class CoalescingScheduler {
     return [...this.active.values()];
   }
 
+  async settle(key: string) {
+    this.schedule(key);
+    await this.active.get(key);
+  }
+
   private async run(key: string) {
     const debounceMs = this.options.debounceMs();
     if (debounceMs > 0) await this.options.sleep(debounceMs);
